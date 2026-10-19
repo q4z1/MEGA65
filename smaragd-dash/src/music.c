@@ -1,7 +1,9 @@
 // Smaragd Dash: music player for the song made by tools/mkmusic.py.
 //
 // Six voices on the second ($D420, left) and fourth ($D460, right) SID;
-// the sound effects keep the first and third. Called once per frame.
+// the sound effects keep the first and third. Called once per frame; the
+// song is written for 50 frames a second, so at 60 (NTSC) every sixth
+// frame is left out.
 
 #include "music.h"
 
@@ -31,6 +33,8 @@ static struct voice voices[SONG_VOICES];
 static uint8_t row_frame;
 static uint16_t filter_t;
 static bool playing;
+static bool ntsc;
+static uint8_t ntsc_frame;  // counts to 6: the sixth is left out
 
 static const int8_t arp_steps[3][3] = {{0, 0, 0}, {0, 3, 7}, {0, 4, 7}};
 static const int8_t vib_wave[8] = {0, 1, 2, 1, 0, -1, -2, -1};
@@ -87,6 +91,8 @@ void music_start(void) {
     }
     row_frame = SONG_TEMPO - 1;
     filter_t = 0;
+    ntsc = PEEK(0xD06F) & 0x80;
+    ntsc_frame = 0;
     playing = true;
 }
 
@@ -101,6 +107,10 @@ void music_stop(void) {
 void music_frame(void) {
     if (!playing)
         return;
+    if (ntsc && ++ntsc_frame == 6) {
+        ntsc_frame = 0;
+        return;
+    }
     bool row = ++row_frame == SONG_TEMPO;
     if (row)
         row_frame = 0;

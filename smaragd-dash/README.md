@@ -209,7 +209,8 @@ framebuffer.
 melody as note names with lengths in sixteenths, bass and drum patterns, and
 instruments (waveform, envelope, pulse width sweep, vibrato, arpeggio, pitch
 sweep for the kick drum). The player in `src/music.c` steps one row every
-6 frames (125 beats per minute), closes each note's gate shortly before the
+6 frames (125 beats per minute; at 60 Hz it leaves out every sixth
+frame, so the tempo stays), closes each note's gate shortly before the
 next note, and slowly opens and closes the filter on the bass. The left SID
 plays melody, bass and chords, the right one the echo, the bass again and
 the drums.
