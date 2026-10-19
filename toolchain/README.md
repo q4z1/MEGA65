@@ -19,6 +19,7 @@ toolchain/setup.sh
 | `tools/bin/mega65-cc` | `mos-mega65-clang` that also records its compile commands for clangd (`MEGA65_CDB_DIR`, used by `.vscode/run-current.sh`) | written here |
 | `tools/bin/bspatch.py` | applies bsdiff patches (replaces `bspatch.exe` from mega65go) | written here |
 | `tools/bin/msi-extract-cabs.py` | pulls the CAB archives out of an `.msi` | written here |
+| `tools/bin/mkd81.py` | writes a D81 disk image with given files (a program's `build.sh` uses it) | written here |
 | `tools/bin/cabextract` | unpacks the CABs (bsdtar fails on their LZX) | [cabextract 1.11](https://www.cabextract.org.uk/), built from `tools/src/` |
 | `vscode/mega65-asm/` | VS Code syntax highlighting for 45GS02 assembly in llvm-mos syntax (all 45GS02 opcodes incl. `ldz`, `map`/`eom`, the Q instructions; `mos16lo()` & co.) | written here |
 | `vscode/install-extensions.sh` | packs `mega65-asm` into `vscode/build/mega65-asm.vsix` and installs it together with the clangd extension | written here |

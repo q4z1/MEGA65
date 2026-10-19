@@ -4,7 +4,9 @@
 #
 # A program is a folder (main/, ...). If it brings its own build.sh, that
 # builds it; otherwise all .c and .s files directly in the folder are built
-# with llvm-mos into build/<folder>.prg.
+# with llvm-mos into build/<folder>.prg. If the build leaves a disk image
+# build/<folder>.d81 behind, Xemu gets that in drive 8 and starts its first
+# program (-autoload) - for programs that load files of their own.
 #
 # Usage: run-current.sh <path/to/file>
 #   MEGA65_RUN=0       only build, don't start
@@ -88,9 +90,16 @@ merge_cdb
 trap - EXIT
 
 START=${MEGA65_PRG:-$NAME}
-echo "Done: $OUT/$START.prg"
+if [ -f "$OUT/$START.d81" ]; then
+    echo "Done: $OUT/$START.d81"
+else
+    echo "Done: $OUT/$START.prg"
+fi
 
 [ "$MEGA65_RUN" = 0 ] && exit 0
 
 echo "Starting Xemu ..."
+if [ -f "$OUT/$START.d81" ]; then
+    exec "$TC/tools/bin/xmega65" -8 "$OUT/$START.d81" -autoload
+fi
 exec "$TC/tools/bin/xmega65" -prg "$OUT/$START.prg"
