@@ -59,6 +59,9 @@ static uint8_t held, pressed;       // IN_* now, and newly pressed this frame
 static uint16_t cam_x, cam_y;
 static bool scroll_x, scroll_y;
 static uint8_t idle;                // Rockford's idle animation
+static uint8_t rf_view;             // Rockford's view shown, 0-7 (T_RF_VIEW0)
+static uint8_t rf_rest;             // frames he has been standing
+static uint8_t rf_foot;             // the foot of his step, flips with every cell
 static uint8_t slide;               // pixels the last tick's moves have still to go
 static uint8_t flash;               // frames left of the exit flash
 
@@ -118,10 +121,40 @@ static void init_tiles(void) {
         etile[E_BIRTH + i] = T_BIRTH0 + i;
 }
 
+// Rockford turns through his eight views one at a time, the shorter way
+// round (half way round past the front): one per frame while he walks, one
+// every other frame while he stands. Walking, he makes one step per cell,
+// in time with the sliding: the stride in its first half, passing in the
+// second. Standing for a while, he turns to the front.
+#define VIEW_FRONT (2 * DIR_DOWN)   // the view in a direction is 2 * DIR_*
+#define REST_TURN  16               // frames standing before he turns to the front
+
 static uint8_t rockford_tile(void) {
+    uint8_t want = game.facing * 2;
     if (game.moving)
-        return (game.facing == DIR_LEFT ? T_RF_LEFT0 : T_RF_RIGHT0) + ((frame >> 2) & 3) * 2;
-    // Standing still: now and then blink or tap a foot
+        rf_rest = 0;
+    else if (rf_rest < REST_TURN)
+        rf_rest++;
+    else
+        want = VIEW_FRONT;
+    if (rf_view != want) {
+        if (game.moving || (frame & 1)) {
+            uint8_t d = (want - rf_view) & 7;
+            if (d < 4 || (d == 4 && ((VIEW_FRONT - rf_view) & 7) < 4))
+                rf_view = (rf_view + 1) & 7;
+            else
+                rf_view = (rf_view - 1) & 7;
+        }
+        return T_RF_VIEW0 + rf_view;
+    }
+    if (game.moving && !game.snapping) {
+        // moved into his cell: in step; pushing or blocked: on the spot
+        uint8_t phase = moved[game.player] != DIR_NONE ? rf_foot * 2 + (slide < 8) : (frame >> 2) & 3;
+        return T_RF_UP0 + game.facing * 4 + phase;
+    }
+    if (rf_view != VIEW_FRONT)
+        return T_RF_VIEW0 + rf_view;
+    // From the front: now and then blink or tap a foot
     if ((frame & 15) == 0) {
         uint8_t r = rnd();
         idle = r < 48 ? 1 : r < 80 ? 2 : 0;
@@ -130,7 +163,7 @@ static uint8_t rockford_tile(void) {
         return T_RF_BLINK;
     if (idle == 2 && (frame & 4))
         return T_RF_TAP;
-    return T_RF_STAND;
+    return T_RF_VIEW0 + VIEW_FRONT;
 }
 
 static void update_tiles(void) {
@@ -566,7 +599,7 @@ static void scores_frame(uint16_t pf) {
         video_tile(5, 10, t);
         video_tile(33, 10, t);
         if (hs_new < HS_COUNT && pf >= 8 + 6 * hs_new)
-            video_tile(HS_COL - 3, HS_Y0 + hs_new * 16, T_RF_RIGHT0 + ((pf >> 2) & 3) * 2);
+            video_tile(HS_COL - 3, HS_Y0 + hs_new * 16, T_RF_RIGHT0 + ((pf >> 2) & 3));
     }
     if (pf % 3 == 0)
         video_shine(pf / 3);
@@ -813,6 +846,7 @@ static uint8_t play_cave(void) {
 
     cave_start(d);
     slide = 0;
+    rf_view = VIEW_FRONT;
     memset(covered, 1, sizeof covered);
     camera(true);
     status_intro();
@@ -853,6 +887,8 @@ static uint8_t play_cave(void) {
             latched = DIR_NONE;
             fire_latched = false;
             cave_tick(in);
+            if (moved[game.player] != DIR_NONE)
+                rf_foot ^= 1;
             sound_tick(game.sound);
             if (game.flash) {
                 game.flash = false;

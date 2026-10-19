@@ -163,6 +163,16 @@ its cell: the rules stay in cells, only the drawing is smooth, and the game
 plays at the same speed as before. The engine notes the moves of each tick
 (`moved[]`) for that.
 
+**Rockford** is drawn from eight sides (`mkgfx.py` puts him together from
+a head, a body and legs; the left sides are the right ones mirrored) and
+turns from one to the next, a frame each, when he changes direction:
+from right to left he turns round past the front. He walks with a step
+per cell, in time with the sliding - legs apart in the first half of the
+cell, passing in the second, the arms swinging the other way - so his feet
+keep up with the ground; pushing against a boulder or a wall, he walks on
+the spot. When he stops he keeps his direction for a moment, then turns to
+the front, where he blinks and taps his foot now and then.
+
 **The screen** is 40x25 characters in full-colour mode (256 colours, one
 byte per pixel). Rows 0-1 are the status line, row 2 a thin line, rows 3-24
 the playfield: 19 x 11 tiles of 16x16 pixels. Every playfield character is
@@ -195,12 +205,13 @@ the drums.
 **The title logo** does not fit into the program: below $D000 there is
 room for about 44K of code and data, the logo at 288x144 pixels takes
 41K. So it is a file of its own on the disk, loaded at the start into
-bank 1 at $12000, from where DMA copies it into both framebuffers for the
-title screen. The tiles (54 of 256 bytes, 13.5K) follow it at $1C200, a
-file of their own as well: they are only ever copied by DMA, so they need
-not lie in bank 0, which keeps its room for code. Logo and tiles fill bank 1
-up to the colour RAM at $1F800 exactly; `video.c` checks that at compile
-time. Bank 1 is also all the C65 has beyond bank 0.
+bank 1 at $15600, from where DMA copies it into both framebuffers for the
+title screen; it ends at the colour RAM at $1F800. The tiles (70 of 256
+bytes, 17.5K) lie before it at $10000, a file of their own as well: they
+are only ever copied by DMA, so they need not lie in bank 0, which keeps
+its room for code. They take the DOS's work area at $10000-$11FFF: the
+game loads with its own loader and never calls the DOS. There is room for
+86 tiles; `video.c` checks at compile time that tiles and logo fit.
 `mkgfx.py` scales it down and gives it palette 1: all entries the status
 font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.

@@ -282,77 +282,122 @@ def draw_emerald(frame, frames=8):
 
 
 # Rockford: the adventurer from the title logo (fedora, leather jacket,
-# jeans). Hand-drawn; letters are colours.
+# white shirt, jeans, boots). Hand-drawn; letters are colours. He is put
+# together from a head, a body and legs, seen from eight sides; the left
+# ones are the right ones mirrored.
 ROCK_PAL = {
     "k": hexc("140e10"),   # outline
-    "H": hexc("a8642a"), "h": hexc("d89448"), "d": hexc("5a2d14"),  # hat, band
-    "r": hexc("5a3218"),                                            # hair
+    "H": hexc("a8642a"), "h": hexc("d89448"), "d": hexc("4a2410"),  # hat, band
+    "r": hexc("4a2814"),                                            # hair
     "S": hexc("f4bc8c"), "s": hexc("c88458"),                       # skin
-    "e": hexc("101028"), "m": hexc("a83c3c"),                       # eyes, mouth
+    "e": hexc("101028"), "E": hexc("f4f4ff"), "m": hexc("a83c3c"),  # eyes, mouth
     "J": hexc("82461e"), "j": hexc("552d14"), "l": hexc("b06a32"),  # jacket
     "T": hexc("ecece0"),                                            # shirt
     "B": hexc("3c64be"), "b": hexc("243c82"),                       # jeans
-    "W": hexc("78461e"), "w": hexc("46280f"),                       # boots
+    "W": hexc("8a5224"), "w": hexc("4e2c10"),                       # boots
 }
 
-ROCK_HEAD = [
-    "....kkkkkkkk....",
-    "...khhhHHHHHk...",
-    "...kHHHHHHHHk...",
+ROCK_HAT = [
+    "......kkkk......",
+    "....kkhhhHkk....",
+    "...khHHHHHHHk...",
     "...kddddddddk...",
-    ".kkhHHHHHHHHHdk.",
-    "..krSSSSSSSSrk..",
-    "..krSeSSSSeSrk..",
-    "...kSeSSSSeSk...",
-    "...ksSSmmSSsk...",
-    "....kssssssk....",
+    ".kkhhHHHHHHHHkk.",
 ]
-ROCK_BODY = [
-    "..kJlJTTTTJlJk..",
-    ".kJJJkJTTJkJJJk.",
-    ".kSskjJJJJjksSk.",
-    "..kkkbBBBBbkkk..",
-]
+ROCK_HEADS = {
+    "front": ROCK_HAT + [
+        "..kkrSSSSSSrkk..",
+        "...kSEeSSeESk...",
+        "...kSSeSSeSSk...",
+        "....ksSmmSsk....",
+    ],
+    "back": ROCK_HAT + [
+        "..kkrrrrrrrrkk..",
+        "...ksrrrrrrsk...",
+        "...ksrrrrrrsk...",
+        "....kssSSssk....",
+    ],
+    "right": [
+        "....kkkkk.......",
+        "...khhhHHk......",
+        "..khHHHHHHk.....",
+        "..kddddddddk....",
+        "kkhhHHHHHHHHHkk.",
+        ".kkrrrSSSSSSkk..",
+        "..krrSsSSSEeSk..",
+        "..krssSSSSEeSSk.",
+        "...krsSSSSSmkk..",
+    ],
+    "front-right": [
+        ".....kkkkk......",
+        "....khhhHHkk....",
+        "...khHHHHHHHk...",
+        "...kddddddddk...",
+        ".kkhhHHHHHHHHkk.",
+        "..kkrrSSSSSSkk..",
+        "...krsSEeSEeSk..",
+        "...krsSSeSSeSk..",
+        "....kssSSmmsk...",
+    ],
+    "back-right": [
+        "......kkkkk.....",
+        "....kkhhhHHk....",
+        "...khHHHHHHHk...",
+        "...kddddddddk...",
+        ".kkhhHHHHHHHHkk.",
+        "..kkrrrrrrrSkk..",
+        "...krrrrrrsSk...",
+        "...krrrrrrsSk...",
+        "....krrrssSk....",
+    ],
+}
+ROCK_BODIES = {
+    "front": ["...kJJkTTkJJk...", "..kJlJJTTJJlJk..", "..kSkjJJJJjkSk.."],
+    "front-swing": ["...kJJkTTkJJk...", "..kJlJJTTJJlJk..", "..kjkjJJJJjkSk.."],
+    "front-right": ["...kJJJkTTJJk...", "..kJlJJJTTJlk...", "..kSkjJJJJjkSk.."],
+    "back": ["...kJJjjjjJJk...", "..kJlJJJJJJlJk..", "..kSkJJJJJJkSk.."],
+    "back-swing": ["...kJJjjjjJJk...", "..kJlJJJJJJlJk..", "..kSkJJJJJJkjk.."],
+    "right": ["....kJlTTJJk....", "....kJJlTJJk....", "....kJSkJJJk...."],
+    # running: near arm back and far arm forward, or the near fist forward
+    "right-back": ["...kJJlTTJjjk...", "..kJJJlJTJjsk...", ".kSkJJJJJJk....."],
+    "right-fist": ["...kJJlTTJkSSk..", "...kjJJlTJJkkk..", "...kjJJJJJk....."],
+}
 ROCK_LEGS = {
-    "stand": ["...kBbkkkkbBk...", "..kWWWk..kWWWk.."],
-    "tap":   ["...kBbkk..kWWk..", "..kWWWk...kkk..."],
-    "walk0": ["..kBbk....kbBk..", ".kWWWk....kWWWk."],
-    "walk1": ["....kBbkkbBk....", "....kWWkkWWk...."],
-    "walk2": ["...kBbk..kBbk...", "...kkkk..kWWWk.."],
-    "walk3": ["....kBbkkbBk....", "....kWWkkWWk...."],
+    "front": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "...kWWWkkWWWk..."],
+    "front-pass": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "....kWWkkWWk...."],
+    "front-step": ["....kBBbbBBk....", "...kWWWkkbBk....", "....kkk.kWWWk..."],
+    "front-tap": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkWWWk...", "...kWWWk.kkkk..."],
+    "back": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "...kwwwkkwwwk..."],
+    "back-pass": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "....kwwkkwwk...."],
+    "back-step": ["....kBBbbBBk....", "...kwwwkkbBk....", "....kkk.kwwwk..."],
+    "right": [".....kBBbBk.....", ".....kBBbBk.....", ".....kBkbBk.....", ".....kWWkWWWk..."],
+    # running: legs apart (the near one forward, or the far one), and
+    # passing (the far knee up, or the near one)
+    "right-near": ["....kbbBBBBk....", "...kbbk..kBBk...", "..kwwk....kWWWk."],
+    "right-far": ["....kBBBBbbk....", "...kBBk..kbbk...", "..kWWWk...kwwwk."],
+    "right-pass-far": ["....kBBBbbk.....", "....kBBkbbbk....", ".....kBBkwwk....", ".....kWWWk......"],
+    "right-pass-near": ["....kbbBBBk.....", "....kbbkBBBk....", ".....kbbkWWk....", ".....kwwwk......"],
 }
 
 
-def rock_rows(eyes=0, blink=False, legs="stand", bob=0, arms=0):
-    head = list(ROCK_HEAD)
+def rock_rows(head, body, legs, blink=False):
+    """A Rockford tile from head, body and legs; with three rows of legs (a
+    stride) he is one pixel lower."""
+    h = list(ROCK_HEADS[head])
     if blink:
-        head[6] = head[6].replace("e", "s")
-        head[7] = head[7].replace("e", "k")
-    if eyes:
-        # eyes and mouth look sideways
-        for i in (6, 7, 8):
-            row = head[i]
-            inner = row[4:12]
-            inner = (inner[1:] + inner[0]) if eyes > 0 else (inner[-1] + inner[:-1])
-            inner = inner.replace("k", "S")
-            head[i] = row[:4] + inner + row[12:]
-    body = list(ROCK_BODY)
-    if arms:
-        # one arm forward, one back
-        a, b = ("..kJk", ".kJJk") if arms > 0 else (".kJJk", "..kJk")
-        body[0] = a + body[0][5:11] + b[::-1]
-        body[1] = b + body[1][5:11] + a[::-1]
-    rows = head + body + ROCK_LEGS[legs]
-    if bob:
-        rows = [rows[0]] + rows[:-1] if bob > 0 else rows[1:] + [rows[-1]]
-    return rows
+        h[6] = h[6].replace("E", "S").replace("e", "S")
+        h[7] = h[7].replace("e", "k")
+    rows = h + ROCK_BODIES[body] + ROCK_LEGS[legs]
+    return ["." * T] * (T - len(rows)) + rows
 
 
-def from_rows(rows, pal, flip=False):
+def mirror(rows):
+    return [r[::-1] for r in rows]
+
+
+def from_rows(rows, pal):
     t = new_tile()
     for y, row in enumerate(rows):
-        if flip:
-            row = row[::-1]
         for x, ch in enumerate(row):
             if ch != ".":
                 t[y][x] = pal[ch]
@@ -360,15 +405,32 @@ def from_rows(rows, pal, flip=False):
 
 
 def draw_rockford_set():
-    out = {}
-    out["RF_STAND"] = from_rows(rock_rows(), ROCK_PAL)
-    out["RF_BLINK"] = from_rows(rock_rows(blink=True), ROCK_PAL)
-    out["RF_TAP"] = from_rows(rock_rows(legs="tap"), ROCK_PAL)
-    walk = [("walk0", 0, 1), ("walk1", 1, -1), ("walk2", 0, -1), ("walk3", 1, 1)]
-    for i, (legs, bob, arms) in enumerate(walk):
-        rows = rock_rows(eyes=1, legs=legs, bob=bob, arms=arms)
-        out[f"RF_RIGHT{i}"] = from_rows(rows, ROCK_PAL)
-        out[f"RF_LEFT{i}"] = from_rows(rows, ROCK_PAL, flip=True)
+    """RF_VIEW0-7: standing, seen from behind (0), then turning clockwise
+    from above: right (2), front (4), left (6); a view is 2 * DIR_*.
+    RF_BLINK, RF_TAP: idle, from the front. RF_UP0-3, RF_RIGHT0-3,
+    RF_DOWN0-3, RF_LEFT0-3 (in the order of DIR_*): walking, a step with
+    the one foot (stride, passing), then with the other."""
+    views = [rock_rows("back", "back", "back"),
+             rock_rows("back-right", "back", "back"),
+             rock_rows("right", "right", "right"),
+             rock_rows("front-right", "front-right", "front"),
+             rock_rows("front", "front", "front")]
+    views += [mirror(v) for v in views[3:0:-1]]
+    walk = {
+        "UP": [rock_rows("back", "back-swing", "back-step"), rock_rows("back", "back", "back-pass"),
+               mirror(rock_rows("back", "back-swing", "back-step")), rock_rows("back", "back", "back-pass")],
+        "RIGHT": [rock_rows("right", "right-back", "right-near"), rock_rows("right", "right", "right-pass-far"),
+                  rock_rows("right", "right-fist", "right-far"), rock_rows("right", "right", "right-pass-near")],
+        "DOWN": [rock_rows("front", "front-swing", "front-step"), rock_rows("front", "front", "front-pass"),
+                 mirror(rock_rows("front", "front-swing", "front-step")), rock_rows("front", "front", "front-pass")],
+    }
+    walk["LEFT"] = [mirror(r) for r in walk["RIGHT"]]
+    out = {f"RF_VIEW{i}": from_rows(v, ROCK_PAL) for i, v in enumerate(views)}
+    out["RF_BLINK"] = from_rows(rock_rows("front", "front", "front", blink=True), ROCK_PAL)
+    out["RF_TAP"] = from_rows(rock_rows("front", "front", "front-tap"), ROCK_PAL)
+    for d in ("UP", "RIGHT", "DOWN", "LEFT"):
+        for i, rows in enumerate(walk[d]):
+            out[f"RF_{d}{i}"] = from_rows(rows, ROCK_PAL)
     return out
 
 
@@ -815,7 +877,7 @@ def main():
     with open(f"{outdir}/logo.bin", "wb") as f:
         f.write(logo)
     with open(f"{outdir}/tiles.bin", "wb") as f:
-        f.write(bytes([0x00, 0xC2]) + bytes(tile_bytes))  # $1C200, as video.h
+        f.write(bytes([0x00, 0x00]) + bytes(tile_bytes))  # $10000, as video.h
 
     cols = pal.colours
     with open(f"{outdir}/gfx.h", "w") as f:
@@ -903,8 +965,8 @@ def write_preview(path, tiles, icons, chars, font_cols, shadow):
         "S...dd..E....aa..rS",
         "SSSSSSSSSSSSSSSSSSS",
     ]
-    key = {"S": "STEEL", ".": "DIRT", "r": "BOULDER", "d": "DIAMOND0", " ": "SPACE", "R": "RF_STAND",
-           "1": "RF_RIGHT1", "b": "BUTTERFLY0", "q": "FIREFLY0", "w": "BRICK", "a": "AMOEBA0",
+    key = {"S": "STEEL", ".": "DIRT", "r": "BOULDER", "d": "DIAMOND0", " ": "SPACE", "R": "RF_VIEW4",
+           "1": "RF_RIGHT2", "b": "BUTTERFLY0", "q": "FIREFLY0", "w": "BRICK", "a": "AMOEBA0",
            "O": "OUTBOX1", "E": "EXPLODE2"}
     for y, row in enumerate(mock):
         for x, ch in enumerate(row):

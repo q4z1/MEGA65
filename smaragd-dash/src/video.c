@@ -16,8 +16,8 @@
 #define SCREEN_A    0xDC00u    // screen RAM A at $5DC00 (40x25 x 2 bytes)
 #define SCREEN_B    0xE400u    // screen RAM B at $5E400
 // The logo and the tiles from the disk (video.h)
-_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= TILES_OFF, "the logo reaches the tiles");
-_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= 0xF800, "the tiles reach the colour RAM at $1F800");
+_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= LOGO_OFF, "the tiles reach the logo");
+_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0xF800, "the logo reaches the colour RAM at $1F800");
 
 #define COLS      40
 #define ROWS      25

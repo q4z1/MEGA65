@@ -15,8 +15,8 @@ ram  $5E400+2000     screen B (video.c)
 ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
 
 # The disk (build.sh). The program itself is found by its contents.
-file SMARAGD.TILES  @$1C200     the tiles, 16x16 pixels (mkgfx.py)
-file SMARAGD.LOGO   @$12000     title logo, 288x144 pixels (mkgfx.py)
+file SMARAGD.TILES  @$10000     the tiles, 16x16 pixels (mkgfx.py)
+file SMARAGD.LOGO   @$15600     title logo, 288x144 pixels (mkgfx.py)
 file SMARAGD.SCORES @file       high score table, written by the game (hiscore.c)
 file CAVE??-?       @cave_file  a cave in one of its four levels (mkcave.py)
 file DEMO??         @demo_moves the screencast's moves for a cave (solve.c)

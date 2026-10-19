@@ -75,7 +75,7 @@ void cave_start(const CaveDef *def) {
         if (cave[i] == E_INBOX)
             game.player = i;
     game.state = PS_HATCHING;
-    game.facing = DIR_RIGHT;
+    game.facing = DIR_DOWN;
     game.hatch_ticks = HATCH_TICKS;
     game.time = def->time;
     game.magic_timer = def->magic_time;
@@ -152,8 +152,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
     game.snapping = false;
     if (dir == DIR_NONE)
         return;
-    if (dir == DIR_LEFT || dir == DIR_RIGHT)
-        game.facing = dir;
+    game.facing = dir;
     game.moving = true;
     uint16_t j = i + dir_off[dir];
     uint8_t t = cave[j];

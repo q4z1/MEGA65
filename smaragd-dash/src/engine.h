@@ -79,7 +79,7 @@ struct game {
     const CaveDef *def;
     uint8_t state;            // PS_*
     uint16_t player;          // cell index of Rockford (or of the inbox)
-    uint8_t facing;           // DIR_LEFT or DIR_RIGHT
+    uint8_t facing;           // direction of the last move or try (DIR_*)
     bool moving;              // Rockford moved or tried to in the last tick
     bool snapping;
     uint8_t hatch_ticks;      // ticks until Rockford appears

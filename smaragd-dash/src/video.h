@@ -22,11 +22,12 @@
 #define VIEW_H 176
 
 // The graphics from the disk (main.c loads them), in bank 1, where DMA
-// copies them from: bank 0 keeps its room for the program, and a C65 has
-// bank 1 as well. Together they fill it up to the colour RAM at $1F800.
+// copies them from: bank 0 keeps its room for the program. The tiles take
+// the DOS's work area as well (the game loads with its own loader and never
+// calls the DOS), the logo ends at the colour RAM at $1F800.
 #define GFX_BANK  1
-#define LOGO_OFF  0x2000u  // SMARAGD.LOGO at $12000, LOGO_W x LOGO_H pixels
-#define TILES_OFF 0xC200u  // SMARAGD.TILES at $1C200, TILE_COUNT x 256 bytes
+#define TILES_OFF 0x0000u  // SMARAGD.TILES at $10000, TILE_COUNT x 256 bytes
+#define LOGO_OFF  0x5600u  // SMARAGD.LOGO at $15600, LOGO_W x LOGO_H pixels
 
 void video_init(void);
 
