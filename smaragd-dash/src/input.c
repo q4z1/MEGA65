@@ -4,24 +4,6 @@
 
 #include "hw.h"
 
-#ifdef AUTOPLAY
-// Test builds (build.sh with SMARAGD_CFLAGS=-DAUTOPLAY): a fixed walk
-// instead of the controls (fire on the title screen first), for screenshots
-// in the headless emulator.
-static const uint8_t script[][2] = {
-    {50, 0}, {5, IN_BUTTON}, {230, 0}, {8, IN_UP}, {98, IN_RIGHT}, {80, IN_DOWN}, {255, 0},
-};
-static uint8_t step, left = 50;
-
-uint8_t input_read(void) {
-    if (!left--) {
-        if (step < sizeof script / sizeof *script - 1)
-            step++;
-        left = script[step][0];
-    }
-    return script[step][1];
-}
-#else
 // Keyboard matrix through CIA 1: write a column to $DC00, read rows at $DC01
 static uint8_t column(uint8_t sel) {
     POKE(0xDC00, sel);
@@ -59,4 +41,3 @@ uint8_t input_read(void) {
     POKE(0xDC00, 0xFF);
     return in;
 }
-#endif

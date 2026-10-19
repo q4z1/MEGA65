@@ -16,7 +16,8 @@ toolchain/setup.sh
 | `disks/` | D81 disks: slideshow, FCM demos, palette and character editors (with the manual as PDF) – local only, not in the repo | files.mega65.org |
 | `mega65go/` | the Windows setup mega65go and its `Instructions.txt` – the model for `build-rom.sh`; local only, not in the repo | files.mega65.org |
 | `tools/bin/xmega65` | starts Xemu with the ROM built here | written here |
-| `tools/bin/mega65-cc` | `mos-mega65-clang` that also records its compile commands for clangd (`MEGA65_CDB_DIR`, used by `.vscode/run-current.sh`) | written here |
+| `tools/bin/mega65-cc` | `mos-mega65-clang` that also records its compile commands for clangd (`MEGA65_CDB_DIR`, used by `.vscode/run-current.sh`) and adds `MEGA65_CFLAGS` to every call | written here |
+| `tools/bin/mega65-cast` | records a PRG or D81 as an MP4 video with sound (see below) | written here |
 | `tools/bin/bspatch.py` | applies bsdiff patches (replaces `bspatch.exe` from mega65go) | written here |
 | `tools/bin/msi-extract-cabs.py` | pulls the CAB archives out of an `.msi` | written here |
 | `tools/bin/mkd81.py` | writes a D81 disk image with given files (a program's `build.sh` uses it) | written here |
@@ -129,6 +130,29 @@ cd toolchain/xemu
 git fetch upstream
 git switch master && git merge --ff-only upstream/master && git push
 ```
+
+### Recording videos
+
+Our Xemu (branch `recorder` of the fork) has two more options:
+`-recvideo FILE` writes every frame as raw RGB24, 704x576 pixels (the visible
+area, as the window shows it), and `-recaudio FILE` the sound as raw 16-bit
+stereo samples at 44100 Hz. The sound is rendered once per emulated frame,
+as long as the frame lasted, instead of by the sound card's callback, so
+picture and sound stay in step at any emulation speed - also with
+`-headless -sleepless`. Both files may be named pipes.
+
+`tools/bin/mega65-cast` puts it together: Xemu headless and as fast as it
+can, the frames through a pipe into ffmpeg, then an MP4 (H.264, AAC):
+
+```sh
+tools/bin/mega65-cast prog.prg                        # -> prog.mp4
+tools/bin/mega65-cast -t 60 -s 2 -o out.mp4 disk.d81  # at most 60 s, cut the first 2 s
+```
+
+`-x` enlarges the picture (default 2, sharp pixels). Xemu runs with
+`-testing`, so the program can end the recording itself: 0, then `$42` to
+`$D6CF`. A program that does not do that is recorded for `-t` seconds
+(default 600). Xemu options can follow after `--`.
 
 Useful for automated tests:
 

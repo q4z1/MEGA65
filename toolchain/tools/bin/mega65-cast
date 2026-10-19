@@ -1,0 +1,94 @@
+#!/bin/sh
+# Records a MEGA65 program as a video with sound: Xemu runs headless and as
+# fast as it can, hands over every frame and the sound in step with the
+# emulated time (its -recvideo/-recaudio options), and ffmpeg makes an MP4.
+#
+#   mega65-cast [options] <program.prg | disk.d81> [-- more Xemu options]
+#
+#   -o FILE     the video (default: next to the program, <name>.mp4)
+#   -t SECONDS  stop after this much emulated time (default 600)
+#   -s SECONDS  cut this much from the start (the boot screen takes about 2)
+#   -x FACTOR   enlarge the picture, pixels stay sharp (default 2)
+#
+# A PRG is started directly (-prg), a D81 goes into drive 8 and its first
+# program is run (-autoload). The recording ends when the program writes 0
+# and then $42 to $D6CF - Xemu runs with -testing, which turns that into
+# "exit the emulator with exit code 0" - or after -t seconds. The picture is the visible area of
+# 704x576 pixels (NTSC is padded to that), 50 frames per second in PAL.
+
+set -e
+
+usage() {
+    sed -n '2,17s/^# \{0,1\}//p' "$0" >&2
+    exit 1
+}
+
+OUT=""
+MAX=600
+SKIP=0
+SCALE=2
+while getopts o:t:s:x:h opt; do
+    case $opt in
+        o) OUT=$OPTARG ;;
+        t) MAX=$OPTARG ;;
+        s) SKIP=$OPTARG ;;
+        x) SCALE=$OPTARG ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND - 1))
+[ $# -ge 1 ] || usage
+IN=$1
+shift
+[ "$1" = "--" ] && shift
+[ -f "$IN" ] || { echo "mega65-cast: '$IN' not found" >&2; exit 1; }
+command -v ffmpeg >/dev/null || { echo "mega65-cast: ffmpeg is needed" >&2; exit 1; }
+
+case "$IN" in
+    *.d81|*.D81) set -- -8 "$IN" -autoload "$@" ;;
+    *) set -- -prg "$IN" "$@" ;;
+esac
+[ -n "$OUT" ] || OUT="${IN%.*}.mp4"
+
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/mega65-cast.XXXXXX")
+cleanup() {
+    [ -n "$ENC" ] && kill "$ENC" 2>/dev/null
+    rm -rf "$TMP"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+# Video through a pipe into a lossless intermediate file (raw frames would
+# take 1.2 MB each), sound into a file (176 KB per second)
+mkfifo "$TMP/video.rgb"
+ffmpeg -loglevel error -nostdin -y \
+    -f rawvideo -pix_fmt rgb24 -s 704x576 -framerate 50 -i "$TMP/video.rgb" \
+    -frames:v $((MAX * 50)) -c:v libx264rgb -qp 0 -preset ultrafast \
+    "$TMP/video.mkv" &
+ENC=$!
+
+echo "Recording $IN ..."
+# No sound device needed: the sound goes into the file only. When the encoder
+# has enough frames it closes the pipe and Xemu ends as well.
+STATUS=0
+SDL_AUDIODRIVER=dummy "$(dirname "$0")/xmega65" -headless -sleepless -testing -besure \
+    -recvideo "$TMP/video.rgb" -recaudio "$TMP/audio.raw" "$@" \
+    >"$TMP/xemu.log" 2>&1 || STATUS=$?
+# $42 alone in $D6CF ends it with exit code $42: fine as well
+if [ $STATUS != 0 ] && [ $STATUS != 66 ]; then
+    echo "mega65-cast: Xemu failed, its log:" >&2
+    tail -20 "$TMP/xemu.log" >&2
+    exit 1
+fi
+wait "$ENC"
+ENC=""
+
+echo "Encoding $OUT ..."
+ffmpeg -loglevel error -nostdin -y \
+    -ss "$SKIP" -i "$TMP/video.mkv" \
+    -ss "$SKIP" -f s16le -ar 44100 -ac 2 -i "$TMP/audio.raw" \
+    -vf "scale=iw*$SCALE:ih*$SCALE:flags=neighbor" \
+    -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p \
+    -c:a aac -b:a 192k -shortest -movflags +faststart "$OUT"
+LEN=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT")
+echo "Done: $OUT (${LEN%.*} s)"

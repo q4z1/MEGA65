@@ -41,14 +41,28 @@ static const uint8_t props[E_COUNT] = {
 
 #define AMOEBA_MAX 200
 
+// xorshift16
+static uint8_t xorshift(uint16_t *r) {
+    *r ^= *r << 7;
+    *r ^= *r >> 9;
+    *r ^= *r << 8;
+    return (uint8_t)*r;
+}
+
+// For everything outside the cave: animations, sounds
 static uint16_t rng = 0xACE1;
 
-// xorshift16
 uint8_t rnd(void) {
-    rng ^= rng << 7;
-    rng ^= rng >> 9;
-    rng ^= rng << 8;
-    return (uint8_t)rng;
+    return xorshift(&rng);
+}
+
+// The cave's own random numbers start the same in every run of a cave, so a
+// cave plays the same with the same moves (the screencast depends on it).
+#define CAVE_SEED 0x2F6B
+static uint16_t cave_rng;
+
+static uint8_t cave_rnd(void) {
+    return xorshift(&cave_rng);
 }
 
 void cave_start(const CaveDef *def) {
@@ -64,6 +78,7 @@ void cave_start(const CaveDef *def) {
     game.time = def->time;
     game.magic_timer = def->magic_time;
     game.amoeba_timer = def->amoeba_time;
+    cave_rng = CAVE_SEED;
 }
 
 void cave_second(void) {
@@ -168,7 +183,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
         // Pushing sideways works only now and then, as in the original
         if (dir == DIR_LEFT || dir == DIR_RIGHT) {
             uint16_t k = j + dir_off[dir];
-            if (cave[k] == E_SPACE && (rnd() & 3) == 0) {
+            if (cave[k] == E_SPACE && (cave_rnd() & 3) == 0) {
                 cave[k] = E_BOULDER | SCANNED;
                 game.sound |= SND_BOULDER;
                 break;
@@ -271,8 +286,8 @@ void cave_tick(uint8_t input) {
                 uint8_t n = cave[i + dir_off[d]];
                 amoeba_room = n == E_SPACE || n == E_DIRT;
             }
-            if (rnd() < amoeba_odds) {
-                uint16_t j = i + dir_off[rnd() & 3];
+            if (cave_rnd() < amoeba_odds) {
+                uint16_t j = i + dir_off[cave_rnd() & 3];
                 if (cave[j] == E_SPACE || cave[j] == E_DIRT)
                     cave[j] = E_AMOEBA | SCANNED;
             }

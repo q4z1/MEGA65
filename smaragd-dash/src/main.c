@@ -4,6 +4,11 @@
 // a cave is uncovered, Rockford hatches, and the cave runs in ticks of the
 // cave's speed while the screen is redrawn every frame (50 Hz PAL, 60 Hz
 // NTSC). The rules are in engine.c, the display in video.c.
+//
+// Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
+// itself: the title runs for a while, then the caves play the moves that
+// tools/solve.c found for them (build/gen/demo.c), and after the last one the
+// emulator is told to stop, which ends the recording.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,6 +23,10 @@
 #include "music.h"
 #include "sound.h"
 #include "video.h"
+
+#ifdef SCREENCAST
+#include "demo.h"
+#endif
 
 #define LIVES       3
 #define LIFE_POINTS 500   // an extra life every so many points
@@ -257,6 +266,39 @@ static void wait_button(uint16_t frames) {
         next_frame();
 }
 
+// ---------------------------------------------------------------- screencast
+
+#ifdef SCREENCAST
+#define DEMO_TITLE_FRAMES 512  // the title with all its lines once
+
+static const uint8_t *demo_p;
+static uint8_t demo_left, demo_in;
+
+// The input of the next tick: (count, input) pairs, closed by 0
+static uint8_t demo_next(void) {
+    if (!demo_left) {
+        if (!demo_p[0])
+            return DIR_NONE;
+        demo_left = demo_p[0];
+        demo_in = demo_p[1];
+        demo_p += 2;
+    }
+    demo_left--;
+    return demo_in;
+}
+
+// A second on the covered cave, then Xemu (with -testing) exits: the exit
+// code to $D6CF, then $42.
+static void demo_end(void) {
+    for (uint8_t f = 0; f < 50; f++)
+        next_frame();
+    POKE(0xD6CF, 0);
+    POKE(0xD6CF, 0x42);
+    for (;;)
+        next_frame();
+}
+#endif
+
 // ---------------------------------------------------------------- title
 
 static void title_frame(void) {
@@ -331,6 +373,10 @@ static void title_screen(void) {
         title_frame();
         if (armed && (pressed & IN_BUTTON))
             break;
+#ifdef SCREENCAST
+        if (f == DEMO_TITLE_FRAMES)
+            break;
+#endif
         if (!(held & IN_BUTTON))
             armed = true;
     }
@@ -391,6 +437,9 @@ static uint8_t play_cave(void) {
             uint8_t in = dir != DIR_NONE ? dir : latched;
             if (fire_latched)
                 in |= IN_FIRE;
+#ifdef SCREENCAST
+            in = demo_next();
+#endif
             latched = DIR_NONE;
             fire_latched = false;
             cave_tick(in);
@@ -483,12 +532,23 @@ int main(void) {
         next_life = LIFE_POINTS;
         cave_no = 0;
         while (lives) {
+#ifdef SCREENCAST
+            if (cave_no >= DEMO_CAVES)
+                demo_end();
+            demo_p = demo_moves[cave_no];
+            demo_left = 0;
+#endif
             uint8_t end = play_cave();
             score += game.score;
             if (end == END_EXITED)
                 cave_no = (cave_no + 1) % CAVE_COUNT;
             else
                 lives--;
+#ifdef SCREENCAST
+            // after the last cave (or if one went wrong)
+            if (end != END_EXITED || cave_no == 0)
+                demo_end();
+#endif
         }
         if (score > hiscore)
             hiscore = score;

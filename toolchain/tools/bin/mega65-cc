@@ -5,11 +5,16 @@
 # into a file of its own in that folder; .vscode/run-current.sh merges them
 # into build/compile_commands.json of the program. Without it, this is just
 # the compiler.
+#
+# MEGA65_CFLAGS: flags added to every call (run-current.sh passes
+# -DSCREENCAST this way when it builds for a screencast).
 
 CC="$(cd "$(dirname "$0")/../.." && pwd)/llvm-mos/bin/mos-mega65-clang"
 
 if [ -n "$MEGA65_CDB_DIR" ]; then
     mkdir -p "$MEGA65_CDB_DIR"
-    exec "$CC" -MJ "$MEGA65_CDB_DIR/$$.json" "$@"
+    # shellcheck disable=SC2086
+    exec "$CC" -MJ "$MEGA65_CDB_DIR/$$.json" $MEGA65_CFLAGS "$@"
 fi
-exec "$CC" "$@"
+# shellcheck disable=SC2086
+exec "$CC" $MEGA65_CFLAGS "$@"

@@ -48,6 +48,25 @@
             "problemMatcher": []
         },
         {
+            // Builds the program of the active file with -DSCREENCAST and
+            // records it as build/<program>.mp4 with sound (headless, no
+            // window). The program plays itself and ends the recording;
+            // see toolchain/tools/bin/mega65-cast.
+            "label": "MEGA65: Record screencast (active program)",
+            "type": "shell",
+            "command": "${workspaceFolder}/.vscode/run-current.sh",
+            "args": [
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "MEGA65_CAST": "1"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
             // Start Xemu without a program (BASIC 65).
             "label": "MEGA65: Start Xemu",
             "type": "shell",

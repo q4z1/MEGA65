@@ -49,10 +49,27 @@ The engine tests run on the host:
 cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/test_engine
 ```
 
-For screenshots of the running game without a keyboard,
-`SMARAGD_CFLAGS=-DAUTOPLAY` builds a version that walks a fixed path
-(`src/input.c`); the pictures in `screenshots/` were taken that way with
-Xemu's `-headless -screenshot`.
+### Screencast
+
+*Terminal → Run Task… → MEGA65: Record screencast (active program)* (or
+`MEGA65_CAST=1 .vscode/run-current.sh smaragd-dash/` from the repository
+root) records the game playing itself as `build/smaragd-dash.mp4`, with
+the music and the sounds: the title for ten seconds, then the first cave,
+solved. Built with `-DSCREENCAST`, the game presses fire on the title by
+itself, takes the moves for each cave from `build/gen/demo.c`, and stops
+the emulator after the last cave, which ends the recording.
+
+The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
+the host at every build. It plays the caves with the game's own engine
+(`src/engine.c`) and counts frames and ticks like `play_cave`: from the
+nearest few emeralds it picks one, walks there, round falling things and
+away from creatures, until the exit is open, and takes back any choice that
+gets Rockford killed or stuck. As the cave's random numbers (pushing a
+boulder works one time in four) start the same in every run of a cave, the
+same moves play the same in the game. So a changed cave or rule gives new
+moves with the next build.
+
+The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`.
 
 ## How it works
 
@@ -67,6 +84,7 @@ Xemu's `-headless -screenshot`.
 | `src/disk.c`, `src/disk.s` | loading files from the disk through the KERNAL |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files |
+| `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |

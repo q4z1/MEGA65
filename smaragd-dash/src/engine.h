@@ -100,6 +100,6 @@ void cave_start(const CaveDef *def);
 void cave_tick(uint8_t input);
 void cave_second(void);  // call once per second while the player is alive
 void cave_suicide(void); // Rockford gives up (Run/Stop)
-uint8_t rnd(void);
+uint8_t rnd(void);       // random numbers outside the cave (animations, sounds)
 
 #endif

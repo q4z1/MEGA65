@@ -59,6 +59,25 @@ must leave `build/<folder>.prg` behind. If it also leaves a disk image
 `build/<folder>.d81` (made with `toolchain/tools/bin/mkd81.py`), F5 starts
 that instead: in drive 8, with its first program run (`-autoload`).
 
+### Screencasts
+
+*Terminal → Run Task… → MEGA65: Record screencast (active program)* builds
+the program with `-DSCREENCAST` and records it as `build/<folder>.mp4`, with
+sound, without opening a window:
+
+```sh
+MEGA65_CAST=1 .vscode/run-current.sh smaragd-dash/
+MEGA65_CAST=1 MEGA65_CAST_OPTS="-t 30" .vscode/run-current.sh main/   # at most 30 s
+```
+
+Built that way, a program should play itself and end the recording when it
+is done by writing 0 and then `$42` to `$D6CF`; otherwise the recording stops
+after 10 minutes (`-t`). Xemu runs headless and as fast as it can (about three
+times real time), and hands every frame and the sound in step with the
+emulated time to ffmpeg, so the video does not stutter however fast the
+machine running it is. [toolchain/tools/bin/mega65-cast](toolchain/tools/bin/mega65-cast)
+does the recording and also works on its own, with any PRG or D81.
+
 To disassemble:
 
 ```sh

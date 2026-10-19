@@ -11,6 +11,10 @@
 # Usage: run-current.sh <path/to/file>
 #   MEGA65_RUN=0       only build, don't start
 #   MEGA65_PRG=<name>  start another program from build/
+#   MEGA65_CAST=1      build with -DSCREENCAST and record the program as a
+#                      video, build/<name>.mp4, instead of starting Xemu
+#                      (toolchain/tools/bin/mega65-cast; MEGA65_CAST_OPTS
+#                      are passed on to it, e.g. "-t 60 -s 2")
 
 set -e
 
@@ -52,9 +56,15 @@ mkdir -p "$OUT"
 # Every compiler call leaves its commands in $MEGA65_CDB_DIR; after the build
 # they become build/compile_commands.json, where clangd finds them for all
 # files of the program (include paths, defines and flags of the real build).
+# A screencast build keeps the commands of the last normal build.
 export MEGA65_CDB_DIR="$OUT/.cdb"
 rm -rf "$MEGA65_CDB_DIR"
+if [ "$MEGA65_CAST" = 1 ]; then
+    unset MEGA65_CDB_DIR
+    export MEGA65_CFLAGS="$MEGA65_CFLAGS -DSCREENCAST"
+fi
 merge_cdb() {
+    [ -n "$MEGA65_CDB_DIR" ] || return 0
     if ls "$MEGA65_CDB_DIR"/*.json >/dev/null 2>&1; then
         # Each entry ends in "},"; the last comma has to go
         { echo "["; cat "$MEGA65_CDB_DIR"/*.json | sed '$ s/,[[:space:]]*$//'; echo "]"; } \
@@ -97,6 +107,13 @@ else
 fi
 
 [ "$MEGA65_RUN" = 0 ] && exit 0
+
+if [ "$MEGA65_CAST" = 1 ]; then
+    IMAGE="$OUT/$START.prg"
+    [ -f "$OUT/$START.d81" ] && IMAGE="$OUT/$START.d81"
+    # shellcheck disable=SC2086
+    exec "$TC/tools/bin/mega65-cast" $MEGA65_CAST_OPTS -o "$OUT/$START.mp4" "$IMAGE"
+fi
 
 echo "Starting Xemu ..."
 if [ -f "$OUT/$START.d81" ]; then
