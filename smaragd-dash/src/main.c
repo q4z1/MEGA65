@@ -26,6 +26,7 @@
 #include "hw.h"
 #include "input.h"
 #include "levels.h"
+#include "mem.h"
 #include "music.h"
 #include "sound.h"
 #include "video.h"
@@ -971,7 +972,7 @@ int main(void) {
     sound_init();
     init_tiles();
     // The tiles from the disk - without the spinner, which is made of
-    // them -, the title logo and the high scores (video.h)
+    // them -, the title logo and the high scores (mem.h)
     disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
     have_logo = load("LOADING", "SMARAGD.LOGO", GFX_BANK, LOGO_OFF);
     hiscore_load();

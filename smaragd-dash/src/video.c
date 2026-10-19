@@ -2,27 +2,20 @@
 
 #include "video.h"
 
+#include "dma.h"
 #include "engine.h"
 #include "gfx.h"
 #include "hw.h"
+#include "mem.h"
 
-// Memory beyond the program (chip RAM banks 4 and 5, VIC-IV visible)
-#define FB_BANK_A   4          // framebuffer A at $40000
-#define FB_BANK_B   5          // framebuffer B at $50000
-#define FB_COL      (22 * 64u) // bytes per framebuffer column (22 characters)
-#define STATUS_BANK 4
-#define STATUS_OFF  0xDC00u    // status characters at $4DC00, 3 per column
-#define SCREEN_BANK 5
-#define SCREEN_A    0xDC00u    // screen RAM A at $5DC00 (40x25 x 2 bytes)
-#define SCREEN_B    0xE400u    // screen RAM B at $5E400
-// The logo and the tiles from the disk (video.h)
-_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= LOGO_OFF, "the tiles reach the logo");
-_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0xF800, "the logo reaches the colour RAM at $1F800");
-
-#define COLS      40
-#define ROWS      25
-#define LINESTEP  (COLS * 2)
-#define STATUS_ROWS 3          // status line (2) and separator (1)
+// The memory is mem.h's: framebuffers, status line and screens in banks 4
+// and 5, the tiles and the logo in bank 1, the DMA list in bank 0.
+#define COLS        40
+#define ROWS        25
+#define LINESTEP    (COLS * 2)
+#define STATUS_ROWS 3           // status line (2) and separator (1)
+#define FB_COL      (22 * 64u)  // bytes per framebuffer column (22 characters)
+_Static_assert(COLS * FB_COL == FB_SIZE, "a framebuffer is not as mem.h has it");
 
 static uint16_t text_x;        // TEXTXPOS for the status line
 static uint16_t text_y;        // first raster line of the text area
@@ -30,55 +23,6 @@ static uint16_t bottom;        // first raster line of the bottom border
 static uint8_t back;           // framebuffer being drawn: 0 = A, 1 = B
 static uint8_t shown_fx;       // fine scroll of the framebuffer on screen
 static uint8_t drawn_fx;       // fine scroll of the one just drawn
-
-// ---------------------------------------------------------------- DMA
-
-// The list for a frame takes 6K: it lies below the program, at $0800-$1F75,
-// where BASIC had its screen. The game never goes back to BASIC.
-#define MAX_JOBS 500
-#define dmalist  ((uint8_t *)0x0800)
-static uint8_t *dp, *last_cmd;
-
-// Enhanced DMA list: F018A format, megabyte 0 for source and target. Each
-// job is followed by the end of the (empty) option list of the next one.
-static void dma_begin(uint8_t dst_mb) {
-    dp = dmalist;
-    *dp++ = 0x0A;
-    *dp++ = 0x80;
-    *dp++ = 0x00;
-    *dp++ = 0x81;
-    *dp++ = dst_mb;
-    *dp++ = 0x00;
-}
-
-static void dma_job(uint8_t cmd, uint16_t src, uint8_t sbank, uint16_t dst, uint8_t dbank, uint16_t len) {
-    uint8_t *p = dp;
-    last_cmd = p;
-    p[0] = cmd | 4;  // chained; the last job's bit is cleared in dma_run
-    p[1] = (uint8_t)len;
-    p[2] = len >> 8;
-    p[3] = (uint8_t)src;
-    p[4] = src >> 8;
-    p[5] = sbank;
-    p[6] = (uint8_t)dst;
-    p[7] = dst >> 8;
-    p[8] = dbank;
-    p[9] = 0;
-    p[10] = 0;
-    p[11] = 0;
-    dp = p + 12;
-}
-
-static void dma_run(void) {
-    *last_cmd &= ~4;
-    POKE(0xD702, 0);
-    POKE(0xD704, 0);
-    POKE(0xD701, (uint16_t)dmalist >> 8);
-    POKE(0xD705, (uint8_t)(uint16_t)dmalist);  // enhanced job, starts it
-}
-
-#define dma_copy(src, sbank, dst, dbank, len) dma_job(0, src, sbank, dst, dbank, len)
-#define dma_fill(val, dst, dbank, len)        dma_job(3, val, 0, dst, dbank, len)
 
 // ---------------------------------------------------------------- setup
 
@@ -115,7 +59,7 @@ static void build_screen(uint16_t screen, uint8_t fb_bank) {
             row[c * 2] = (uint8_t)ch;
             row[c * 2 + 1] = ch >> 8;
         }
-        dma_begin(0);
+        dma_begin(0, 0);
         dma_copy((uint16_t)row, 0, screen + r * LINESTEP, SCREEN_BANK, LINESTEP);
         dma_run();
     }
@@ -158,7 +102,7 @@ void video_init(void) {
 
     // Framebuffers and status black, separator line drawn; the tiles
     // black until they are loaded (or if they are not on the disk)
-    dma_begin(0);
+    dma_begin(0, 0);
     dma_fill(0, 0x0000, FB_BANK_A, 0);           // 0 = 64K
     dma_fill(0, 0x0000, FB_BANK_B, 0);
     dma_fill(0, TILES_OFF, GFX_BANK, TILE_COUNT * 256);
@@ -274,7 +218,7 @@ void video_show(void) {
 // them from one chained job to the next. A full list is run and started
 // again.
 static uint8_t *sprite_list(void) {
-    uint8_t *p = dmalist;
+    uint8_t *p = DMA_LIST;
     p[0] = 0x0A;
     p[1] = 0x80;
     p[2] = 0x00;
@@ -284,8 +228,8 @@ static uint8_t *sprite_list(void) {
 }
 
 static uint8_t *sprite_run(uint8_t *p) {
-    if (p != dmalist + 5) {
-        last_cmd = p - SPRITE_JOB + 8;
+    if (p != DMA_LIST + 5) {
+        dma_last = p - SPRITE_JOB + 8;
         dma_run();
     }
     return sprite_list();
@@ -323,7 +267,7 @@ static void draw_sprites(const Sprite *s, uint8_t n, uint16_t cam_x, uint16_t ca
         uint8_t rows = 16 - r0;
         if (y + 16 > VIEW_H)
             rows -= y + 16 - VIEW_H;
-        if (p > dmalist + MAX_JOBS * 12 - 16 * SPRITE_JOB)
+        if (p > DMA_LIST + DMA_JOBS * 12 - 16 * SPRITE_JOB)
             p = sprite_run(p);
         p = sprite_jobs(p, x, TILES_OFF + (s->tile << 8) + r0 * 8, (y + r0) * 8, rows, bank);
     }
@@ -341,8 +285,8 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
     uint8_t *p;
 
     drawn_fx = cam_x & 7;
-    dma_begin(0);
-    p = dp;
+    dma_begin(0, 0);
+    p = dma_p;
     for (uint8_t c = 0; c < COLS; c++, wc++, dcol += FB_COL) {
         const uint8_t *tp = top + (wc >> 1);
         uint16_t gfx = TILES_OFF + ((wc & 1) ? 128 : 0);
@@ -355,7 +299,7 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
         if (y < VIEW_H)
             JOB(p, outside ? space : gfx + (*tp << 8), d, bank, (VIEW_H - y) * 8);
     }
-    last_cmd = p - 12;
+    dma_last = p - 12;
     dma_run();
     if (n)
         draw_sprites(sprites, n, cam_x, cam_y, bank);
@@ -406,7 +350,7 @@ void status_put(uint8_t col, uint8_t ch) {
         return;
     status_code[col] = ch;
     uint16_t src = make_glyph(ch, font_row);
-    dma_begin(0);
+    dma_begin(0, 0);
     dma_copy(src, 0, STATUS_OFF + col * (STATUS_ROWS * 64), STATUS_BANK, 128);
     dma_run();
 }
@@ -415,7 +359,7 @@ void status_tile(uint8_t col, uint8_t tile) {
     status_code[col] = status_code[col + 1] = 0xFF;  // no character
     uint16_t src = TILES_OFF + (tile << 8);
     uint16_t dst = STATUS_OFF + col * (STATUS_ROWS * 64);
-    dma_begin(0);
+    dma_begin(0, 0);
     dma_copy(src, GFX_BANK, dst, STATUS_BANK, 128);
     dma_copy(src + 128, GFX_BANK, dst + STATUS_ROWS * 64, STATUS_BANK, 128);
     dma_run();
@@ -433,7 +377,7 @@ void status_print(uint8_t col, const char *text) {
 // ---------------------------------------------------------------- title
 
 void video_clear(void) {
-    dma_begin(0);
+    dma_begin(0, 0);
     dma_fill(0, 0x0000, FB_BANK_A, COLS * FB_COL);
     dma_fill(0, 0x0000, FB_BANK_B, COLS * FB_COL);
     dma_run();
@@ -444,7 +388,7 @@ void video_clear(void) {
 // pixel row y
 static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_t len) {
     uint16_t dst = col * FB_COL + y * 8;
-    dma_begin(0);
+    dma_begin(0, 0);
     dma_copy(src, sbank, dst, FB_BANK_A, len);
     dma_copy(src, sbank, dst, FB_BANK_B, len);
     dma_run();
@@ -452,7 +396,7 @@ static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_
 
 void video_logo(uint8_t col, uint8_t y) {
     uint16_t src = LOGO_OFF;  // LOAD skipped the file's load address
-    dma_begin(0);
+    dma_begin(0, 0);
     for (uint8_t c = 0; c < LOGO_W / 8; c++, src += LOGO_H * 8) {
         uint16_t dst = (col + c) * FB_COL + y * 8;
         dma_copy(src, GFX_BANK, dst, FB_BANK_A, LOGO_H * 8);
@@ -477,7 +421,7 @@ void video_tile(uint8_t col, uint8_t y, uint8_t tile) {
 }
 
 void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h) {
-    dma_begin(0);
+    dma_begin(0, 0);
     for (uint16_t dst = col * FB_COL + y * 8; cols--; dst += FB_COL) {
         dma_fill(0, dst, FB_BANK_A, h * 8);
         dma_fill(0, dst, FB_BANK_B, h * 8);

@@ -21,14 +21,6 @@
 #define VIEW_W 304  // visible playfield in pixels
 #define VIEW_H 176
 
-// The graphics from the disk (main.c loads them), in bank 1, where DMA
-// copies them from: bank 0 keeps its room for the program. The tiles take
-// the DOS's work area as well (the game loads with its own loader and never
-// calls the DOS), the logo ends at the colour RAM at $1F800.
-#define GFX_BANK  1
-#define TILES_OFF 0x0000u  // SMARAGD.TILES at $10000, TILE_COUNT x 256 bytes
-#define LOGO_OFF  0x5600u  // SMARAGD.LOGO at $15600, LOGO_W x LOGO_H pixels
-
 void video_init(void);
 
 // A frame: video_sync waits until the separator row is on screen and sets
@@ -72,7 +64,7 @@ void video_tile(uint8_t col, uint8_t y, uint8_t tile);  // a 16x16 tile, 2 colum
 void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h);  // h pixel rows black
 void video_big_text(uint8_t col, uint8_t y, const char *text);  // 2 columns per letter
 void video_shine(uint8_t phase);  // cycle the big letters' colours
-void video_logo(uint8_t col, uint8_t y);  // the logo, at LOGO_OFF
+void video_logo(uint8_t col, uint8_t y);  // the logo, at LOGO_OFF (mem.h)
 void video_palette(uint8_t n);  // 0: game, 1: title screen with the logo
 
 #endif

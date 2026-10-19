@@ -1,8 +1,8 @@
 # Smaragd Dash: the memory the linker does not place, and the files on the
-# disk - for toolchain/tools/bin/mega65-mem. The numbers are video.c's.
+# disk - for toolchain/tools/bin/mega65-mem. The numbers are src/mem.h's.
 
 # Bank 0
-ram  $0800+6006      DMA list for a frame, 500 jobs (video.c)
+ram  $0800+6006      DMA list, 500 jobs (dma.c)
 
 # Banks 4 and 5: framebuffers of 40 columns x 22 characters x 64 bytes
 ram  $40000+56320    framebuffer A (video.c)

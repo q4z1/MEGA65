@@ -133,18 +133,20 @@ the video `screenshots/first-six-caves.mp4` with
 | `src/engine.c` | the cave rules, without hardware access |
 | `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens |
 | `src/hiscore.c` | the high score table and its file |
+| `src/mem.h` | where everything lies that the linker does not place: DMA list, tiles, logo, framebuffers, status line, screens |
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/input.c` | joysticks and keyboard |
 | `src/sound.c` | sound effects on the first and third SID (left and right) |
 | `src/music.c` | music player on the second and fourth SID |
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
+| `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`) |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
-| `memmap` | the memory outside the linker's sections, and the disk's files, for `mega65-mem` |
+| `memmap` | `src/mem.h` and the disk's files again, for `mega65-mem` |
 
 **The rules** follow Boulder Dash 1: the cave is scanned once per tick
 from top left to bottom right, and what moves down or right is marked so it
@@ -211,7 +213,7 @@ bytes, 17.5K) lie before it at $10000, a file of their own as well: they
 are only ever copied by DMA, so they need not lie in bank 0, which keeps
 its room for code. They take the DOS's work area at $10000-$11FFF: the
 game loads with its own loader and never calls the DOS. There is room for
-86 tiles; `video.c` checks at compile time that tiles and logo fit.
+86 tiles; `mem.h` checks at compile time that tiles and logo fit.
 `mkgfx.py` scales it down and gives it palette 1: all entries the status
 font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.

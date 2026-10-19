@@ -23,6 +23,7 @@
 
 #include <string.h>
 
+#include "dma.h"
 #include "hw.h"
 
 #define FDC_CONTROL 0xD080  // drive, side, motor, LED
@@ -32,6 +33,11 @@
 #define FDC_SECTOR  0xD085
 #define FDC_SIDE    0xD086
 
+// The controller's sector buffer at $FFD6C00: megabyte $FF, bank $D
+#define BUF_MB   0xFF
+#define BUF_BANK 0x0D
+#define BUF_OFF  0x6C00u
+
 #define DIR_TRACK  40
 #define DIR_SECTOR 3
 
@@ -40,33 +46,6 @@ void (*disk_busy)(void);
 static uint8_t blk[256];               // the logical sector last read
 static uint8_t in_buf_track = 0xFF;    // physical sector in the controller's buffer
 static uint8_t in_buf_sector, in_buf_side;
-
-// One DMA copy job, enhanced list: source and target megabyte, then F018A
-static uint8_t dma_list[] = {
-    0x0A, 0x80, 0x00, 0x81, 0x00, 0x00,
-    0x00,                // copy
-    0, 0,                // length
-    0, 0, 0,             // source
-    0, 0, 0,             // target
-    0, 0,                // modulo
-};
-
-static void dma_copy(uint8_t src_mb, uint32_t src, uint8_t dst_mb, uint32_t dst, uint16_t len) {
-    dma_list[2] = src_mb;
-    dma_list[4] = dst_mb;
-    dma_list[7] = (uint8_t)len;
-    dma_list[8] = len >> 8;
-    dma_list[9] = (uint8_t)src;
-    dma_list[10] = (uint8_t)(src >> 8);
-    dma_list[11] = (src >> 16) & 0x0F;
-    dma_list[12] = (uint8_t)dst;
-    dma_list[13] = (uint8_t)(dst >> 8);
-    dma_list[14] = (dst >> 16) & 0x0F;
-    POKE(0xD702, 0);
-    POKE(0xD704, 0);
-    POKE(0xD701, (uint16_t)dma_list >> 8);
-    POKE(0xD705, (uint8_t)(uint16_t)dma_list);  // enhanced job, starts it
-}
 
 static void wait_ready(void) {
     while (PEEK(FDC_STATUS) & 0x80)
@@ -101,7 +80,9 @@ static bool read_sector(uint8_t t, uint8_t s) {
         if (disk_busy)
             disk_busy();
     }
-    dma_copy(0xFF, 0xD6C00 + ((uint16_t)(s & 1) << 8), 0, (uint16_t)blk, 256);
+    dma_begin(BUF_MB, 0);
+    dma_copy(BUF_OFF + ((uint16_t)(s & 1) << 8), BUF_BANK, (uint16_t)blk, 0, 256);
+    dma_run();
     return true;
 }
 
@@ -109,7 +90,9 @@ static bool read_sector(uint8_t t, uint8_t s) {
 // (read_sector of the same s just before): into its half of the
 // controller's buffer, and the whole buffer onto the disk
 static bool write_sector(uint8_t s) {
-    dma_copy(0, (uint16_t)blk, 0xFF, 0xD6C00 + ((uint16_t)(s & 1) << 8), 256);
+    dma_begin(0, BUF_MB);
+    dma_copy((uint16_t)blk, 0, BUF_OFF + ((uint16_t)(s & 1) << 8), BUF_BANK, 256);
+    dma_run();
     wait_ready();
     POKE(FDC_TRACK, in_buf_track);
     POKE(FDC_SECTOR, in_buf_sector);
@@ -160,7 +143,9 @@ bool disk_load(const char *name, uint8_t bank, uint16_t addr) {
             break;
         uint16_t end = blk[0] ? 256 : blk[1] + 1;
         if (end > from) {
-            dma_copy(0, (uint16_t)blk + from, 0, dst, end - from);
+            dma_begin(0, 0);
+            dma_copy((uint16_t)blk + from, 0, (uint16_t)dst, dst >> 16, end - from);
+            dma_run();
             dst += end - from;
         }
         from = 2;
