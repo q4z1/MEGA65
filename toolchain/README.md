@@ -11,7 +11,7 @@ toolchain/setup.sh
 | Path | What | Source |
 | --- | --- | --- |
 | `llvm-mos/` | C/C++ compiler, assembler and linker for the 45GS02 (`mos-mega65-clang`) | [llvm-mos-sdk](https://github.com/llvm-mos/llvm-mos-sdk) v23.3.0, Linux release |
-| `xemu/` | the Xemu emulator, built into `xemu/build/bin/xmega65.native` | git submodule of [lgblgblgb/xemu](https://github.com/lgblgblgb/xemu) |
+| `xemu/` | the Xemu emulator, built into `xemu/build/bin/xmega65.native` | git submodule of our fork [q4z1/xemu](https://github.com/q4z1/xemu) of [lgblgblgb/xemu](https://github.com/lgblgblgb/xemu) |
 | `rom/build-rom.sh` | builds `rom/MEGA65.ROM` (version 920413) | see below |
 | `disks/` | D81 disks: slideshow, FCM demos, palette and character editors (with the manual as PDF) – local only, not in the repo | files.mega65.org |
 | `mega65go/` | the Windows setup mega65go and its `Instructions.txt` – the model for `build-rom.sh`; local only, not in the repo | files.mega65.org |
@@ -73,6 +73,34 @@ the ROM, the character set, the Hyppo files and an empty default D81 onto the
 image, sets its signature and restarts. The message does not appear after
 that. The wrapper still passes `-rom`, so the ROM built here is always the one
 that runs.
+
+### Patching Xemu
+
+`xemu/` is a submodule of the fork [q4z1/xemu](https://github.com/q4z1/xemu)
+(`origin`); the original project is the remote `upstream`. Changes to Xemu
+are made on a branch in the fork:
+
+```sh
+cd toolchain/xemu
+git switch -c fix-something       # branch off master
+# ... edit, then rebuild
+make -j"$(nproc)"
+git commit -am "..."
+git push -u origin fix-something
+cd ../..
+git add toolchain/xemu            # record the new submodule commit
+git commit -m "Xemu: ..."
+```
+
+Push the submodule commit before the main repository's commit, otherwise a
+fresh clone points to a commit the fork does not have. To pick up upstream
+changes:
+
+```sh
+cd toolchain/xemu
+git fetch upstream
+git switch master && git merge --ff-only upstream/master && git push
+```
 
 Useful for automated tests:
 

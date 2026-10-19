@@ -38,6 +38,12 @@ if [ ! -x "$TC/xemu/build/bin/xmega65.native" ]; then
     make -C "$TC/xemu" -j"$(nproc)"
 fi
 
+# The submodule points to our fork (origin); the original project is
+# kept as upstream for pulling in its changes
+if ! git -C "$TC/xemu" remote get-url upstream >/dev/null 2>&1; then
+    git -C "$TC/xemu" remote add upstream https://github.com/lgblgblgb/xemu.git
+fi
+
 if [ ! -f "$TC/rom/MEGA65.ROM" ]; then
     echo "== MEGA65.ROM"
     "$TC/rom/build-rom.sh"
