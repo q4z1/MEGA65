@@ -1,4 +1,4 @@
-// Emerald Dash: sound effects (see sound.h). Every effect plays on the
+// Smaragd Dash: sound effects (see sound.h). Every effect plays on the
 // first SID ($D400, left) and the third ($D440, right) alike.
 
 #include "sound.h"

@@ -1,11 +1,12 @@
-# Emerald Dash
+# Smaragd Dash
 
 A Boulder Dash style game for the MEGA65: dig through the cave, collect
 emeralds, mind the boulders, reach the exit before the time runs out.
 
 The aim is to play like the original Boulder Dash on the C64, with clearly
 better graphics. The rules are the Boulder Dash 1 engine's; levels and
-graphics are our own.
+graphics are our own. Rockford is the adventurer from the title logo
+(`gfx/logo.png`).
 
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
@@ -29,14 +30,18 @@ melody on the right channel. Fire starts the game.
 In VS Code: open any file of the folder and press **F5**. Without the editor:
 
 ```sh
-.vscode/run-current.sh emerald-dash/        # from the repository root
-emerald-dash/build.sh                       # build only
+.vscode/run-current.sh smaragd-dash/        # from the repository root
+smaragd-dash/build.sh                       # build only
 ```
 
 `build.sh` generates the graphics (`tools/mkgfx.py`), the caves
 (`tools/mkcave.py`) and the music (`tools/mkmusic.py`) into `build/gen/`,
-then compiles everything into
-`build/emerald-dash.prg`. `build/preview.png` shows all tiles enlarged.
+then compiles everything into `build/smaragd-dash.prg` and puts it on the
+disk image `build/smaragd-dash.d81` together with the title logo
+(`SMARAGD.LOGO`). F5 starts the disk (`-8 … -autoload`). Started as a bare
+PRG, without the disk, the title shows the name in big letters instead of
+the logo. `build/preview.png` shows all tiles enlarged,
+`build/preview-logo.png` the logo as the MEGA65 shows it.
 
 The engine tests run on the host:
 
@@ -45,7 +50,7 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 ```
 
 For screenshots of the running game without a keyboard,
-`EMERALD_CFLAGS=-DAUTOPLAY` builds a version that walks a fixed path
+`SMARAGD_CFLAGS=-DAUTOPLAY` builds a version that walks a fixed path
 (`src/input.c`); the pictures in `screenshots/` were taken that way with
 Xemu's `-headless -screenshot`.
 
@@ -59,10 +64,12 @@ Xemu's `-headless -screenshot`.
 | `src/input.c` | joysticks and keyboard |
 | `src/sound.c` | sound effects on the first and third SID (left and right) |
 | `src/music.c` | music player on the second and fourth SID |
+| `src/disk.c`, `src/disk.s` | loading files from the disk through the KERNAL |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
+| `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
 
 **The rules** follow Boulder Dash 1: the cave is scanned once per tick
 from top left to bottom right, and what moves down or right is marked so it
@@ -99,9 +106,26 @@ next note, and slowly opens and closes the filter on the bass. The left SID
 plays melody, bass and chords, the right one the echo, the bass again and
 the drums.
 
-The title text is drawn into the playfield framebuffers with the status
-font; the big letters are the same font at twice the size, in 16 palette
-entries of their own that the title screen cycles for the shine.
+**The title logo** does not fit into the program: below $D000 there is
+room for about 44K of code and data, the logo at 288x144 pixels takes
+41K. So it is a file of its own on the disk. Before the program takes the
+machine over, `disk_load` has the KERNAL load it into bank 1 at $12000,
+from where DMA copies it into both framebuffers for the title screen.
+`mkgfx.py` scales it down and gives it palette 1: all entries the status
+font and icons do not use (they keep theirs, so the status line looks the
+same); the title screen switches the text palette to 1, the game back to 0.
+
+Calling the KERNAL from an llvm-mos program needs some care (`disk.s`): the
+start-up code has switched the ROM at $C000 and BASIC out, and our
+variables can lie under BASIC, so the parameters go to SETBNK, SETNAM and
+SETLFS first and the ROM configuration comes back only for LOAD; the DOS
+uses zero page $02-$8F, which holds llvm-mos's registers and stack pointer,
+so that is saved and restored; and it leaves the Z register non-zero,
+while llvm-mos stores zeros with STZ, which on the 45GS02 stores Z.
+
+Without the logo the title text is drawn with the status font; the big
+letters are the same font at twice the size, in 16 palette entries of
+their own that the title screen cycles for the shine.
 
 ## Cave files
 

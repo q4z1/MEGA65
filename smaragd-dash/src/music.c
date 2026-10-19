@@ -1,4 +1,4 @@
-// Emerald Dash: music player for the song made by tools/mkmusic.py.
+// Smaragd Dash: music player for the song made by tools/mkmusic.py.
 //
 // Six voices on the second ($D420, left) and fourth ($D460, right) SID;
 // the sound effects keep the first and third. Called once per frame.

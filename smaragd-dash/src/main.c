@@ -1,4 +1,4 @@
-// Emerald Dash: a Boulder Dash style game for the MEGA65.
+// Smaragd Dash: a Boulder Dash style game for the MEGA65.
 //
 // main.c runs the game: the title screen with its music, then the caves:
 // a cave is uncovered, Rockford hatches, and the cave runs in ticks of the
@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "caves.h"
+#include "disk.h"
 #include "engine.h"
 #include "gfx.h"
 #include "hw.h"
@@ -43,6 +44,7 @@ static uint8_t cave_no;
 static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static uint32_t hiscore;
+static bool have_logo;              // the logo file was on the disk
 
 // ---------------------------------------------------------------- drawing
 
@@ -270,15 +272,30 @@ static void title_frame(void) {
 // Centre a text of n characters (big: 2 columns each) in columns 1-38
 #define CENTRE(n) (1 + (38 - (n)) / 2)
 
+// One line of text under the logo, centred over the full width
+static void title_line(const char *text) {
+    static char line[39];
+    uint8_t n = strlen(text);
+    memset(line, ' ', 38);
+    memcpy(line + (38 - n) / 2, text, n);
+    line[38] = 0;
+    video_text(1, 152, line);
+}
+
 static void title_screen(void) {
     static const char press[] = "PRESS FIRE TO START";
     static const char blank[] = "                   ";
     video_clear();
-    video_big_text(CENTRE(14), 8, "EMERALD");
-    video_big_text(CENTRE(8), 44, "DASH");
-    video_text(CENTRE(26), 88, "DIG  -  COLLECT  -  ESCAPE");
-    video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
-    video_text(CENTRE(26), 156, "P PAUSE   RUN/STOP GIVE UP");
+    if (have_logo) {
+        video_palette(1);
+        video_logo(CENTRE(LOGO_W / 8), 2);
+    } else {  // started without the disk: the logo as text
+        video_big_text(CENTRE(14), 8, "SMARAGD");
+        video_big_text(CENTRE(8), 44, "DASH");
+        video_text(CENTRE(26), 88, "DIG  -  COLLECT  -  ESCAPE");
+        video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
+        video_text(CENTRE(26), 156, "P PAUSE   RUN/STOP GIVE UP");
+    }
     status_clear();
     status_put(2, ICON(ICON_EMERALD));
     status_print(12, "HI-SCORE");
@@ -290,10 +307,27 @@ static void title_screen(void) {
     // emulator's RUN, or fire still held from the last game)
     bool armed = false;
     for (uint16_t f = 0;; f++) {
-        if ((f & 31) == 0)
-            video_text(CENTRE(19), 112, (f & 32) ? blank : press);
-        if (f % 3 == 0)
-            video_shine(f / 3);
+        if (have_logo) {
+            // the line under the logo: "press fire", blinking, and in
+            // between the controls
+            if ((f & 31) == 0) {
+                switch ((f >> 7) & 3) {
+                case 1:
+                    title_line("JOYSTICK, GAMEPAD OR CURSOR KEYS");
+                    break;
+                case 3:
+                    title_line("P PAUSE   RUN/STOP GIVE UP");
+                    break;
+                default:
+                    title_line((f & 32) ? "" : press);
+                }
+            }
+        } else {
+            if ((f & 31) == 0)
+                video_text(CENTRE(19), 112, (f & 32) ? blank : press);
+            if (f % 3 == 0)
+                video_shine(f / 3);
+        }
         title_frame();
         if (armed && (pressed & IN_BUTTON))
             break;
@@ -302,6 +336,7 @@ static void title_screen(void) {
     }
     music_stop();
     video_shine(0);
+    video_palette(0);
     sound_init();
 }
 
@@ -422,6 +457,9 @@ static uint8_t play_cave(void) {
 }
 
 int main(void) {
+    // While the KERNAL still runs: the title logo from the disk to $12000
+    have_logo = disk_load("SMARAGD.LOGO", 1, 0x2000);
+
     __asm__ volatile("sei");
     POKE(0x00, 65);                     // 40 MHz
     POKE(0xD02F, 0x47);                 // VIC-IV registers on

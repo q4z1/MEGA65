@@ -1,4 +1,4 @@
-// Emerald Dash: the screen (see video.h).
+// Smaragd Dash: the screen (see video.h).
 
 #include "video.h"
 
@@ -15,6 +15,9 @@
 #define SCREEN_BANK 5
 #define SCREEN_A    0xDC00u    // screen RAM A at $5DC00 (40x25 x 2 bytes)
 #define SCREEN_B    0xE400u    // screen RAM B at $5E400
+// The title logo, loaded from the disk (see main.c)
+#define LOGO_BANK   1
+#define LOGO_OFF    0x2000u    // $12000
 
 #define COLS      40
 #define ROWS      25
@@ -84,7 +87,18 @@ static void set_palette(void) {
         POKE(0xD200 + i, pal_g[i]);
         POKE(0xD300 + i, pal_b[i]);
     }
+    POKE(0xD070, 0x40);  // edit palette 1: the title screen's
+    for (uint16_t i = 0; i < 256; i++) {
+        POKE(0xD100 + i, pal1_r[i]);
+        POKE(0xD200 + i, pal1_g[i]);
+        POKE(0xD300 + i, pal1_b[i]);
+    }
+    POKE(0xD070, 0x00);
     POKE(0xD030, PEEK(0xD030) | 0x04);  // colours 0-15 from palette RAM too
+}
+
+void video_palette(uint8_t n) {
+    POKE(0xD070, n << 4);  // palette for text; palette 0 stays mapped
 }
 
 // Screen RAM: rows 0-2 point to the status characters, rows 3-24 to a
@@ -324,6 +338,17 @@ static void to_both(uint16_t src, uint8_t col, uint8_t y, uint16_t len) {
     dma_begin(0);
     dma_copy(src, 0, dst, FB_BANK_A, len);
     dma_copy(src, 0, dst, FB_BANK_B, len);
+    dma_run();
+}
+
+void video_logo(uint8_t col, uint8_t y) {
+    uint16_t src = LOGO_OFF;  // LOAD skipped the file's load address
+    dma_begin(0);
+    for (uint8_t c = 0; c < LOGO_W / 8; c++, src += LOGO_H * 8) {
+        uint16_t dst = (col + c) * FB_COL + y * 8;
+        dma_copy(src, LOGO_BANK, dst, FB_BANK_A, LOGO_H * 8);
+        dma_copy(src, LOGO_BANK, dst, FB_BANK_B, LOGO_H * 8);
+    }
     dma_run();
 }
 

@@ -9,7 +9,7 @@ Each subfolder is a self-contained program.
 | Folder | What it is |
 | --- | --- |
 | [main/](main/) | Hello world: C with one routine in assembly. A template, and a check that everything works together. |
-| [emerald-dash/](emerald-dash/README.md) | Emerald Dash: a Boulder Dash style game in 256 colours with smooth scrolling. One cave so far. |
+| [smaragd-dash/](smaragd-dash/README.md) | Smaragd Dash: a Boulder Dash style game in 256 colours with smooth scrolling, title logo and stereo music, on a D81. One cave so far. |
 
 ## How this was made
 
@@ -55,7 +55,9 @@ A program is a folder. Without a `build.sh` of its own, all `.c` and `.s`
 files in it are built into `build/<folder>.prg` (plus `.prg.elf` with symbols
 and a `.map`). Extra compiler flags go into a file `cflags` in the folder.
 Anything more needs a `build.sh`; it gets the compiler in `$MEGA65_CC` and
-must leave `build/<folder>.prg` behind.
+must leave `build/<folder>.prg` behind. If it also leaves a disk image
+`build/<folder>.d81` (made with `toolchain/tools/bin/mkd81.py`), F5 starts
+that instead: in drive 8, with its first program run (`-autoload`).
 
 To disassemble:
 

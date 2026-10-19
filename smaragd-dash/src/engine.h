@@ -1,4 +1,4 @@
-// Emerald Dash: the cave engine. Plain C without any hardware access, so it
+// Smaragd Dash: the cave engine. Plain C without any hardware access, so it
 // can be tested on the host as well (tests/).
 //
 // The rules follow the original Boulder Dash 1 engine: the cave is scanned

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emerald Dash graphics: draws all tiles, the status font and icons in
+"""Smaragd Dash graphics: draws all tiles, the status font and icons in
 code, builds one 256-colour palette and writes C sources for the MEGA65.
 
 Usage: mkgfx.py <outdir> [preview.png]
@@ -13,6 +13,13 @@ Output:
     font_bits  8x16 glyphs, 1 bit per pixel; coloured at run time
     icon_gfx   8x16 full-colour glyphs for the status line
     sep_gfx    one 8x8 character for the line under the status
+    pal1_r/g/b palette 1 for the title screen: the logo's colours, plus the
+               status font's at the same entries as in palette 0
+  <outdir>/logo.bin
+               gfx/logo.png at LOGO_W x LOGO_H for the title screen, a file
+               of its own on the disk: two bytes of load address, then the
+               pixels in strips of 8 columns (each LOGO_H rows of 8 bytes),
+               ready to be copied into the framebuffer column by column
   preview.png  every tile, enlarged, plus a mock cave (optional)
 
 Pixel value 0 is the screen colour (black, flashes white when the exit
@@ -20,12 +27,15 @@ opens), so "None" in a drawing is background.
 """
 
 import math
+import os
 import random
 import sys
 
 from PIL import Image
 
 T = 16  # tile size
+LOGO_W, LOGO_H = 288, 144
+LOGO_SRC = os.path.join(os.path.dirname(__file__), "..", "gfx", "logo.png")
 
 
 def clamp(v, lo=0, hi=255):
@@ -264,43 +274,45 @@ def draw_emerald(frame, frames=8):
     return t
 
 
-# Rockford, the miner. Hand-drawn; letters are colours.
+# Rockford: the adventurer from the title logo (fedora, leather jacket,
+# jeans). Hand-drawn; letters are colours.
 ROCK_PAL = {
-    "k": hexc("140f18"),   # outline
-    "Y": hexc("f8c828"), "y": hexc("c08818"), "h": hexc("fff0a0"),  # helmet
-    "L": hexc("fffff0"), "l": hexc("ffe878"),                       # lamp
+    "k": hexc("140e10"),   # outline
+    "H": hexc("a8642a"), "h": hexc("d89448"), "d": hexc("5a2d14"),  # hat, band
+    "r": hexc("5a3218"),                                            # hair
     "S": hexc("f4bc8c"), "s": hexc("c88458"),                       # skin
     "e": hexc("101028"), "m": hexc("a83c3c"),                       # eyes, mouth
-    "B": hexc("3c64d0"), "b": hexc("243c90"), "c": hexc("7ca0f4"),  # overalls
-    "T": hexc("d04030"), "t": hexc("8c2418"),                       # shirt
-    "W": hexc("7c4c28"), "w": hexc("4c2c14"),                       # boots
+    "J": hexc("82461e"), "j": hexc("552d14"), "l": hexc("b06a32"),  # jacket
+    "T": hexc("ecece0"),                                            # shirt
+    "B": hexc("3c64be"), "b": hexc("243c82"),                       # jeans
+    "W": hexc("78461e"), "w": hexc("46280f"),                       # boots
 }
 
 ROCK_HEAD = [
-    "......kkkk......",
-    "....kkhhYYkk....",
-    "...khYYLLYYyk...",
-    "...kYYYLLYYyk...",
-    "..kyyyyyyyyyyk..",
-    "...kSSSSSSSSk...",
-    "...kSeSSSSeSk...",
+    "....kkkkkkkk....",
+    "...khhhHHHHHk...",
+    "...kHHHHHHHHk...",
+    "...kddddddddk...",
+    ".kkhHHHHHHHHHdk.",
+    "..krSSSSSSSSrk..",
+    "..krSeSSSSeSrk..",
     "...kSeSSSSeSk...",
     "...ksSSmmSSsk...",
     "....kssssssk....",
 ]
 ROCK_BODY = [
-    "..kTkBccccBkTk..",
-    ".kTTkBBBBBBkTTk.",
-    ".kSskBBBBBBksSk.",
+    "..kJlJTTTTJlJk..",
+    ".kJJJkJTTJkJJJk.",
+    ".kSskjJJJJjksSk.",
     "..kkkbBBBBbkkk..",
 ]
 ROCK_LEGS = {
-    "stand": ["...kWWkkkkWWk...", "...kwwwk.kwwwk.."],
-    "tap":   ["...kWWkk..kWWk..", "...kwwwk...kkk.."],
-    "walk0": ["..kWWk....kWWk..", "..kwwwk...kwwwk."],
-    "walk1": ["....kWWkkWWk....", "....kwwk.kwwk..."],
-    "walk2": ["...kWWk..kWWk...", "...kkkk..kwwwk.."],
-    "walk3": ["....kWWkkWWk....", "....kwwk.kwwk..."],
+    "stand": ["...kBbkkkkbBk...", "..kWWWk..kWWWk.."],
+    "tap":   ["...kBbkk..kWWk..", "..kWWWk...kkk..."],
+    "walk0": ["..kBbk....kbBk..", ".kWWWk....kWWWk."],
+    "walk1": ["....kBbkkbBk....", "....kWWkkWWk...."],
+    "walk2": ["...kBbk..kBbk...", "...kkkk..kWWWk.."],
+    "walk3": ["....kBbkkbBk....", "....kWWkkWWk...."],
 }
 
 
@@ -320,7 +332,7 @@ def rock_rows(eyes=0, blink=False, legs="stand", bob=0, arms=0):
     body = list(ROCK_BODY)
     if arms:
         # one arm forward, one back
-        a, b = ("..kTk", ".kTTk") if arms > 0 else (".kTTk", "..kTk")
+        a, b = ("..kJk", ".kJJk") if arms > 0 else (".kJJk", "..kJk")
         body[0] = a + body[0][5:11] + b[::-1]
         body[1] = b + body[1][5:11] + a[::-1]
     rows = head + body + ROCK_LEGS[legs]
@@ -621,7 +633,7 @@ def draw_icon_clock():
 
 def draw_icon_life():
     t = [[None] * 8 for _ in range(16)]
-    rows = ["..kkkk..", ".khYYyk.", "kYYLLYyk", "kyyyyyyk", ".kSSSSk.", ".kSeeSk.", "..kSSk..", "...kk..."]
+    rows = ["..kkkk..", ".khHHHk.", ".kddddk.", "kHHHHHHk", ".kSSSSk.", ".kSeeSk.", "..kSSk..", "...kk..."]
     pal = dict(ROCK_PAL)
     for y, row in enumerate(rows):
         for x, ch in enumerate(row):
@@ -699,6 +711,34 @@ def quantise(images, maxcol=254):
     return out
 
 
+def make_logo(ui_entries):
+    """Scale the logo down and give it the palette entries the status font
+    does not use. Returns the strip data and palette 1."""
+    src = Image.open(LOGO_SRC).convert("RGBA")
+    black = Image.new("RGBA", src.size, (0, 0, 0, 255))
+    black.alpha_composite(src)
+    rgb = black.convert("RGB").resize((LOGO_W, LOGO_H), Image.LANCZOS)
+    alpha = src.getchannel("A").resize((LOGO_W, LOGO_H), Image.LANCZOS)
+    free = [i for i in range(1, 255) if i not in ui_entries]
+    q = rgb.quantize(colors=len(free), method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    qpal = q.getpalette()
+    pix = q.load()
+    out = [[0] * LOGO_W for _ in range(LOGO_H)]
+    for y in range(LOGO_H):
+        for x in range(LOGO_W):
+            if alpha.getpixel((x, y)) >= 40:
+                out[y][x] = free[pix[x, y]]
+    pal1 = [(0, 0, 0)] * 256
+    for k, entry in enumerate(free):
+        if 3 * k + 2 < len(qpal):
+            pal1[entry] = tuple(qpal[3 * k:3 * k + 3])
+    data = [0x00, 0x20]  # load address (not used: the program gives its own)
+    for strip in range(LOGO_W // 8):
+        for y in range(LOGO_H):
+            data += out[y][strip * 8:strip * 8 + 8]
+    return bytes(data), pal1, out
+
+
 def swap(v):
     return ((v & 15) << 4) | (v >> 4)
 
@@ -747,6 +787,13 @@ def main():
         sep += [pal(next(it)) if c else 0] * 8
     title_row = [pal.unique(c) for c in title_colours()]
 
+    ui_entries = set(font_row) | {font_shadow} | set(icon_bytes) | set(sep)
+    logo, pal1, logo_pix = make_logo(ui_entries)
+    for i in ui_entries:
+        pal1[i] = pal.colours[i]
+    with open(f"{outdir}/logo.bin", "wb") as f:
+        f.write(logo)
+
     cols = pal.colours
     with open(f"{outdir}/gfx.h", "w") as f:
         f.write("// Generated by tools/mkgfx.py - do not edit\n#ifndef GFX_H\n#define GFX_H\n#include <stdint.h>\n\n")
@@ -764,7 +811,9 @@ def main():
         f.write("extern const uint8_t title_row[16];  // palette entries of the big letters\n")
         f.write(f"#define FONT_SHADOW {font_shadow}\n")
         f.write(f"extern const uint8_t icon_gfx[{len(icons)} * 128];\n")
-        f.write("extern const uint8_t sep_gfx[64];\n\n#endif\n")
+        f.write("extern const uint8_t sep_gfx[64];\n")
+        f.write(f"\n#define LOGO_W {LOGO_W}\n#define LOGO_H {LOGO_H}\n")
+        f.write("extern const uint8_t pal1_r[256], pal1_g[256], pal1_b[256];\n\n#endif\n")
     with open(f"{outdir}/gfx.c", "w") as f:
         f.write("// Generated by tools/mkgfx.py - do not edit\n#include \"gfx.h\"\n\n")
         f.write(c_array("tile_gfx", tile_bytes))
@@ -776,12 +825,20 @@ def main():
         f.write(c_array("title_row", title_row))
         f.write(c_array("icon_gfx", icon_bytes))
         f.write(c_array("sep_gfx", sep))
+        f.write(c_array("pal1_r", [swap(c[0]) for c in pal1]))
+        f.write(c_array("pal1_g", [swap(c[1]) for c in pal1]))
+        f.write(c_array("pal1_b", [swap(c[2]) for c in pal1]))
         esc = chars.replace("\\", "\\\\").replace('"', '\\"')
         f.write(f'const char font_chars[GLYPH_COUNT + 1] = "{esc}";\n')
 
     print(f"mkgfx: {len(tiles)} tiles, {len(icons)} icons, {len(chars)} glyphs, {len(cols)} colours")
     if preview:
         write_preview(preview, tiles, icons, chars, font_cols, shadow)
+        logo_img = Image.new("RGB", (LOGO_W, LOGO_H))
+        for y in range(LOGO_H):
+            for x in range(LOGO_W):
+                logo_img.putpixel((x, y), pal1[logo_pix[y][x]])
+        logo_img.resize((LOGO_W * 3, LOGO_H * 3), Image.NEAREST).save(preview.replace(".png", "-logo.png"))
 
 
 def write_preview(path, tiles, icons, chars, font_cols, shadow):
@@ -808,7 +865,7 @@ def write_preview(path, tiles, icons, chars, font_cols, shadow):
     for _, t in icons:
         put(t, x, oy)
         x += 8
-    for ch in "EMERALD DASH 0123456789":
+    for ch in "SMARAGD DASH 0123456789":
         put(render_glyph(font_glyph_bits(ch), font_cols), x, oy)
         x += 8
     oy += 19

@@ -1,4 +1,4 @@
-// Emerald Dash: title music (src/music.c, song from tools/mkmusic.py)
+// Smaragd Dash: title music (src/music.c, song from tools/mkmusic.py)
 
 #ifndef MUSIC_H
 #define MUSIC_H

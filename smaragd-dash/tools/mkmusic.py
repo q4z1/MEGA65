@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emerald Dash title music: the song as text, turned into C tables for the
+"""Smaragd Dash title music: the song as text, turned into C tables for the
 player in src/music.c.
 
 Usage: mkmusic.py <outdir>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Emerald Dash caves: turns the .cave text files into C.
+"""Smaragd Dash caves: turns the .cave text files into C.
 
 Usage: mkcave.py <outdir> <file.cave>...   (in the order they are played)
 

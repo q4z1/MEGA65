@@ -1,4 +1,4 @@
-// Emerald Dash: register access
+// Smaragd Dash: register access
 
 #ifndef HW_H
 #define HW_H

@@ -1,11 +1,11 @@
-// Emerald Dash: joysticks and keyboard (see input.h).
+// Smaragd Dash: joysticks and keyboard (see input.h).
 
 #include "input.h"
 
 #include "hw.h"
 
 #ifdef AUTOPLAY
-// Test builds (build.sh with EMERALD_CFLAGS=-DAUTOPLAY): a fixed walk
+// Test builds (build.sh with SMARAGD_CFLAGS=-DAUTOPLAY): a fixed walk
 // instead of the controls (fire on the title screen first), for screenshots
 // in the headless emulator.
 static const uint8_t script[][2] = {

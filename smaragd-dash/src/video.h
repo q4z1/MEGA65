@@ -1,4 +1,4 @@
-// Emerald Dash: the screen.
+// Smaragd Dash: the screen.
 //
 // 40x25 characters in full-colour mode (FCM, 8x8 pixels, one byte per
 // pixel). Rows 0-1 are the status line, row 2 a separator, rows 3-24 the
@@ -50,5 +50,7 @@ void video_clear(void);
 void video_text(uint8_t col, uint8_t y, const char *text);
 void video_big_text(uint8_t col, uint8_t y, const char *text);  // 2 columns per letter
 void video_shine(uint8_t phase);  // cycle the big letters' colours
+void video_logo(uint8_t col, uint8_t y);  // the logo loaded to $12000
+void video_palette(uint8_t n);  // 0: game, 1: title screen with the logo
 
 #endif

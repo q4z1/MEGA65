@@ -1,4 +1,4 @@
-// Emerald Dash: joysticks (either port) and keyboard.
+// Smaragd Dash: joysticks (either port) and keyboard.
 //   cursor keys        move
 //   Space / Return     fire (with a direction: snap)
 //   P                  pause

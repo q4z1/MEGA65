@@ -1,4 +1,4 @@
-// Emerald Dash: the cave engine (see engine.h).
+// Smaragd Dash: the cave engine (see engine.h).
 
 #include "engine.h"
 

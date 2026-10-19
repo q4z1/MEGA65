@@ -1,4 +1,4 @@
-// Emerald Dash: sound effects on the first SID.
+// Smaragd Dash: sound effects on the first SID.
 //   voice 1: Rockford and diamonds   voice 2: boulders, dirt, explosions
 //   voice 3: amoeba, magic wall, clock, exit
 
