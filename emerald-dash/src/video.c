@@ -1,0 +1,361 @@
+// Emerald Dash: the screen (see video.h).
+
+#include "video.h"
+
+#include "engine.h"
+#include "gfx.h"
+#include "hw.h"
+
+// Memory beyond the program (chip RAM banks 4 and 5, VIC-IV visible)
+#define FB_BANK_A   4          // framebuffer A at $40000
+#define FB_BANK_B   5          // framebuffer B at $50000
+#define FB_COL      (22 * 64u) // bytes per framebuffer column (22 characters)
+#define STATUS_BANK 4
+#define STATUS_OFF  0xDC00u    // status characters at $4DC00, 3 per column
+#define SCREEN_BANK 5
+#define SCREEN_A    0xDC00u    // screen RAM A at $5DC00 (40x25 x 2 bytes)
+#define SCREEN_B    0xE400u    // screen RAM B at $5E400
+
+#define COLS      40
+#define ROWS      25
+#define LINESTEP  (COLS * 2)
+#define STATUS_ROWS 3          // status line (2) and separator (1)
+
+static uint16_t text_x;        // TEXTXPOS for the status line
+static uint16_t text_y;        // first raster line of the text area
+static uint16_t bottom;        // first raster line of the bottom border
+static uint8_t back;           // framebuffer being drawn: 0 = A, 1 = B
+static uint8_t shown_fx;       // fine scroll of the framebuffer on screen
+static uint8_t drawn_fx;       // fine scroll of the one just drawn
+
+// ---------------------------------------------------------------- DMA
+
+#define MAX_JOBS 500
+static uint8_t dmalist[6 + 12 * MAX_JOBS];
+static uint8_t *dp, *last_cmd;
+
+// Enhanced DMA list: F018A format, megabyte 0 for source and target. Each
+// job is followed by the end of the (empty) option list of the next one.
+static void dma_begin(uint8_t dst_mb) {
+    dp = dmalist;
+    *dp++ = 0x0A;
+    *dp++ = 0x80;
+    *dp++ = 0x00;
+    *dp++ = 0x81;
+    *dp++ = dst_mb;
+    *dp++ = 0x00;
+}
+
+static void dma_job(uint8_t cmd, uint16_t src, uint8_t sbank, uint16_t dst, uint8_t dbank, uint16_t len) {
+    uint8_t *p = dp;
+    last_cmd = p;
+    p[0] = cmd | 4;  // chained; the last job's bit is cleared in dma_run
+    p[1] = (uint8_t)len;
+    p[2] = len >> 8;
+    p[3] = (uint8_t)src;
+    p[4] = src >> 8;
+    p[5] = sbank;
+    p[6] = (uint8_t)dst;
+    p[7] = dst >> 8;
+    p[8] = dbank;
+    p[9] = 0;
+    p[10] = 0;
+    p[11] = 0;
+    dp = p + 12;
+}
+
+static void dma_run(void) {
+    *last_cmd &= ~4;
+    POKE(0xD702, 0);
+    POKE(0xD704, 0);
+    POKE(0xD701, (uint16_t)dmalist >> 8);
+    POKE(0xD705, (uint8_t)(uint16_t)dmalist);  // enhanced job, starts it
+}
+
+#define dma_copy(src, sbank, dst, dbank, len) dma_job(0, src, sbank, dst, dbank, len)
+#define dma_fill(val, dst, dbank, len)        dma_job(3, val, 0, dst, dbank, len)
+
+// ---------------------------------------------------------------- setup
+
+static void set_palette(void) {
+    POKE(0xD070, 0x00);  // edit and use palette 0
+    for (uint8_t i = 0; i < PAL_COUNT; i++) {
+        POKE(0xD100 + i, pal_r[i]);
+        POKE(0xD200 + i, pal_g[i]);
+        POKE(0xD300 + i, pal_b[i]);
+    }
+    POKE(0xD030, PEEK(0xD030) | 0x04);  // colours 0-15 from palette RAM too
+}
+
+// Screen RAM: rows 0-2 point to the status characters, rows 3-24 to a
+// framebuffer; both stored column by column.
+static void build_screen(uint16_t screen, uint8_t fb_bank) {
+    static uint8_t row[LINESTEP];
+    uint16_t fb_char = (uint16_t)fb_bank << 10;  // bank * 64K / 64
+    const uint16_t st_char = ((uint32_t)STATUS_BANK << 10) + STATUS_OFF / 64;
+    for (uint8_t r = 0; r < ROWS; r++) {
+        for (uint8_t c = 0; c < COLS; c++) {
+            uint16_t ch = r < STATUS_ROWS ? st_char + c * STATUS_ROWS + r : fb_char + c * 22 + (r - STATUS_ROWS);
+            row[c * 2] = (uint8_t)ch;
+            row[c * 2 + 1] = ch >> 8;
+        }
+        dma_begin(0);
+        dma_copy((uint16_t)row, 0, screen + r * LINESTEP, SCREEN_BANK, LINESTEP);
+        dma_run();
+    }
+}
+
+static uint8_t status_code[COLS];
+
+void video_init(void) {
+    // 40x25 characters at the standard position: let the "hot" VIC-II
+    // registers set up the VIC-IV, then take over.
+    POKE(0xD031, (PEEK(0xD031) & ~0xA8) | 0x40);  // no H640/V400/attributes; fast
+    POKE(0xD016, 0xC8);
+    POKE(0xD011, 0x1B);
+    text_x = PEEK(0xD04C) | ((PEEK(0xD04D) & 0x0F) << 8);
+    text_y = PEEK(0xD04E) | ((PEEK(0xD04F) & 0x0F) << 8);
+    bottom = PEEK(0xD04A) | ((PEEK(0xD04B) & 0x0F) << 8);
+    POKE(0xD05D, PEEK(0xD05D) & 0x7F);  // hot registers off
+
+    // Side borders one character wider: hides the scrolled-in column
+    uint16_t side = (PEEK(0xD05C) | ((PEEK(0xD05D) & 0x3F) << 8)) + 16;
+    POKE(0xD05C, (uint8_t)side);
+    POKE(0xD05D, (PEEK(0xD05D) & 0xC0) | (side >> 8));
+
+    POKE(0xD020, 0);
+    POKE(0xD021, 0);
+    POKE(0xD015, 0);                    // no sprites
+    POKE(0xD054, PEEK(0xD054) | 0x47);  // 16-bit chars, full colour for all, fast
+    POKE(0xD058, LINESTEP);
+    POKE(0xD059, 0);
+    POKE(0xD05E, COLS);
+    POKE(0xD064, 0);                    // colour RAM from its start
+    POKE(0xD065, 0);
+    set_palette();
+
+    // Colour RAM all 0 (no attributes): its first 2K at $D800
+    POKE(0xD030, PEEK(0xD030) | 0x01);
+    for (uint16_t i = 0; i < ROWS * LINESTEP; i++)
+        POKE(0xD800 + i, 0);
+    POKE(0xD030, PEEK(0xD030) & ~0x01);
+
+    // Framebuffers and status black, separator line drawn
+    dma_begin(0);
+    dma_fill(0, 0x0000, FB_BANK_A, 0);           // 0 = 64K
+    dma_fill(0, 0x0000, FB_BANK_B, 0);
+    for (uint8_t c = 0; c < COLS; c++)
+        dma_copy((uint16_t)sep_gfx, 0, STATUS_OFF + c * (STATUS_ROWS * 64) + 128, STATUS_BANK, 64);
+    dma_run();
+    for (uint8_t c = 0; c < COLS; c++)
+        status_code[c] = ' ';
+
+    build_screen(SCREEN_A, FB_BANK_A);
+    build_screen(SCREEN_B, FB_BANK_B);
+    POKE(0xD060, (uint8_t)SCREEN_A);
+    POKE(0xD061, SCREEN_A >> 8);
+    POKE(0xD062, SCREEN_BANK);
+    POKE(0xD063, 0);
+    back = 1;
+}
+
+// ---------------------------------------------------------------- frame
+
+static uint16_t raster(void) {
+    uint8_t lo, hi;
+    do {
+        hi = PEEK(0xD053);
+        lo = PEEK(0xD052);
+    } while (hi != PEEK(0xD053));
+    return ((hi & 7) << 8) | lo;
+}
+
+static void wait_raster(uint16_t from, uint16_t to) {
+    uint16_t r;
+    do
+        r = raster();
+    while (r < from || r >= to);
+}
+
+static void set_text_x(uint16_t x) {
+    POKE(0xD04C, (uint8_t)x);
+    POKE(0xD04D, (PEEK(0xD04D) & 0xF0) | (x >> 8));
+}
+
+void video_sync(void) {
+    // Separator row: 2 rows of 16 raster lines below the top of the text.
+    // Each of its pixel rows is a single colour, so shifting it is invisible.
+    wait_raster(text_y + 34, text_y + 46);
+    set_text_x(text_x - 2 * shown_fx);
+}
+
+void video_show(void) {
+    wait_raster(bottom + 2, bottom + 40);
+    uint16_t scr = back ? SCREEN_B : SCREEN_A;
+    POKE(0xD060, (uint8_t)scr);
+    POKE(0xD061, scr >> 8);
+    set_text_x(text_x);
+    shown_fx = drawn_fx;
+    back ^= 1;
+}
+
+// One copy job in the list at p (see dma_job), written inline: this runs
+// about 480 times a frame.
+#define JOB(p, src, dst, bank, len)    \
+    do {                               \
+        uint16_t s_ = (src);           \
+        uint16_t d_ = (dst);           \
+        uint16_t l_ = (len);           \
+        (p)[0] = 4;                    \
+        (p)[1] = (uint8_t)l_;          \
+        (p)[2] = l_ >> 8;              \
+        (p)[3] = (uint8_t)s_;          \
+        (p)[4] = s_ >> 8;              \
+        (p)[5] = 0;                    \
+        (p)[6] = (uint8_t)d_;          \
+        (p)[7] = d_ >> 8;              \
+        (p)[8] = (bank);               \
+        (p)[9] = 0;                    \
+        (p)[10] = 0;                   \
+        (p)[11] = 0;                   \
+        (p) += 12;                     \
+    } while (0)
+
+void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
+    const uint8_t bank = back ? FB_BANK_B : FB_BANK_A;
+    int8_t wc = (int8_t)(cam_x >> 3) - 1;  // cave character column of FB column 0
+    const uint8_t yo = cam_y & 15;          // pixel rows of the top tiles above the view
+    const uint8_t first = 16 - yo;
+    const uint8_t *top = tiles + (cam_y >> 4) * CAVE_W;
+    const uint16_t space = (uint16_t)tile_gfx + T_SPACE * 256;
+    uint16_t dcol = 0;
+    uint8_t *p;
+
+    drawn_fx = cam_x & 7;
+    dma_begin(0);
+    p = dp;
+    for (uint8_t c = 0; c < COLS; c++, wc++, dcol += FB_COL) {
+        const uint8_t *tp = top + (wc >> 1);
+        uint16_t gfx = (uint16_t)tile_gfx + ((wc & 1) ? 128 : 0);
+        bool outside = wc < 0 || wc >= CAVE_W * 2;
+        uint16_t d = dcol + first * 8;
+        uint8_t y = first;
+        JOB(p, outside ? space : gfx + (*tp << 8) + yo * 8, dcol, bank, first * 8);
+        for (tp += CAVE_W; y + 16 <= VIEW_H; y += 16, d += 128, tp += CAVE_W)
+            JOB(p, outside ? space : gfx + (*tp << 8), d, bank, 128);
+        if (y < VIEW_H)
+            JOB(p, outside ? space : gfx + (*tp << 8), d, bank, (VIEW_H - y) * 8);
+    }
+    last_cmd = p - 12;
+    dma_run();
+}
+
+void video_flash(bool on) {
+    uint8_t v = on ? 0xFF : 0x00;
+    POKE(0xD100, v);
+    POKE(0xD200, v);
+    POKE(0xD300, v);
+}
+
+// ---------------------------------------------------------------- status
+
+static uint8_t font_index(uint8_t ch) {
+    uint8_t gi = 0;
+    while (font_chars[gi] && font_chars[gi] != ch)
+        gi++;
+    if (!font_chars[gi])  // unknown character: space
+        for (gi = 0; font_chars[gi] != ' '; gi++)
+            ;
+    return gi;
+}
+
+static uint8_t glyph[512];
+
+// Colour a character of the font into glyph[] (8x16, rows of 8 bytes) and
+// return where its pixels are: glyph[] or, for an icon, the icon itself.
+static uint16_t make_glyph(uint8_t ch) {
+    if (ch >= 0x80)
+        return (uint16_t)icon_gfx + (ch & 0x7F) * 128;
+    const uint8_t *b = font_bits + font_index(ch) * 16;
+    uint8_t *g = glyph;
+    uint8_t prev = 0;
+    for (uint8_t r = 0; r < 16; r++) {
+        uint8_t bits = b[r];
+        uint8_t col_r = font_row[r];
+        for (uint8_t m = 0x80; m; m >>= 1)
+            *g++ = (bits & m) ? col_r : (prev & m) ? FONT_SHADOW : 0;
+        prev = bits >> 1;  // shadow: one pixel right and down
+    }
+    return (uint16_t)glyph;
+}
+
+void status_put(uint8_t col, uint8_t ch) {
+    if (col >= COLS || status_code[col] == ch)
+        return;
+    status_code[col] = ch;
+    uint16_t src = make_glyph(ch);
+    dma_begin(0);
+    dma_copy(src, 0, STATUS_OFF + col * (STATUS_ROWS * 64), STATUS_BANK, 128);
+    dma_run();
+}
+
+uint8_t status_code_at(uint8_t col) {
+    return status_code[col];
+}
+
+void status_print(uint8_t col, const char *text) {
+    while (*text)
+        status_put(col++, (uint8_t)*text++);
+}
+
+// ---------------------------------------------------------------- title
+
+void video_clear(void) {
+    dma_begin(0);
+    dma_fill(0, 0x0000, FB_BANK_A, COLS * FB_COL);
+    dma_fill(0, 0x0000, FB_BANK_B, COLS * FB_COL);
+    dma_run();
+    drawn_fx = shown_fx = 0;
+}
+
+// Copy len bytes into both framebuffers at column col, pixel row y
+static void to_both(uint16_t src, uint8_t col, uint8_t y, uint16_t len) {
+    uint16_t dst = col * FB_COL + y * 8;
+    dma_begin(0);
+    dma_copy(src, 0, dst, FB_BANK_A, len);
+    dma_copy(src, 0, dst, FB_BANK_B, len);
+    dma_run();
+}
+
+void video_text(uint8_t col, uint8_t y, const char *text) {
+    for (; *text; text++, col++)
+        to_both(make_glyph((uint8_t)*text), col, y, 128);
+}
+
+// Twice the size: 16x32 pixels per character in the shining title colours,
+// drawn as two strips of 8x32.
+void video_big_text(uint8_t col, uint8_t y, const char *text) {
+    for (; *text; text++, col += 2) {
+        const uint8_t *b = font_bits + font_index((uint8_t)*text) * 16;
+        uint8_t *g = glyph;
+        for (uint8_t half = 0; half < 2; half++)
+            for (uint8_t r = 0; r < 32; r++)
+                for (uint8_t x = half * 8; x < half * 8 + 8; x++) {
+                    uint8_t on = b[r >> 1] & (0x80 >> (x >> 1));
+                    uint8_t sh = r >= 2 && x >= 2 && (b[(r - 2) >> 1] & (0x80 >> ((x - 2) >> 1)));
+                    *g++ = on ? title_row[r >> 1] : sh ? FONT_SHADOW : 0;
+                }
+        to_both((uint16_t)glyph, col, y, 256);
+        to_both((uint16_t)glyph + 256, col + 1, y, 256);
+    }
+}
+
+void video_shine(uint8_t phase) {
+    for (uint8_t i = 0; i < 16; i++) {
+        uint8_t from = title_row[(i + phase) & 15];
+        uint8_t to = title_row[i];
+        POKE(0xD100 + to, pal_r[from]);
+        POKE(0xD200 + to, pal_g[from]);
+        POKE(0xD300 + to, pal_b[from]);
+    }
+}
