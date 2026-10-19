@@ -1,0 +1,26 @@
+{
+    // IntelliSense fuer llvm-mos (Ziel mega65). Die Include-Pfade folgen der
+    // Kette in toolchain/llvm-mos/bin/mos-mega65.cfg -> mos-commodore.cfg ->
+    // mos-common.cfg.
+    "configurations": [
+        {
+            "name": "MEGA65 (llvm-mos)",
+            "cStandard": "c23",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "clang-x86",
+            "includePath": [
+                "${workspaceFolder}/toolchain/llvm-mos/mos-platform/mega65/include",
+                "${workspaceFolder}/toolchain/llvm-mos/mos-platform/c64/include",
+                "${workspaceFolder}/toolchain/llvm-mos/mos-platform/commodore/include",
+                "${workspaceFolder}/toolchain/llvm-mos/mos-platform/common/include",
+                "${workspaceFolder}/**"
+            ],
+            "defines": [
+                "__MEGA65__",
+                "__CBM__",
+                "__mos__"
+            ]
+        }
+    ],
+    "version": 4
+}

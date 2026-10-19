@@ -1,0 +1,34 @@
+#!/bin/sh
+# Startet Xemu/MEGA65 (toolchain/xemu) mit dem selbst gebauten
+# toolchain/rom/MEGA65.ROM. Alle Argumente gehen an Xemu, z.B.:
+#
+#   xmega65 -prg build/main.prg      Programm laden und starten
+#   xmega65 -8 disk.d81              D81-Image als Laufwerk 8
+#
+# Xemu laeuft direkt in der VS-Code-Flatpak-Sandbox (es wurde dort gebaut).
+# Seine Einstellungen und das SD-Karten-Image liegen unter
+# ~/.local/share/xemu-lgb/mega65/ - in der Sandbox zeigt XDG_DATA_HOME
+# sonst nach ~/.var/app/..., daher wird es hier fest gesetzt.
+
+export XDG_DATA_HOME="$HOME/.local/share"
+
+# Xemus Menue (Rechtsklick) ist ein GTK-Popup. Unter Wayland kann GTK es
+# nicht ueber dem SDL-Fenster oeffnen - das Menue fehlt dann einfach. Mit
+# X11 (XWayland) geht es; ohne DISPLAY wuerde GTK aber gar nicht starten.
+if [ -n "$DISPLAY" ] && [ -z "$GDK_BACKEND" ]; then
+    export GDK_BACKEND=x11
+fi
+
+TC=$(cd "$(dirname "$0")/../.." && pwd)
+XEMU="$TC/xemu/build/bin/xmega65.native"
+ROM="$TC/rom/MEGA65.ROM"
+
+if [ ! -x "$XEMU" ]; then
+    echo "Xemu fehlt: make -C $TC/xemu" >&2
+    exit 1
+fi
+if [ ! -f "$ROM" ]; then
+    echo "MEGA65.ROM fehlt: $TC/rom/build-rom.sh" >&2
+    exit 1
+fi
+exec "$XEMU" -rom "$ROM" "$@"

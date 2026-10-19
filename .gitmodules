@@ -1,0 +1,3 @@
+[submodule "toolchain/xemu"]
+	path = toolchain/xemu
+	url = https://github.com/lgblgblgb/xemu.git

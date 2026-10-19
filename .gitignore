@@ -1,0 +1,22 @@
+# Uebersetzungsergebnisse
+build/
+*.o
+*.prg
+*.prg.elf
+*.map
+
+# toolchain: fremde Dateien - Downloads, Disketten, SDKs und das ROM (Commodore-Copyright,
+# darf nicht weitergegeben werden) - alles per Skript wiederherstellbar
+toolchain/downloads/
+toolchain/disks/
+toolchain/mega65go/
+toolchain/llvm-mos/
+toolchain/tools/python/
+toolchain/tools/src/
+toolchain/tools/bin/cabextract
+toolchain/rom/MEGA65.ROM
+toolchain/rom/c-65-19910828.rom
+toolchain/rom/work/
+__pycache__/
+
+.claude/settings.local.json
