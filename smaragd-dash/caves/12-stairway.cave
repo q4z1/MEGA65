@@ -1,0 +1,31 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Brick stairs run down the cave; what lies on them rolls.
+name     = STAIRWAY
+time     = 120
+diamonds = 24
+value    = 10
+extra    = 20
+speed    = 140
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......d..........d....r.......r.......W
+W.dwd.. ...d..dr....r...dw..........P..W
+W..rw.. ..r...w...........w............W
+W....w...r.....wr....d ....w.d........rW
+Wr.rd.w...r. ...wrd...dr....wr... .d...W
+W...rrrw.... d..dw.........rdw.........W
+Wdr...drw....rr...w.....d....dw.d......W
+Wr..r....w........ w.d.d.......w....d..W
+W.........w...r.r.r.w...........w. ....W
+W...d.d...........r..w.d..r......d.....W
+W.....w... .. .........r.. ...r.......rW
+Wr...r.w.r..... r...w.....r............W
+W.....d.w....r.......w.. r.r ...r..d..rW
+W......r.w...r...r..ddw......r.r...d.rrW
+W..d.r....wrrdr........w...........d..rW
+W......d...w............w....r...r ....W
+W.rr.d......w......r..d..w.......d.....W
+W..r.r.......w..r.........wr.....r.....W
+X.d.d.......dr..... .. d...w.. . ..r...W
+W.................rr.d....rr..........rW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

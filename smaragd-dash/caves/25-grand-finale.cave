@@ -1,0 +1,34 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# A bit of everything: a maze, a magic floor, fireflies and the amoeba.
+name     = GRAND FINALE
+time     = 150
+diamonds = 40
+value    = 20
+extra    = 30
+speed    = 135
+amoeba   = 40
+magic    = 20
+demo     = 3D 24R
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+Wwwwwwwwwwwww....rr..rrr.r..r.rrrr.rr..W
+Ww.....d...d..P...rr..rr.r.rrr...rrrrr.W
+Ww.wwwdw.www......r..r...rr.r..rr..rrr.W
+Ww..d..wdw...w..r.rrrr..rr...rrrrrrr.r.W
+Wwwwwwww.w.w.w.........................W
+Ww.......d.w.w..dmmmmmmmmmmmmmmmmmmmm. W
+Ww.wwwwwwwww.w.rd                    ..W
+Ww..d.d.dw.d.w.........................W
+Ww.wwwwwdw.w.w....rr....d.......d......W
+Ww..d..w..dd.w..r.........dd.d.........W
+Wwwwwwwwwwwwwwr...     ............... W
+W.r..rr......r.d..  q  . ..........d...W
+W...... ...r..r..............     .....W
+W.dr..r......... ....d.....d.  q  .d...W
+W.............. .....r..dr.........r...W
+W.........r....r.d...rr.............rd.W
+Wd...a..................     ...r......W
+Wr..........r.....r.r...  q  .........rW
+Wr..................d.r..........r.....W
+Wr.r.......r .....d..rr.d.r.r......r.r.X
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

@@ -1,0 +1,31 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# A brick fortress full of emeralds. Fireflies guard the gates.
+name     = FORTRESS
+time     = 100
+diamonds = 32
+value    = 15
+extra    = 25
+speed    = 135
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.....r...d...r........d.r.............W
+W.P.......r. ....     . r.r........... W
+W....d......rr.r.  q  ..............r.rW
+W..d....d.....rd........r...d..........W
+W.r......rwwwwwwwww.wwwwwwwwww....dr...W
+W...... .rwrd..d.d...d.d.....w........ W
+Wr...r.d..wr...dd......d.d.drwr........W
+Wr.....r..wdd...d.d...dr.r...w... r...rW
+W.d.......wd.d..d...r..dr...rw.. d..r.rW
+Wrd...rd.rw.. .d .r.dd. ..dd.w.........W
+W......r...d.d.... r......d..w.....r...X
+W.rr.d....wd.d...r..r.dddr...wdr...d. .W
+Wd..rr....wd.dr......rdd..rd w. .......W
+Wrr..r.d.rw.r...dd..d......ddw. .......W
+Wd........wd.d...r.r..d..d...w.........W
+W.........wwwwwwwww.wwwwwwwwwwrd.......W
+W......rr....................d...r.r..rW
+W...r .......r....     ..rr......r.d..rW
+W...d.............  q  ..r..r......r...W
+W... ....r.r..dd...........r....rd..dr.W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

@@ -5,6 +5,11 @@ build/
 *.prg.elf
 *.map
 
+# Screencasts (toolchain/tools/bin/mega65-cast) stay out of git; a video meant
+# for the repository is let in on purpose, by name
+*.mp4
+!smaragd-dash/screenshots/first-six-caves.mp4
+
 # toolchain: third-party files - downloads, disks, SDKs and the ROM
 # (Commodore copyright, may not be redistributed) - all restorable by script
 toolchain/downloads/

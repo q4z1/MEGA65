@@ -3,8 +3,8 @@
 # in tools/, the moves for the screencast by tools/solve.c; then everything is
 # compiled into build/smaragd-dash.prg, which goes onto the disk image
 # build/smaragd-dash.d81 together with the title logo (build/gen/logo.bin) and
-# the caves (build/caves/caveNN.bin as CAVENN). The game loads both from that
-# disk.
+# the caves (build/caves/caveNN.bin as CAVENN) and the screencast's moves
+# (demoNN.bin as DEMONN). The game loads them from that disk.
 # Called by .vscode/run-current.sh with the compiler in $MEGA65_CC.
 
 set -e
@@ -18,14 +18,14 @@ python3 tools/mkgfx.py build/gen build/preview.png
 python3 tools/mkcave.py build/caves caves/*.cave
 python3 tools/mkmusic.py build/gen
 # The moves for the screencast build (main.c, SCREENCAST), found with the
-# engine itself on the host
+# engine itself on the host: build/caves/demoNN.bin, on the disk as DEMONN
 ${HOST_CC:-cc} -O2 -Wall -Isrc -Ibuild/caves -o build/solve tools/solve.c build/caves/caves.c
-build/solve build/gen
+build/solve build/gen build/caves
 # shellcheck disable=SC2086
 "$CC" -Os -g -Wall $SMARAGD_CFLAGS -Isrc -Ibuild/gen -o build/smaragd-dash.prg \
     -Wl,-Map=build/smaragd-dash.map src/*.c build/gen/*.c
 set --
-for f in build/caves/cave*.bin; do
+for f in build/caves/*.bin; do
     set -- "$@" "$f=$(basename "$f" .bin)"
 done
 ../toolchain/tools/bin/mkd81.py build/smaragd-dash.d81 "SMARAGD DASH" \

@@ -1,0 +1,34 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Two magic floors, one above the other: walk along under the boulders
+# over each of them.
+name     = MAGIC FACTORY
+time     = 120
+diamonds = 32
+value    = 15
+extra    = 25
+speed    = 135
+magic    = 25
+demo     = 4D 37R 7D 37L
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP....rrr..r.rrr...r.rr.r.rr..r........W
+W...r.......r...rrrr...rr..r.rrrr...r..W
+W.....r.rr....r....rr.....r.r..r....r..W
+W...r.r.rr.rr..rrrrr..rr.r..rrrr..rr...W
+W......................................W
+W..mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm..W
+W..                                  ..W
+W.......r.rr.rr.rrrrr.r...r..rd.r......W
+W...r..rrrrr..rr.r....r.r.r..rr.rr.....W
+W...rrr.rrr...rrr..r.rr...r.rrrr.rr....W
+W....rrr...r......r........d.rr.rr.r...W
+W......................................W
+W..mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm..W
+W..                                  ..W
+W......................................W
+W.........rdr.d...d.........d..........W
+W.d..r.................r...r...........W
+W................d...r........r........W
+W..rd.r....r.d...r......dr........r.d..X
+W......r..r....r.....r....d..r..r.....dW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

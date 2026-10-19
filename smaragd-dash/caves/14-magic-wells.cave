@@ -1,0 +1,32 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Three wells with a magic floor: let the boulders above them drop in.
+name     = MAGIC WELLS
+time     = 130
+diamonds = 26
+value    = 10
+extra    = 20
+speed    = 140
+magic    = 15
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.r...d...r...d...d................rrd.W
+W. .r.rr..rd...r.rrrrr.r.r.r..r.r.r..r.W
+W...r..rd.r.........rrrr....r.r.rrr....W
+Wrr.d..rr.r.....rr..rr...r..r..rr.rr...W
+W.....rdrr......r.r.rr.r.....rr...rdd..W
+W. .rrrd.rrr..r.rrr..r......r.r.r..r.r.W
+W....................................d.W
+W..wmmmmmmmmw. wmmmmmmmmw..wmmmmmmmmw..W
+W..w        wd.w        w.dw        w..W
+W..w        ...w        ...w        ...W
+W..wwwwwwwwww..wwwwwwwwwwr.wwwwwwwwww..W
+W......d.rr................r.........d.W
+W........ .......r.....d.d r......r....W
+W......r.... ....d.r.r...........r.....W
+W.P....d........d.....d..... ..........W
+W......r...d.d.....r......r..........d.W
+W..rr.r..d.r..r....r.......r...........X
+W.d.....d....rrrr...r...dr.............W
+W...... .......................dr.....dW
+W...d.r...r..dr..........d..d......d.rrW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

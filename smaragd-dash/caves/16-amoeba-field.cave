@@ -1,0 +1,33 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# The amoeba spreads from the corner. Collect before it covers the
+# field - at 200 cells it turns to boulders.
+name     = AMOEBA FIELD
+time     = 120
+diamonds = 26
+value    = 12
+extra    = 20
+speed    = 140
+amoeba   = 40
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.................r.......r. ..........W
+W.P.........r..r. ...r..r..............W
+W...........r..rdr.... ..... r...r.dd..W
+Wd...........d .....d..d......r..d....dW
+W..... ..r.r.........rd.....r.. ...rrr.W
+W.......d....d.r..r. ......r... .......W
+Wddrr.d....  .....  ..rrd....r.drd..r.rW
+Wd......d.r .r .....r......dd..........W
+W..........r.....d.. r..r..............W
+W.. .. d........r.r... .r..d...........W
+W........d....r..d...r...rd...d.....rd.W
+X.....d.. ..r..   ...rdr.r.....d...dd..W
+W....... ........r......d.........r....W
+W.r............d.......................W
+W..........d........r..d. .............W
+W....r.....r........ ...rd.. ..........W
+W........rd...rd.......d...........a..rW
+W. ....r.. ..d.........d..d..r.........W
+W... r....... .. ...rdd....d...........W
+Wd. rr.....r..rd....dr.....drddd.. ....W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

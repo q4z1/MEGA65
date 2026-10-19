@@ -16,7 +16,7 @@ melody on the right channel. Fire starts the game.
 
 ![In the first cave](screenshots/cave.png) ![A boulder fell on Rockford](screenshots/explosion.png)
 
-**[Video: the game plays all six caves](screenshots/all-caves.mp4)**
+**[Video: the game plays the first six caves](screenshots/first-six-caves.mp4)**
 (4½ minutes, with music and sound; recorded as described under
 [Screencast](#screencast)).
 
@@ -42,7 +42,8 @@ smaragd-dash/build.sh                       # build only
 (`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the title
-logo (`SMARAGD.LOGO`) and the caves (`CAVE01`, `CAVE02`, ...). F5 starts
+logo (`SMARAGD.LOGO`), the caves (`CAVE01`, `CAVE02`, ...) and the moves
+for the screencast (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, and there are no
 caves to play. `build/preview.png` shows all tiles enlarged,
@@ -61,8 +62,9 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 root) records the game playing itself as `build/smaragd-dash.mp4`, with
 the music and the sounds: the title for ten seconds, then all caves, solved.
 Built with `-DSCREENCAST`, the game presses fire on the title by itself,
-takes the moves for each cave from `build/gen/demo.c`, and stops the
-emulator after the last cave, which ends the recording.
+loads the moves for each cave with it from the disk (`DEMO01`, `DEMO02`, ...,
+written by the solver as `build/caves/demoNN.bin`), and stops the emulator
+after the last cave, which ends the recording.
 
 The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
 the host at every build. It plays the caves with the game's own engine
@@ -78,7 +80,7 @@ same in every run of a cave, the same moves play the same in the game. So a chan
 moves with the next build.
 
 The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`,
-the video `screenshots/all-caves.mp4` with
+the video `screenshots/first-six-caves.mp4` with
 `MEGA65_CAST=1 MEGA65_CAST_OPTS="-x 1 -s 2" .vscode/run-current.sh smaragd-dash/`
 (original size, without the boot screen) and copied there.
 
@@ -164,8 +166,13 @@ their own that the title screen cycles for the shine.
 ## Cave files
 
 See `tools/mkcave.py` for the format. A cave is 40x22 cells with a steel
-frame. The caves follow the first ones of Boulder Dash 1 in idea, not in
-layout: like the original's, most are a random fill with walls, rooms and
+frame. The first six follow the first caves of Boulder Dash 1 in idea, not
+in layout; the others bring one idea each, getting a little harder from cave
+to cave - more boulders and creatures, a little less time to spare - but
+always with time to look around: each limit is at least three and a half
+times what the solver needs, and no cave asks for much more than half of
+its emeralds unless it makes more of them (magic walls, butterflies, the
+amoeba). Like the original's, most are a random fill with walls, rooms and
 creatures drawn over it.
 
 | | | needs | |
@@ -176,3 +183,22 @@ creatures drawn over it.
 | 4 | BUTTERFLIES | 36 in 150 s | dig under the boulders above the hall: a butterfly hit by a falling one leaves nine emeralds |
 | 5 | ENCHANTED WALL | 30 in 150 s | boulders falling through the magic wall come out as emeralds, for 20 seconds |
 | 6 | AMOEBA | 40 in 150 s | drop the two boulders into the openings of the nest before the amoeba gets out: shut in, it turns to emeralds |
+| 7 | FIREFLY DENS | 18 in 120 s | four fireflies circle in their dens |
+| 8 | TREASURE ROOM | 24 in 60 s | a small room full of emeralds, one minute |
+| 9 | BOULDER RAIN | 20 in 120 s | plenty of boulders over plenty of holes |
+| 10 | TRACKS | 22 in 120 s | fireflies run up and down brick tracks; cross at the ends |
+| 11 | BUTTERFLY GARDEN | 24 in 120 s | a butterfly in each garden, a boulder above it |
+| 12 | STAIRWAY | 24 in 120 s | brick stairs; what lies on them rolls |
+| 13 | VEINS | 26 in 100 s | emeralds run through the rock in veins |
+| 14 | MAGIC WELLS | 26 in 130 s | three wells with a magic floor, boulders above them |
+| 15 | VAULTS | 28 in 120 s | small brick vaults with emeralds, one door each |
+| 16 | AMOEBA FIELD | 26 in 120 s | the amoeba spreads from a corner; at 200 cells it turns to boulders |
+| 17 | CAVERNS | 20 in 110 s | big caverns with fireflies circling in them |
+| 18 | LABYRINTH | 24 in 150 s | a bigger maze, and fireflies in it |
+| 19 | WATERFALL | 28 in 100 s | emeralds and boulders stacked in shafts; dig below and they pour out |
+| 20 | ROCKFALL | 28 in 110 s | more boulders than dirt, and a slightly faster tick |
+| 21 | SWARM | 26 in 110 s | butterflies round the amoeba's nest blow up into emeralds when it reaches them |
+| 22 | MAGIC FACTORY | 32 in 120 s | two magic floors, one above the other |
+| 23 | FORTRESS | 32 in 100 s | a brick fortress full of emeralds, fireflies at the gates |
+| 24 | SERPENTINE | 32 in 130 s | one long way back and forth through the cave |
+| 25 | GRAND FINALE | 40 in 150 s | a bit of everything: maze, magic floor, fireflies and the amoeba |

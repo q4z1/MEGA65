@@ -1,0 +1,33 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Butterflies wait round the amoeba's nest. When it reaches them, they
+# blow up into emeralds.
+name     = SWARM
+time     = 110
+diamonds = 26
+value    = 15
+extra    = 25
+speed    = 135
+amoeba   = 25
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............r.......d...... ....rd.W
+W.P.....r.........................r....W
+W.....r...........   .....r....rr.. ...W
+W...r.... r....... B .....dd.....r.r..rW
+W rd........r.....   .r.............d..W
+W............dd.......r...........r....W
+W.d.d...rr........r.r........r....d...dW
+W.rr..........d.www.wwww.. .d.d.rr..r..W
+Wr.....r.   ....w......w........ ...r.rW
+W ....... B ...rw..a...w.d .   .r.....dW
+W..d.....   ... w......w.... B .r......W
+W..dd...........w......w....   ........W
+W.............r.wwww.www...............W
+W.....dr........d...d.... .............W
+W... ......rr...........r....r.....d...W
+W.r.......d....r.r.   ..r.........r....W
+Wr..r.....d........ B .r......d.....r..W
+W..................   . ..d.d. ........W
+W..r. .dr..d.................r... .....X
+W..d......dr...r..................d..rrW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

@@ -8,8 +8,9 @@
 //
 // Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
 // itself: the title runs for a while, then the caves play the moves that
-// tools/solve.c found for them (build/gen/demo.c), and after the last one the
-// emulator is told to stop, which ends the recording.
+// tools/solve.c found for them (DEMO01, DEMO02, ... on the disk, loaded with
+// each cave), and after the last one the emulator is told to stop, which
+// ends the recording.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -65,6 +66,9 @@ static struct {
 } cave_file;
 static CaveDef cave_def;
 static uint8_t loaded = 0xFF;       // cave_no of cave_file
+#ifdef SCREENCAST
+static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
+#endif
 
 // ---------------------------------------------------------------- drawing
 
@@ -321,6 +325,13 @@ static bool load_cave(uint8_t n) {
     loaded = 0xFF;
     if (!load(what, file, 0, (uint16_t)&cave_file))
         return false;
+#ifdef SCREENCAST
+    static char demo_file[] = "DEMO00";
+    demo_file[4] = file[4];
+    demo_file[5] = file[5];
+    if (!disk_load(demo_file, 0, (uint16_t)demo_moves))
+        demo_moves[0] = 0;
+#endif
     loaded = n;
     cave_def.name = cave_file.name;
     cave_def.map = cave_file.map;
@@ -616,7 +627,7 @@ int main(void) {
             if (!(have_cave = next_cave()))
                 break;
 #ifdef SCREENCAST
-            demo_p = demo_moves[cave_no];
+            demo_p = demo_moves;
             demo_left = 0;
 #endif
             uint8_t end = play_cave();

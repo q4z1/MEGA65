@@ -1,0 +1,31 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# One long way back and forth through the cave.
+name     = SERPENTINE
+time     = 130
+diamonds = 32
+value    = 15
+extra    = 25
+speed    = 135
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......rd..r.. r.dd....r....r.....d....W
+W.P......d.r. ..........dr...d.....r..rW
+W..... rrd...dd....rrr.r... ....r.... .W
+W.d...r......d.........r.......d..r....W
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..W
+W..drd.r.....r......d....r..r......dr..W
+W......d.....d...r..........r..dr....r.W
+W....d.........r.r...dr.rrr...  ...d...W
+W....r... .. ...ddd...d..d...d....r....W
+W..wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwW
+W....d...r..rr.......r.........r..dr r.W
+W.rr........r....d..r.r ... .drdd  ....W
+W....r.d..r........... ............r. rW
+W...dd...d............d..d.dd...d......W
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..W
+W..d.rr....rd.dd...r....dr.......r.....W
+W... .r..... rr....d....d.r.. .r....r.rW
+W..dd.r.rr....dr.rdr....... .....d ....W
+X...d.dr............... r........r..dddW
+W...... ...d........dd..r......r....r.rW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
