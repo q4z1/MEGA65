@@ -1,7 +1,8 @@
 // Smaragd Dash: a Boulder Dash style game for the MEGA65.
 //
-// main.c runs the game: the title screen with its music, then the caves:
-// a cave is loaded from the disk, uncovered, Rockford hatches, and the cave
+// main.c runs the game: the title screen with its music, where the joystick
+// picks the level and the cave to start with, then the caves: a cave is
+// loaded from the disk, uncovered, Rockford hatches, and the cave
 // runs in ticks of the cave's speed while the screen is redrawn every frame
 // (50 Hz PAL, 60 Hz NTSC). The rules are in engine.c, the display in
 // video.c.
@@ -21,6 +22,7 @@
 #include "gfx.h"
 #include "hw.h"
 #include "input.h"
+#include "levels.h"
 #include "music.h"
 #include "sound.h"
 #include "video.h"
@@ -31,6 +33,7 @@
 
 #define LIVES       3
 #define LIFE_POINTS 500   // an extra life every so many points
+#define START_STEP  5     // the title offers caves 1, 6, 11, ... to start with
 #define MAX_X       (CAVE_W * 16 - VIEW_W)
 #define MAX_Y       (CAVE_H * 16 - VIEW_H)
 
@@ -50,7 +53,8 @@ static uint8_t idle;                // Rockford's idle animation
 static uint8_t flash;               // frames left of the exit flash
 
 static uint8_t lives;
-static uint8_t cave_no;
+static uint8_t cave_no, level;      // from 0
+static uint8_t start_cave, start_level;  // picked on the title
 static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static uint32_t hiscore;
@@ -65,7 +69,7 @@ static struct {
     uint8_t map[CAVE_SIZE];
 } cave_file;
 static CaveDef cave_def;
-static uint8_t loaded = 0xFF;       // cave_no of cave_file
+static uint8_t loaded = 0xFF, loaded_level;  // cave_no and level of cave_file
 #ifdef SCREENCAST
 static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
 #endif
@@ -173,7 +177,8 @@ static void camera(bool jump) {
 
 // ---------------------------------------------------------------- status
 
-static void put_num(uint8_t col, uint32_t v, uint8_t digits) {
+// not inlined: it is called from many places, and memory is short
+__attribute__((noinline)) static void put_num(uint8_t col, uint32_t v, uint8_t digits) {
     col += digits;
     while (digits--) {
         status_put(--col, '0' + v % 10);
@@ -223,13 +228,17 @@ static void status_game(void) {
     valid = true;
 }
 
+// "CAVE 12/3": cave and level, as the original's "A/1"
 static void status_intro(void) {
     status_clear();
     status_put(2, ICON(ICON_LIFE));
     put_num(4, lives, 1);
     status_print(7, "CAVE");
-    put_num(12, cave_no + 1, cave_no >= 9 ? 2 : 1);
-    status_print(15, game.def->name);
+    uint8_t col = cave_no >= 9 ? 14 : 13;
+    put_num(12, cave_no + 1, col - 12);
+    status_put(col, '/');
+    put_num(col + 1, level + 1, 1);
+    status_print(col + 3, game.def->name);
 }
 
 // ---------------------------------------------------------------- frames
@@ -308,19 +317,22 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
     return ok;
 }
 
-// Cave n from the disk, unless it is there already
+// Cave n of the level from the disk (CAVEnn-l), unless it is there already
 static bool load_cave(uint8_t n) {
-    if (n == loaded)
+    if (n == loaded && level == loaded_level)
         return true;
-    static char file[] = "CAVE00";
-    static char what[] = "LOADING CAVE 00";
+    static char file[] = "CAVE00-0";
+    static char what[] = "LOADING CAVE 00/0";
     uint8_t tens = (n + 1) / 10, ones = (n + 1) % 10;
     file[4] = '0' + tens;
     file[5] = '0' + ones;
+    file[7] = '1' + level;
     char *num = what + 13;
     if (tens)
         *num++ = '0' + tens;
     *num++ = '0' + ones;
+    *num++ = '/';
+    *num++ = '1' + level;
     *num = 0;
     loaded = 0xFF;
     if (!load(what, file, 0, (uint16_t)&cave_file))
@@ -333,6 +345,7 @@ static bool load_cave(uint8_t n) {
         demo_moves[0] = 0;
 #endif
     loaded = n;
+    loaded_level = level;
     cave_def.name = cave_file.name;
     cave_def.map = cave_file.map;
     cave_def.time = cave_file.time;
@@ -345,18 +358,21 @@ static bool load_cave(uint8_t n) {
     return true;
 }
 
-// The cave cave_no; after the last one on the disk the first again
+// The cave cave_no; after the last one on the disk the first of the next
+// level, and after the last level that one again
 static bool next_cave(void) {
     if (load_cave(cave_no))
         return true;
     cave_no = 0;
+    if (level < LEVELS - 1)
+        level++;
     return load_cave(0);
 }
 
 // ---------------------------------------------------------------- screencast
 
 #ifdef SCREENCAST
-#define DEMO_TITLE_FRAMES 512  // the title with all its lines once
+#define DEMO_TITLE_FRAMES 768  // the title with all its lines once
 
 static const uint8_t *demo_p;
 static uint8_t demo_left, demo_in;
@@ -411,6 +427,37 @@ static void title_line(const char *text) {
     video_text(1, 152, line);
 }
 
+// The status line on the title: what the game starts with, and the hi-score
+static void title_status(void) {
+    status_clear();
+    status_print(2, "LEVEL");
+    put_num(8, start_level + 1, 1);
+    status_print(11, "CAVE");
+    status_put(16, ' ');
+    put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
+    status_print(22, "HI-SCORE");
+    put_num(31, hiscore, 6);
+}
+
+// Up and down pick the level, left and right the cave to start with
+static void title_pick(void) {
+    uint8_t l = start_level, c = start_cave;
+    if ((pressed & IN_UP) && l < LEVELS - 1)
+        l++;
+    if ((pressed & IN_DOWN) && l)
+        l--;
+    if ((pressed & IN_RIGHT) && c + START_STEP < CAVE_COUNT)
+        c += START_STEP;
+    if ((pressed & IN_LEFT) && c)
+        c -= START_STEP;
+    if (l != start_level || c != start_cave) {
+        start_level = l;
+        start_cave = c;
+        title_status();
+        sound_crackle();
+    }
+}
+
 static void title_screen(void) {
     static const char press[] = "PRESS FIRE TO START";
     static const char blank[] = "                   ";
@@ -425,11 +472,7 @@ static void title_screen(void) {
         video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
         video_text(CENTRE(26), 156, "P PAUSE   RUN/STOP GIVE UP");
     }
-    status_clear();
-    status_put(2, ICON(ICON_EMERALD));
-    status_print(12, "HI-SCORE");
-    put_num(21, hiscore, 6);
-    status_put(37, ICON(ICON_EMERALD));
+    title_status();
     sound_off();
     music_start();
     // The button counts only after it was let go once (Return from the
@@ -440,11 +483,14 @@ static void title_screen(void) {
             // the line under the logo: "press fire", blinking, and in
             // between the controls
             if ((f & 31) == 0) {
-                switch ((f >> 7) & 3) {
+                switch ((f >> 7) % 6) {
                 case 1:
                     title_line("JOYSTICK, GAMEPAD OR CURSOR KEYS");
                     break;
                 case 3:
+                    title_line("UP/DOWN: LEVEL   LEFT/RIGHT: CAVE");
+                    break;
+                case 5:
                     title_line("P PAUSE   RUN/STOP GIVE UP");
                     break;
                 default:
@@ -458,6 +504,7 @@ static void title_screen(void) {
                 video_shine(f / 3);
         }
         title_frame();
+        title_pick();
         if (armed && (pressed & IN_BUTTON))
             break;
 #ifdef SCREENCAST
@@ -616,7 +663,8 @@ int main(void) {
         lives = LIVES;
         score = 0;
         next_life = LIFE_POINTS;
-        cave_no = 0;
+        cave_no = start_cave;
+        level = start_level;
         bool have_cave = true;
         while (lives) {
 #ifdef SCREENCAST

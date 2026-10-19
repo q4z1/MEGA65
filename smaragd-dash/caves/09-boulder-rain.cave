@@ -6,6 +6,7 @@ diamonds = 20
 value    = 10
 extra    = 15
 speed    = 140
+shuffle  = 1 2 3
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W ..r...... .r.....P...r......rr.......W

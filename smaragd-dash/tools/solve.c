@@ -15,8 +15,10 @@
 // The way: from the nearest few emeralds pick one, walk there (the path is
 // planned again every tick, round boulders and away from creatures), and so
 // on until the exit is open, then walk out. A choice that gets Rockford
-// killed or stuck is taken back and the next one tried. The caves are solved
-// in order; the first one without a solution ends the list.
+// killed or stuck is taken back and the next one tried. The caves of level 1
+// are solved in order for the screencast; the first one without a solution
+// ends its list. The higher levels are only checked: each cave in each of
+// them is solved too, and the ones without a way through are named.
 //
 // A demo file holds the input of every tick from the start of a cave: two
 // bytes of load address (not used), then pairs of (count, input) with input
@@ -34,8 +36,8 @@
 #define FPS        50
 #define MAX_TICKS  4000
 #define CHOICES    3    // emeralds tried at each step
-#define MAX_NODES  20000
-#define DEMO_MAX   512  // the game's buffer for one cave's moves
+#define MAX_NODES  5000  // solved caves need up to about 1600
+#define DEMO_MAX   384  // the game's buffer for one cave's moves (the longest: 279)
 
 typedef struct {
     uint8_t cave[CAVE_SIZE];
@@ -302,8 +304,8 @@ int main(int argc, char **argv) {
     char path[1024];
     int solved = 0;
     for (; solved < CAVE_COUNT; solved++) {
-        const char *name = caves[solved].name;
-        if (!solve(&caves[solved], cave_demo[solved])) {
+        const char *name = caves[0][solved].name;
+        if (!solve(&caves[0][solved], cave_demo[solved])) {
             printf("solve: no way found through cave %d (%s)\n", solved + 1, name);
             break;
         }
@@ -322,6 +324,32 @@ int main(int argc, char **argv) {
             perror(path);
             return 1;
         }
+    }
+
+    // The higher levels: is there a way through, and how much time is left?
+    for (int lv = 1; lv < LEVELS; lv++) {
+        int ok = 0, least = -1;
+        double spare = 0;
+        for (int i = 0; i < CAVE_COUNT; i++) {
+            const CaveDef *d = &caves[lv][i];
+            if (!solve(d, cave_demo[i])) {
+                printf("solve: level %d: no way found through cave %d (%s)\n", lv + 1, i + 1,
+                       d->name);
+                continue;
+            }
+            ok++;
+            // the time limit over the time the solver needed
+            double f = d->time / (ticks * d->tick_ms / 1000.0);
+            if (least < 0 || f < spare) {
+                least = i;
+                spare = f;
+            }
+        }
+        printf("solve: level %d: %d of %d caves solved", lv + 1, ok, CAVE_COUNT);
+        if (least >= 0)
+            printf(", the least time to spare in cave %d (%s): %.1f times the time needed",
+                   least + 1, caves[lv][least].name, spare);
+        printf("\n");
     }
 
     snprintf(path, sizeof path, "%s/demo.h", argv[1]);

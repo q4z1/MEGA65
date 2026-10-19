@@ -2,7 +2,7 @@
 # Shut the amoeba in: drop the boulders into the two openings of its nest
 # before it gets out. Shut in, it turns to emeralds; at 200 cells to boulders.
 name     = AMOEBA
-time     = 150
+time     = 150 145 140 135
 diamonds = 40
 value    = 10
 extra    = 20

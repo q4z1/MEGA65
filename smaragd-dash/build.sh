@@ -3,8 +3,8 @@
 # in tools/, the moves for the screencast by tools/solve.c; then everything is
 # compiled into build/smaragd-dash.prg, which goes onto the disk image
 # build/smaragd-dash.d81 together with the title logo (build/gen/logo.bin) and
-# the caves (build/caves/caveNN.bin as CAVENN) and the screencast's moves
-# (demoNN.bin as DEMONN). The game loads them from that disk.
+# the caves (build/caves/caveNN-L.bin as CAVENN-L: cave and level) and the
+# screencast's moves (demoNN.bin as DEMONN). The game loads them from that disk.
 # Called by .vscode/run-current.sh with the compiler in $MEGA65_CC.
 
 set -e
@@ -15,7 +15,7 @@ CC=${MEGA65_CC:-../toolchain/llvm-mos/bin/mos-mega65-clang}
 rm -rf build/gen build/caves
 mkdir -p build/gen build/caves
 python3 tools/mkgfx.py build/gen build/preview.png
-python3 tools/mkcave.py build/caves caves/*.cave
+python3 tools/mkcave.py build/caves build/gen caves/*.cave
 python3 tools/mkmusic.py build/gen
 # The moves for the screencast build (main.c, SCREENCAST), found with the
 # engine itself on the host: build/caves/demoNN.bin, on the disk as DEMONN

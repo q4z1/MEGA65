@@ -6,6 +6,7 @@ diamonds = 32
 value    = 15
 extra    = 25
 speed    = 135
+shuffle  = 1 2 3
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.....r...d...r........d.r.............W

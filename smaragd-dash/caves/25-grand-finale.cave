@@ -2,13 +2,14 @@
 # A bit of everything: a maze, a magic floor, fireflies and the amoeba.
 name     = GRAND FINALE
 time     = 150
-diamonds = 40
+diamonds = 40 42 44 46
 value    = 20
 extra    = 30
 speed    = 135
 amoeba   = 40
 magic    = 20
 demo     = 3D 24R
+shuffle  = 4 5 6
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 Wwwwwwwwwwwww....rr..rrr.r..r.rrrr.rr..W

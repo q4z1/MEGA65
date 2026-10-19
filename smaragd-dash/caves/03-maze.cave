@@ -1,8 +1,8 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # A maze of brick walls; emeralds lie in its dead ends.
 name     = MAZE
-time     = 120
-diamonds = 22
+time     = 120 140 150 160
+diamonds = 22 24 26 28
 value    = 10
 extra    = 20
 speed    = 140

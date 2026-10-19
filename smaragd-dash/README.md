@@ -8,6 +8,11 @@ better graphics. The rules are the Boulder Dash 1 engine's; levels and
 graphics are our own. Rockford is the adventurer from the title logo
 (`gfx/logo.png`).
 
+There are 25 caves, each in four levels, as in the original: 100 in all.
+On the title screen the joystick picks the level (up and down) and the cave
+to start with (left and right: 1, 6, 11, 16 or 21). After the last cave
+the game goes on with the first one of the next level.
+
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
 melody on the right channel. Fire starts the game.
@@ -24,7 +29,7 @@ melody on the right channel. Fire starts the game.
 
 | | |
 | --- | --- |
-| joystick (either port), gamepad, cursor keys | move |
+| joystick (either port), gamepad, cursor keys | move; on the title: up/down level, left/right first cave |
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
@@ -42,7 +47,7 @@ smaragd-dash/build.sh                       # build only
 (`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the title
-logo (`SMARAGD.LOGO`), the caves (`CAVE01`, `CAVE02`, ...) and the moves
+logo (`SMARAGD.LOGO`), the caves (`CAVE01-1` ... `CAVE25-4`: cave and level) and the moves
 for the screencast (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, and there are no
@@ -60,7 +65,8 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 *Terminal → Run Task… → MEGA65: Record screencast (active program)* (or
 `MEGA65_CAST=1 .vscode/run-current.sh smaragd-dash/` from the repository
 root) records the game playing itself as `build/smaragd-dash.mp4`, with
-the music and the sounds: the title for ten seconds, then all caves, solved.
+the music and the sounds: the title for fifteen seconds, then all caves of
+level 1, solved.
 Built with `-DSCREENCAST`, the game presses fire on the title by itself,
 loads the moves for each cave with it from the disk (`DEMO01`, `DEMO02`, ...,
 written by the solver as `build/caves/demoNN.bin`), and stops the emulator
@@ -147,8 +153,11 @@ font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.
 
 **The caves** come from the disk as well, one file each, loaded when the
-game gets to them; after the last file on the disk it starts again with
-`CAVE01`. So the program holds no maps, and more caves cost no memory.
+game gets to them; after the last cave of a level on the disk the game goes
+on with the first one of the next level, and after the last level it stays
+there. So the program holds no maps, and more caves cost no memory; it only
+knows how many there are (`levels.h`, written by `mkcave.py`), for the
+choice on the title.
 
 **The loader** (`disk.c`) does without the KERNAL: it finds the file in
 the D81's directory and reads its sectors through the F011 floppy
@@ -170,7 +179,8 @@ frame. The first six follow the first caves of Boulder Dash 1 in idea, not
 in layout; the others bring one idea each, getting a little harder from cave
 to cave - more boulders and creatures, a little less time to spare - but
 always with time to look around: each limit is at least three and a half
-times what the solver needs, and no cave asks for much more than half of
+times what the solver needs (the maze and the amoeba, where it has to wait,
+twice), and no cave asks for much more than half of
 its emeralds unless it makes more of them (magic walls, butterflies, the
 amoeba). Like the original's, most are a random fill with walls, rooms and
 creatures drawn over it.
@@ -202,3 +212,19 @@ creatures drawn over it.
 | 23 | FORTRESS | 32 in 100 s | a brick fortress full of emeralds, fireflies at the gates |
 | 24 | SERPENTINE | 32 in 130 s | one long way back and forth through the cave |
 | 25 | GRAND FINALE | 40 in 150 s | a bit of everything: maze, magic floor, fireflies and the amoeba |
+
+The table shows level 1. As in Boulder Dash 1, every cave comes in four
+levels, which `mkcave.py` makes from the one map: each level gives a tenth
+less time (in steps of 5 s), asks for a tenth more emeralds and ticks 5 ms
+faster than the one before, and its random fill is different. The original
+fills each level of a cave from its own seed; here the dirt, boulders and
+emeralds of the fill swap places with others close by (up to three cells
+to the side, one up or down), so every part of the cave keeps its mix and
+its idea. What is next to walls, creatures, the exit, the inbox or the way
+of the opening moves (`demo`) stays as drawn. A cave can give its own
+values per level, keep its map (`shuffle = no`) or name other seeds; the
+maze, the amoeba cave and the grand finale give their own times or emerald
+counts, four caves other seeds. At every build the solver plays all 100
+and names any it finds no way through; at present it solves all of them,
+with at least 1.7 times the time it needs (the maze), 2.4 times in all
+others but the amoeba cave.
