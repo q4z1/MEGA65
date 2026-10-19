@@ -16,6 +16,7 @@ toolchain/setup.sh
 | `disks/` | D81 disks: slideshow, FCM demos, palette and character editors (with the manual as PDF) – local only, not in the repo | files.mega65.org |
 | `mega65go/` | the Windows setup mega65go and its `Instructions.txt` – the model for `build-rom.sh`; local only, not in the repo | files.mega65.org |
 | `tools/bin/xmega65` | starts Xemu with the ROM built here | written here |
+| `tools/bin/mega65-cc` | `mos-mega65-clang` that also records its compile commands for clangd (`MEGA65_CDB_DIR`, used by `.vscode/run-current.sh`) | written here |
 | `tools/bin/bspatch.py` | applies bsdiff patches (replaces `bspatch.exe` from mega65go) | written here |
 | `tools/bin/msi-extract-cabs.py` | pulls the CAB archives out of an `.msi` | written here |
 | `tools/bin/cabextract` | unpacks the CABs (bsdtar fails on their LZX) | [cabextract 1.11](https://www.cabextract.org.uk/), built from `tools/src/` |

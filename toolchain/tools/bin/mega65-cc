@@ -1,0 +1,15 @@
+#!/bin/sh
+# mos-mega65-clang that also records its compile commands for clangd.
+#
+# With MEGA65_CDB_DIR set, every call writes its compile commands (clang -MJ)
+# into a file of its own in that folder; .vscode/run-current.sh merges them
+# into build/compile_commands.json of the program. Without it, this is just
+# the compiler.
+
+CC="$(cd "$(dirname "$0")/../.." && pwd)/llvm-mos/bin/mos-mega65-clang"
+
+if [ -n "$MEGA65_CDB_DIR" ]; then
+    mkdir -p "$MEGA65_CDB_DIR"
+    exec "$CC" -MJ "$MEGA65_CDB_DIR/$$.json" "$@"
+fi
+exec "$CC" "$@"

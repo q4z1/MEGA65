@@ -14,7 +14,8 @@ set -e
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TC="$ROOT/toolchain"
-CC="$TC/llvm-mos/bin/mos-mega65-clang"
+# The compiler, recording its commands for clangd (see below)
+CC="$TC/tools/bin/mega65-cc"
 SRC="$1"
 
 if [ -z "$SRC" ] || [ ! -e "$SRC" ]; then
@@ -46,6 +47,22 @@ NAME=$(basename "$DIR")
 OUT="$DIR/build"
 mkdir -p "$OUT"
 
+# Every compiler call leaves its commands in $MEGA65_CDB_DIR; after the build
+# they become build/compile_commands.json, where clangd finds them for all
+# files of the program (include paths, defines and flags of the real build).
+export MEGA65_CDB_DIR="$OUT/.cdb"
+rm -rf "$MEGA65_CDB_DIR"
+merge_cdb() {
+    if ls "$MEGA65_CDB_DIR"/*.json >/dev/null 2>&1; then
+        # Each entry ends in "},"; the last comma has to go
+        { echo "["; cat "$MEGA65_CDB_DIR"/*.json | sed '$ s/,[[:space:]]*$//'; echo "]"; } \
+            > "$OUT/compile_commands.json"
+    fi
+    rm -rf "$MEGA65_CDB_DIR"
+}
+# also when the build fails - that is when clangd is needed most
+trap merge_cdb EXIT
+
 if [ -f "$DIR/build.sh" ]; then
     echo "Building $NAME via $DIR/build.sh ..."
     MEGA65_CC="$CC" sh "$DIR/build.sh"
@@ -67,6 +84,9 @@ else
     "$CC" -Os -g -Wall $EXTRA -o "$OUT/$NAME.prg" \
         -Wl,-Map="$OUT/$NAME.map" "$@"
 fi
+merge_cdb
+trap - EXIT
+
 START=${MEGA65_PRG:-$NAME}
 echo "Done: $OUT/$START.prg"
 

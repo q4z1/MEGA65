@@ -9,6 +9,7 @@ Each subfolder is a self-contained program.
 | Folder | What it is |
 | --- | --- |
 | [main/](main/) | Hello world: C with one routine in assembly. A template, and a check that everything works together. |
+| [emerald-dash/](emerald-dash/README.md) | Emerald Dash: a Boulder Dash style game in 256 colours with smooth scrolling. One cave so far. |
 
 ## How this was made
 
@@ -66,10 +67,19 @@ toolchain/llvm-mos/bin/llvm-objdump -d main/build/main.prg.elf
 
 C is checked by **clangd from llvm-mos** (`.vscode/settings.json`), so the
 editor sees exactly what the compiler sees: target `mos`, 16-bit `int`, the
-MEGA65 headers, 45GS02 inline assembly. Its flags come from
-[compile_flags.txt](compile_flags.txt); a folder with code for the host (such
-as host tests) brings its own `compile_flags.txt`. Microsoft's C/C++
-IntelliSense is switched off for this workspace.
+MEGA65 headers, 45GS02 inline assembly. Microsoft's C/C++ IntelliSense is
+switched off for this workspace.
+
+clangd takes the flags from the real build: `run-current.sh` builds with
+`toolchain/tools/bin/mega65-cc`, which records every compile command, and
+writes them to `<program>/build/compile_commands.json`. So include paths and
+defines of a `build.sh` (e.g. `-Ibuild/gen` for generated headers) are known
+as soon as the program has been built once – as long as `build.sh` compiles
+with `$MEGA65_CC`. Until then, and for loose files, the root
+[compile_flags.txt](compile_flags.txt) applies. A folder with code for the
+host (such as host tests) brings its own `compile_flags.txt`, e.g.
+`--target=x86_64-unknown-linux-gnu`. If clangd still complains after the first
+build: *clangd: Restart language server*.
 
 Assembly files (`.s`, `.inc`) are highlighted by the 45GS02 grammar in
 [toolchain/vscode/](toolchain/vscode/mega65-asm/). Both extensions are
