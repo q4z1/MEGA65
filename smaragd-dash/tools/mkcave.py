@@ -64,6 +64,7 @@ import zlib
 
 W, H = 40, 22
 NAME_LEN = 21  # "CAVE 12/3 " before it in the status line
+NAME_FIELD = 24  # bytes 8-31 of the file, cave_file.name in src/main.c
 LEVELS = 4
 SCALED = ("time", "diamonds", "speed", "amoeba", "magic")
 FILL = ".rd "  # what the random fill of a cave is made of
@@ -231,9 +232,11 @@ def cave_file(keys, flat, codes):
     if not 0 < num[0] < 1000 or any(not 0 <= v < 256 for v in num[1:]):
         raise ValueError("numbers out of range")
     head = bytes([0x00, 0x20, num[0] & 255, num[0] >> 8] + num[1:])
-    name = keys["name"].encode("ascii").ljust(NAME_LEN + 1, b"\0")
+    name = keys["name"].encode("ascii").ljust(NAME_FIELD, b"\0")
     cells = bytes(eval(ELEM[c], {}, codes) for c in flat)
-    return head + name + cells
+    data = head + name + cells
+    assert len(data) == 2 + 32 + W * H, "the file layout does not match the docstring"
+    return data
 
 
 def main():
