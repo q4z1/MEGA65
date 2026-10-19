@@ -1,0 +1,31 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# A maze of brick walls; emeralds lie in its dead ends.
+name     = MAZE
+time     = 120
+diamonds = 22
+value    = 10
+extra    = 20
+speed    = 140
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP....w. d.....dw...   qw.   ..d....wdwW
+Wwwww.w.w.w.www.w.wdw.www.wwwwwww.w.w.wW
+W...w...wdw...w.w...w.d... dwd....w.w.wW
+W w.w.w www.w.w.www.wwwwwwwww.wwwww.w.wW
+W.w...w...wdw w...w....rw...w.w...d.w.wW
+W.wdwwwww.www.www.wwwwwww.w.w.w.wwwww.wW
+W.w.w.....w...wqw ... d..dw...w.w.....wW
+W w.w.wwwww.www wwwwwwwwwwwwwww.w.www.wW
+W.wdwd.dw...w.. ... ..d...dd.dw.w.w...wW
+W.w.www.w.wwwdw wdwwwwwwwwwwwww.w.w.wwwW
+Wdw..dw...w.....wrw. ........dw...w...wW
+W.wwwwwwwww wwwwwww.wwwwwwwww.wwwwwww.wW
+W.d.w...d.w.....w. .w....dw...w.....w.wW
+Www.wdwww.w.www.w.www.w.www.www.w.w.w.wW
+W...w...w.w ..w.w.wd..w.w...w ..w.w.w.wW
+W.wwwww.w.www.w.wdwww.w.w.www.www.w.w.wW
+W.w. ...w.....w wd..w.. w...w..dw.w.w.wW
+W w.wwwwwwwwwww.www.www.www.www.w.w.w.wW
+W..... ...   qw................d..w....X
+WwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

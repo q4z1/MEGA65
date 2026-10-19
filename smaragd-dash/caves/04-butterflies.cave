@@ -1,0 +1,33 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Butterflies flutter in the hall below the boulders. Dig under a boulder
+# above one: a butterfly hit by a falling boulder leaves nine emeralds.
+name     = BUTTERFLIES
+time     = 150
+diamonds = 36
+value    = 10
+extra    = 20
+speed    = 140
+demo     = 7D 35R
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.........r.rrrr....d....r...........rdW
+W.P..rr.. ...r.r....rr r......... .....W
+W.....rr..dr..r...rrr...r.r.rrr.rr. ...W
+W.d.rrr.d...rr..r..........rrr......r.rW
+Wr...r..r........r..rdr.r.r..r..r.r..r.W
+W. .r..r.drr...rr....d.....rr.......r..W
+W..r.r.rd..r..dr..r.r.r.r.r..rr... ...rW
+W...rr...rrr...rrrr.r.rr....rr....rr..rW
+W......................................W
+Wd                                    .W
+W.                                    .W
+W.   B     B     B     B     B     B  rW
+W.                                    .W
+W......................................W
+W.....r....d.d.......r .............r..W
+W...r...d....dr...d...........r..dr....W
+W...............d...d..r..r.....r......W
+W....r...r.r..........rr...r......r.dd.W
+W....d.r. .............................X
+W.........r.rr.r..........r.rrr........W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

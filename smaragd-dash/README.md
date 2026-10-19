@@ -16,6 +16,10 @@ melody on the right channel. Fire starts the game.
 
 ![In the first cave](screenshots/cave.png) ![A boulder fell on Rockford](screenshots/explosion.png)
 
+**[Video: the game plays all six caves](screenshots/all-caves.mp4)**
+(4½ minutes, with music and sound; recorded as described under
+[Screencast](#screencast)).
+
 ## Controls
 
 | | |
@@ -34,13 +38,14 @@ In VS Code: open any file of the folder and press **F5**. Without the editor:
 smaragd-dash/build.sh                       # build only
 ```
 
-`build.sh` generates the graphics (`tools/mkgfx.py`), the caves
-(`tools/mkcave.py`) and the music (`tools/mkmusic.py`) into `build/gen/`,
-then compiles everything into `build/smaragd-dash.prg` and puts it on the
-disk image `build/smaragd-dash.d81` together with the title logo
-(`SMARAGD.LOGO`). F5 starts the disk (`-8 … -autoload`). Started as a bare
-PRG, without the disk, the title shows the name in big letters instead of
-the logo. `build/preview.png` shows all tiles enlarged,
+`build.sh` generates the graphics (`tools/mkgfx.py`) and the music
+(`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
+`build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
+puts it on the disk image `build/smaragd-dash.d81` together with the title
+logo (`SMARAGD.LOGO`) and the caves (`CAVE01`, `CAVE02`, ...). F5 starts
+the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
+title shows the name in big letters instead of the logo, and there are no
+caves to play. `build/preview.png` shows all tiles enlarged,
 `build/preview-logo.png` the logo as the MEGA65 shows it.
 
 The engine tests run on the host:
@@ -54,22 +59,28 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 *Terminal → Run Task… → MEGA65: Record screencast (active program)* (or
 `MEGA65_CAST=1 .vscode/run-current.sh smaragd-dash/` from the repository
 root) records the game playing itself as `build/smaragd-dash.mp4`, with
-the music and the sounds: the title for ten seconds, then the first cave,
-solved. Built with `-DSCREENCAST`, the game presses fire on the title by
-itself, takes the moves for each cave from `build/gen/demo.c`, and stops
-the emulator after the last cave, which ends the recording.
+the music and the sounds: the title for ten seconds, then all caves, solved.
+Built with `-DSCREENCAST`, the game presses fire on the title by itself,
+takes the moves for each cave from `build/gen/demo.c`, and stops the
+emulator after the last cave, which ends the recording.
 
 The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
 the host at every build. It plays the caves with the game's own engine
 (`src/engine.c`) and counts frames and ticks like `play_cave`: from the
 nearest few emeralds it picks one, walks there, round falling things and
 away from creatures, until the exit is open, and takes back any choice that
-gets Rockford killed or stuck. As the cave's random numbers (pushing a
-boulder works one time in four) start the same in every run of a cave, the
-same moves play the same in the game. So a changed cave or rule gives new
+gets Rockford killed or stuck. What it cannot find by itself - dropping
+boulders on purpose, pushing one aside - a cave gives it as opening moves
+(the `demo` key of its `.cave` file); the search goes on from there. If it
+finds no way through a cave, the screencast ends before that cave. As the
+cave's random numbers (pushing a boulder works one time in four) start the
+same in every run of a cave, the same moves play the same in the game. So a changed cave or rule gives new
 moves with the next build.
 
-The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`.
+The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`,
+the video `screenshots/all-caves.mp4` with
+`MEGA65_CAST=1 MEGA65_CAST_OPTS="-x 1 -s 2" .vscode/run-current.sh smaragd-dash/`
+(original size, without the boot screen) and copied there.
 
 ## How it works
 
@@ -81,9 +92,9 @@ The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`.
 | `src/input.c` | joysticks and keyboard |
 | `src/sound.c` | sound effects on the first and third SID (left and right) |
 | `src/music.c` | music player on the second and fourth SID |
-| `src/disk.c`, `src/disk.s` | loading files from the disk through the KERNAL |
+| `src/disk.c` | loading files from the disk, through the floppy controller |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
-| `tools/mkcave.py` | converts the cave files |
+| `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`) |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
@@ -126,20 +137,25 @@ the drums.
 
 **The title logo** does not fit into the program: below $D000 there is
 room for about 44K of code and data, the logo at 288x144 pixels takes
-41K. So it is a file of its own on the disk. Before the program takes the
-machine over, `disk_load` has the KERNAL load it into bank 1 at $12000,
-from where DMA copies it into both framebuffers for the title screen.
+41K. So it is a file of its own on the disk, loaded at the start into
+bank 1 at $12000, from where DMA copies it into both framebuffers for the
+title screen.
 `mkgfx.py` scales it down and gives it palette 1: all entries the status
 font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.
 
-Calling the KERNAL from an llvm-mos program needs some care (`disk.s`): the
-start-up code has switched the ROM at $C000 and BASIC out, and our
-variables can lie under BASIC, so the parameters go to SETBNK, SETNAM and
-SETLFS first and the ROM configuration comes back only for LOAD; the DOS
-uses zero page $02-$8F, which holds llvm-mos's registers and stack pointer,
-so that is saved and restored; and it leaves the Z register non-zero,
-while llvm-mos stores zeros with STZ, which on the 45GS02 stores Z.
+**The caves** come from the disk as well, one file each, loaded when the
+game gets to them; after the last file on the disk it starts again with
+`CAVE01`. So the program holds no maps, and more caves cost no memory.
+
+**The loader** (`disk.c`) does without the KERNAL: it finds the file in
+the D81's directory and reads its sectors through the F011 floppy
+controller, waiting for each one by polling and copying it with DMA from
+the controller's sector buffer ($FFD6C00). It needs neither the ROM nor
+interrupts, so it works at any time, and after each sector it calls a
+hook: while loading, the status line shows an emerald that turns. It
+reads the disk image mounted in drive 0; a real floppy would also need the
+head stepped to the track.
 
 Without the logo the title text is drawn with the status font; the big
 letters are the same font at twice the size, in 16 palette entries of
@@ -148,5 +164,15 @@ their own that the title screen cycles for the shine.
 ## Cave files
 
 See `tools/mkcave.py` for the format. A cave is 40x22 cells with a steel
-frame; the first one, `caves/01-first-steps.cave`, needs 12 of its 25
-emeralds in 150 seconds.
+frame. The caves follow the first ones of Boulder Dash 1 in idea, not in
+layout: like the original's, most are a random fill with walls, rooms and
+creatures drawn over it.
+
+| | | needs | |
+| --- | --- | --- | --- |
+| 1 | FIRST STEPS | 12 in 150 s | dirt, boulders and emeralds |
+| 2 | ROOMS | 20 in 120 s | brick walls make six rooms; two fireflies wait in theirs |
+| 3 | MAZE | 22 in 120 s | a maze with emeralds in its dead ends; fireflies guard three of them |
+| 4 | BUTTERFLIES | 36 in 150 s | dig under the boulders above the hall: a butterfly hit by a falling one leaves nine emeralds |
+| 5 | ENCHANTED WALL | 30 in 150 s | boulders falling through the magic wall come out as emeralds, for 20 seconds |
+| 6 | AMOEBA | 40 in 150 s | drop the two boulders into the openings of the nest before the amoeba gets out: shut in, it turns to emeralds |

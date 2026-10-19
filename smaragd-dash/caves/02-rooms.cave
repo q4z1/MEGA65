@@ -1,0 +1,31 @@
+# Smaragd Dash cave: see tools/mkcave.py for the format.
+# Brick walls divide the cave into rooms; two fireflies wait in theirs.
+name     = ROOMS
+time     = 120
+diamonds = 20
+value    = 15
+extra    = 20
+speed    = 140
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...........dw.......rr...w...r.d...d..W
+W.P.....d....w............w.d..........W
+W.....r... .rw. .r... ...............d.W
+W.r.dr...r.r.w...... ..r..w..       .drW
+Wrdr...............rr.r..rw..   q   ...W
+W.r..dr......w.r.r...r... wr.       ...W
+Wrrr....r....w............w..........rrW
+W...r......r.w.r..........w.r..d.......W
+W............w...........rw. .. .......W
+Wwwwww.wwwwwwwwwwwww.wwwwwwwwwwwww.wwwwW
+W...r.......rw...........rw...r.d......W
+W..r.d.......w............w.....d....d.W
+Wrr..........w..       ...w....rd...d..W
+W............w..   q   .......rr.dd.r..W
+Wr....d.r ...w..       ...w...dr.. ....W
+W........ ................w.r r..d.....W
+W ...........w.. ..... ...w.... . ...d.W
+W. ..... ..r.w........r.ddw.r......d...X
+W ...... r.d.w.....  ..r..w...r...... rW
+W.rd.....r.r.wd........r..w.....r..r...W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

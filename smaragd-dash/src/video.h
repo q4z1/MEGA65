@@ -42,6 +42,7 @@ void video_flash(bool on);
 // generated font; a byte >= 0x80 is icon number (byte - 0x80).
 void status_print(uint8_t col, const char *text);
 void status_put(uint8_t col, uint8_t ch);
+void status_tile(uint8_t col, uint8_t tile);  // a 16x16 tile in col and col + 1
 uint8_t status_code_at(uint8_t col);  // what is shown in a column
 
 // Text screens in the playfield area (both framebuffers, no scrolling):

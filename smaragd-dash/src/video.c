@@ -313,6 +313,16 @@ void status_put(uint8_t col, uint8_t ch) {
     dma_run();
 }
 
+void status_tile(uint8_t col, uint8_t tile) {
+    status_code[col] = status_code[col + 1] = 0xFF;  // no character
+    uint16_t src = (uint16_t)tile_gfx + (tile << 8);
+    uint16_t dst = STATUS_OFF + col * (STATUS_ROWS * 64);
+    dma_begin(0);
+    dma_copy(src, 0, dst, STATUS_BANK, 128);
+    dma_copy(src + 128, 0, dst + STATUS_ROWS * 64, STATUS_BANK, 128);
+    dma_run();
+}
+
 uint8_t status_code_at(uint8_t col) {
     return status_code[col];
 }

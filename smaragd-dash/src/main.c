@@ -1,9 +1,10 @@
 // Smaragd Dash: a Boulder Dash style game for the MEGA65.
 //
 // main.c runs the game: the title screen with its music, then the caves:
-// a cave is uncovered, Rockford hatches, and the cave runs in ticks of the
-// cave's speed while the screen is redrawn every frame (50 Hz PAL, 60 Hz
-// NTSC). The rules are in engine.c, the display in video.c.
+// a cave is loaded from the disk, uncovered, Rockford hatches, and the cave
+// runs in ticks of the cave's speed while the screen is redrawn every frame
+// (50 Hz PAL, 60 Hz NTSC). The rules are in engine.c, the display in
+// video.c.
 //
 // Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
 // itself: the title runs for a while, then the caves play the moves that
@@ -14,7 +15,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "caves.h"
 #include "disk.h"
 #include "engine.h"
 #include "gfx.h"
@@ -54,6 +54,17 @@ static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static uint32_t hiscore;
 static bool have_logo;              // the logo file was on the disk
+
+// The cave being played, as loaded from the disk (CAVE01, CAVE02, ...;
+// the layout is described in tools/mkcave.py)
+static struct {
+    uint16_t time;
+    uint8_t diamonds, value, extra, amoeba, magic, speed;
+    char name[24];
+    uint8_t map[CAVE_SIZE];
+} cave_file;
+static CaveDef cave_def;
+static uint8_t loaded = 0xFF;       // cave_no of cave_file
 
 // ---------------------------------------------------------------- drawing
 
@@ -213,7 +224,7 @@ static void status_intro(void) {
     status_put(2, ICON(ICON_LIFE));
     put_num(4, lives, 1);
     status_print(7, "CAVE");
-    put_num(12, cave_no + 1, 1);
+    put_num(12, cave_no + 1, cave_no >= 9 ? 2 : 1);
     status_print(15, game.def->name);
 }
 
@@ -264,6 +275,71 @@ static void cover_cave(uint8_t on) {
 static void wait_button(uint16_t frames) {
     while (frames-- && !(pressed & IN_BUTTON))
         next_frame();
+}
+
+// ---------------------------------------------------------------- loading
+
+static uint8_t spin_frame;
+
+// The loader calls this after each sector: the emerald in the status line
+// turns, one step every four frames as in the cave.
+static void spin(void) {
+    uint8_t f = PEEK(0xD7FA);  // frame counter
+    if ((f >> 2) != spin_frame) {
+        spin_frame = f >> 2;
+        status_tile(2, T_DIAMOND0 + (spin_frame & 7));
+    }
+}
+
+// Load a file with the spinner and `what` in the status line
+static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr) {
+    status_clear();
+    status_print(5, what);
+    spin_frame = 0xFF;
+    spin();
+    disk_busy = spin;
+    bool ok = disk_load(file, bank, addr);
+    disk_busy = 0;
+    status_clear();
+    return ok;
+}
+
+// Cave n from the disk, unless it is there already
+static bool load_cave(uint8_t n) {
+    if (n == loaded)
+        return true;
+    static char file[] = "CAVE00";
+    static char what[] = "LOADING CAVE 00";
+    uint8_t tens = (n + 1) / 10, ones = (n + 1) % 10;
+    file[4] = '0' + tens;
+    file[5] = '0' + ones;
+    char *num = what + 13;
+    if (tens)
+        *num++ = '0' + tens;
+    *num++ = '0' + ones;
+    *num = 0;
+    loaded = 0xFF;
+    if (!load(what, file, 0, (uint16_t)&cave_file))
+        return false;
+    loaded = n;
+    cave_def.name = cave_file.name;
+    cave_def.map = cave_file.map;
+    cave_def.time = cave_file.time;
+    cave_def.diamonds_needed = cave_file.diamonds;
+    cave_def.diamond_value = cave_file.value;
+    cave_def.extra_value = cave_file.extra;
+    cave_def.amoeba_time = cave_file.amoeba;
+    cave_def.magic_time = cave_file.magic;
+    cave_def.tick_ms = cave_file.speed;
+    return true;
+}
+
+// The cave cave_no; after the last one on the disk the first again
+static bool next_cave(void) {
+    if (load_cave(cave_no))
+        return true;
+    cave_no = 0;
+    return load_cave(0);
 }
 
 // ---------------------------------------------------------------- screencast
@@ -391,7 +467,7 @@ static void title_screen(void) {
 enum { END_DIED, END_EXITED };
 
 static uint8_t play_cave(void) {
-    const CaveDef *d = &caves[cave_no];
+    const CaveDef *d = &cave_def;
     const uint16_t tick_len = d->tick_ms * 3;  // in 1/3 ms
     const uint8_t frame_len = pal ? 60 : 50;
     const uint8_t fps = pal ? 50 : 60;
@@ -506,9 +582,6 @@ static uint8_t play_cave(void) {
 }
 
 int main(void) {
-    // While the KERNAL still runs: the title logo from the disk to $12000
-    have_logo = disk_load("SMARAGD.LOGO", 1, 0x2000);
-
     __asm__ volatile("sei");
     POKE(0x00, 65);                     // 40 MHz
     POKE(0xD02F, 0x47);                 // VIC-IV registers on
@@ -524,6 +597,8 @@ int main(void) {
     video_init();
     sound_init();
     init_tiles();
+    // The title logo from the disk to $12000
+    have_logo = load("LOADING", "SMARAGD.LOGO", 1, 0x2000);
 
     for (;;) {
         title_screen();
@@ -531,28 +606,33 @@ int main(void) {
         score = 0;
         next_life = LIFE_POINTS;
         cave_no = 0;
+        bool have_cave = true;
         while (lives) {
 #ifdef SCREENCAST
+            // after the last cave with moves
             if (cave_no >= DEMO_CAVES)
                 demo_end();
+#endif
+            if (!(have_cave = next_cave()))
+                break;
+#ifdef SCREENCAST
             demo_p = demo_moves[cave_no];
             demo_left = 0;
 #endif
             uint8_t end = play_cave();
             score += game.score;
             if (end == END_EXITED)
-                cave_no = (cave_no + 1) % CAVE_COUNT;
+                cave_no++;
             else
                 lives--;
 #ifdef SCREENCAST
-            // after the last cave (or if one went wrong)
-            if (end != END_EXITED || cave_no == 0)
+            if (end != END_EXITED)  // something went wrong
                 demo_end();
 #endif
         }
         if (score > hiscore)
             hiscore = score;
-        status_center("GAME OVER");
+        status_center(have_cave ? "GAME OVER" : "NO CAVES ON THE DISK");
         sound_off();
         wait_button(250);
     }
