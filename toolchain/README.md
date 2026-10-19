@@ -19,6 +19,8 @@ toolchain/setup.sh
 | `tools/bin/bspatch.py` | applies bsdiff patches (replaces `bspatch.exe` from mega65go) | written here |
 | `tools/bin/msi-extract-cabs.py` | pulls the CAB archives out of an `.msi` | written here |
 | `tools/bin/cabextract` | unpacks the CABs (bsdtar fails on their LZX) | [cabextract 1.11](https://www.cabextract.org.uk/), built from `tools/src/` |
+| `vscode/mega65-asm/` | VS Code syntax highlighting for 45GS02 assembly in llvm-mos syntax (all 45GS02 opcodes incl. `ldz`, `map`/`eom`, the Q instructions; `mos16lo()` & co.) | written here |
+| `vscode/install-extensions.sh` | packs `mega65-asm` into `vscode/build/mega65-asm.vsix` and installs it together with the clangd extension | written here |
 | `tools/python/` | Python module `olefile` for reading the MSI | pip |
 | `downloads/` | the downloaded archives (SDK, MSI, ROM patch, sources) | |
 

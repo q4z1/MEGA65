@@ -1,0 +1,2 @@
+--config=toolchain/llvm-mos/bin/mos-mega65.cfg
+-Wall

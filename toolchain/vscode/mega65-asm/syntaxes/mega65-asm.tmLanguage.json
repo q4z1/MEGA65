@@ -1,0 +1,108 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "MEGA65 Assembly (45GS02)",
+    "scopeName": "source.mega65-asm",
+    "comment": "45GS02 = 6502 + 65C02 bit ops + 65CE02 + 4510 (map/eom) + the 32-bit Q instructions. Directives and expressions follow llvm-mos (GNU as).",
+    "patterns": [
+        { "include": "#comments" },
+        { "include": "#strings" },
+        { "include": "#labels" },
+        { "include": "#directives" },
+        { "include": "#opcodes" },
+        { "include": "#modifiers" },
+        { "include": "#registers" },
+        { "include": "#numbers" },
+        { "include": "#operators" }
+    ],
+    "repository": {
+        "comments": {
+            "patterns": [
+                { "name": "comment.line.semicolon.mega65-asm", "match": ";.*$" },
+                { "name": "comment.block.mega65-asm", "begin": "/\\*", "end": "\\*/" }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "name": "string.quoted.double.mega65-asm",
+                    "begin": "\"",
+                    "end": "\"",
+                    "patterns": [{ "name": "constant.character.escape.mega65-asm", "match": "\\\\." }]
+                },
+                { "name": "string.quoted.single.mega65-asm", "match": "'(\\\\.|[^'\\\\])'?" }
+            ]
+        },
+        "labels": {
+            "patterns": [
+                {
+                    "match": "^\\s*([A-Za-z_.$][\\w.$]*|\\d+)\\s*(:)",
+                    "captures": {
+                        "1": { "name": "entity.name.function.label.mega65-asm" },
+                        "2": { "name": "punctuation.separator.mega65-asm" }
+                    }
+                },
+                { "comment": "local label references: 1b, 1f", "name": "entity.name.label.mega65-asm", "match": "\\b\\d+[bf]\\b" }
+            ]
+        },
+        "directives": {
+            "patterns": [
+                {
+                    "match": "^\\s*(?:[A-Za-z_.$][\\w.$]*\\s*:\\s*)?(\\.[A-Za-z_][\\w.]*)",
+                    "captures": { "1": { "name": "keyword.other.directive.mega65-asm" } }
+                },
+                { "comment": ".set name, value and similar after a label", "name": "keyword.other.directive.mega65-asm", "match": "(?<=\\s)\\.(?:set|equ|equiv)\\b" }
+            ]
+        },
+        "opcodes": {
+            "patterns": [
+                {
+                    "comment": "jumps, branches, returns, interrupts",
+                    "name": "keyword.control.mega65-asm",
+                    "match": "(?i)(?<![\\w.$])(bcc|bcs|beq|bmi|bne|bpl|bvc|bvs|bra|bsr|lbcc|lbcs|lbeq|lbmi|lbne|lbpl|lbvc|lbvs|lbra|jmp|jsr|rts|rti|rtn|brk|bb[rs][0-7])(?![\\w.$:])"
+                },
+                {
+                    "comment": "45GS02 32-bit Q register instructions",
+                    "name": "keyword.instruction.q.mega65-asm",
+                    "match": "(?i)(?<![\\w.$])(ldq|stq|adcq|sbcq|andq|orq|eorq|bitq|cmpq|cpq|aslq|asrq|lsrq|rolq|rorq|inq|deq)(?![\\w.$:])"
+                },
+                {
+                    "comment": "6502, 65C02 bit ops, 65CE02, 4510",
+                    "name": "keyword.instruction.mega65-asm",
+                    "match": "(?i)(?<![\\w.$])(adc|and|asl|bit|clc|cld|cli|clv|cmp|cpx|cpy|dec|dex|dey|eor|inc|inx|iny|lda|ldx|ldy|lsr|nop|ora|pha|php|pla|plp|rol|ror|sbc|sec|sed|sei|sta|stx|sty|tax|tay|tsx|txa|txs|tya|phx|phy|plx|ply|stz|trb|tsb|[rs]mb[0-7]|asr|asw|row|cle|see|cpz|dew|dez|inw|inz|ldz|neg|phw|phz|plz|tab|taz|tba|tsy|tys|tza|map|eom|aug)(?![\\w.$:])"
+                }
+            ]
+        },
+        "modifiers": {
+            "comment": "llvm-mos relocation modifiers such as mos16lo(sym), mos16hi(sym), mos24bank(sym)",
+            "name": "support.function.modifier.mega65-asm",
+            "match": "\\bmos\\w+(?=\\s*\\()"
+        },
+        "registers": {
+            "patterns": [
+                {
+                    "comment": "index registers: ,x ,y ,z ,s and (zp),z / [zp],z",
+                    "match": "(,)\\s*([xyzsXYZS])\\b",
+                    "captures": { "2": { "name": "variable.language.register.mega65-asm" } }
+                },
+                {
+                    "comment": "llvm-mos imaginary zero-page registers",
+                    "name": "variable.language.register.mega65-asm",
+                    "match": "\\b__r[cs]\\d+\\b"
+                }
+            ]
+        },
+        "numbers": {
+            "patterns": [
+                { "name": "constant.numeric.hex.mega65-asm", "match": "\\$[0-9A-Fa-f]+\\b|\\b0[xX][0-9A-Fa-f]+\\b" },
+                { "name": "constant.numeric.binary.mega65-asm", "match": "%[01]+\\b|\\b0[bB][01]+\\b" },
+                { "name": "constant.numeric.decimal.mega65-asm", "match": "\\b\\d+\\b" }
+            ]
+        },
+        "operators": {
+            "patterns": [
+                { "comment": "immediate addressing", "name": "keyword.operator.immediate.mega65-asm", "match": "#" },
+                { "name": "keyword.operator.mega65-asm", "match": "<<|>>|[-+*/&|^~<>!=]" }
+            ]
+        }
+    }
+}

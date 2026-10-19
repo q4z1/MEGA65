@@ -6,6 +6,7 @@
 #   tools/               helper tools (tools/build-tools.sh)
 #   xemu/build/bin/      Xemu, built from the git checkout
 #   rom/MEGA65.ROM       the ROM (rom/build-rom.sh)
+#   vscode/              editor extensions (vscode/install-extensions.sh)
 #
 # Usage: toolchain/setup.sh
 
@@ -56,5 +57,8 @@ if [ ! -f "$XEMU_DATA/MEGA65.ROM" ]; then
     mkdir -p "$XEMU_DATA"
     cp "$TC/rom/MEGA65.ROM" "$XEMU_DATA/MEGA65.ROM"
 fi
+
+echo "== VS Code extensions"
+"$TC/vscode/install-extensions.sh" || echo "Skipped; run toolchain/vscode/install-extensions.sh later."
 
 echo "All set."

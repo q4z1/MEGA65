@@ -1,0 +1,37 @@
+{
+    "name": "mega65-asm",
+    "displayName": "MEGA65 Assembly (45GS02)",
+    "description": "Syntax highlighting for 45GS02 assembly in llvm-mos (GNU as) syntax",
+    "publisher": "local",
+    "version": "0.1.0",
+    "license": "MIT",
+    "engines": {
+        "vscode": "^1.60.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "mega65-asm",
+                "aliases": [
+                    "MEGA65 Assembly",
+                    "45GS02"
+                ],
+                "extensions": [
+                    ".s",
+                    ".inc"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "mega65-asm",
+                "scopeName": "source.mega65-asm",
+                "path": "./syntaxes/mega65-asm.tmLanguage.json"
+            }
+        ]
+    }
+}

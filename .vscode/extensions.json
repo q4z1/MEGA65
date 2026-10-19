@@ -1,0 +1,7 @@
+{
+    // The MEGA65 assembly grammar is not in the marketplace; it is installed
+    // from toolchain/vscode/ by toolchain/vscode/install-extensions.sh.
+    "recommendations": [
+        "llvm-vs-code-extensions.vscode-clangd"
+    ]
+}

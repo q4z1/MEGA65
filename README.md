@@ -62,6 +62,20 @@ To disassemble:
 toolchain/llvm-mos/bin/llvm-objdump -d main/build/main.prg.elf
 ```
 
+## Editor
+
+C is checked by **clangd from llvm-mos** (`.vscode/settings.json`), so the
+editor sees exactly what the compiler sees: target `mos`, 16-bit `int`, the
+MEGA65 headers, 45GS02 inline assembly. Its flags come from
+[compile_flags.txt](compile_flags.txt); a folder with code for the host (such
+as host tests) brings its own `compile_flags.txt`. Microsoft's C/C++
+IntelliSense is switched off for this workspace.
+
+Assembly files (`.s`, `.inc`) are highlighted by the 45GS02 grammar in
+[toolchain/vscode/](toolchain/vscode/mega65-asm/). Both extensions are
+installed by `toolchain/vscode/install-extensions.sh` (also part of
+`setup.sh`).
+
 ## C and assembly together
 
 llvm-mos passes the first 8-bit arguments in `A` and `X`, pointers and further

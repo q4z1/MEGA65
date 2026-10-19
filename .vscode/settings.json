@@ -1,0 +1,22 @@
+{
+    // C/C++: clangd from llvm-mos itself, so the editor sees exactly what the
+    // compiler sees (target mos, 16-bit int, 45GS02 inline assembly, the
+    // MEGA65 headers). The flags come from compile_flags.txt in the
+    // repository root; a folder can bring its own (e.g. host tests).
+    "clangd.path": "${workspaceFolder}/toolchain/llvm-mos/bin/clangd",
+    "clangd.arguments": [
+        "--header-insertion=never"
+    ],
+    "clangd.onConfigChanged": "restart",
+    // Microsoft's IntelliSense would only guess (x86 types, missing headers)
+    // and show its errors next to clangd's.
+    "C_Cpp.intelliSenseEngine": "disabled",
+
+    "files.associations": {
+        "*.h": "c",
+        // 45GS02 assembly for llvm-mos (toolchain/vscode/mega65-asm); takes
+        // .s away from VS64's plain 6502 grammar.
+        "*.s": "mega65-asm",
+        "*.inc": "mega65-asm"
+    }
+}
