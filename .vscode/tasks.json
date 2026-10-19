@@ -67,6 +67,22 @@
             "problemMatcher": []
         },
         {
+            // Builds the program of the active file and shows where its
+            // memory goes: RAM, program by source file, disk (see
+            // toolchain/tools/bin/mega65-mem and the program's memmap).
+            "label": "MEGA65: Memory map (active program)",
+            "type": "shell",
+            "command": "${workspaceFolder}/toolchain/tools/bin/mega65-mem",
+            "args": [
+                "${file}"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": "MEGA65: Build (active program)",
+            "problemMatcher": []
+        },
+        {
             // Start Xemu without a program (BASIC 65).
             "label": "MEGA65: Start Xemu",
             "type": "shell",

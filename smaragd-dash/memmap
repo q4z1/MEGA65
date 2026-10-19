@@ -1,0 +1,21 @@
+# Smaragd Dash: the memory the linker does not place, and the files on the
+# disk - for toolchain/tools/bin/mega65-mem. The numbers are video.c's.
+
+# Bank 0
+ram  $0800+6006      DMA list for a frame, 500 jobs (video.c)
+
+# Banks 4 and 5: framebuffers of 40 columns x 22 characters x 64 bytes
+ram  $40000+56320    framebuffer A (video.c)
+ram  $4DC00+7680     status line: 40 columns x 3 characters (video.c)
+ram  $50000+56320    framebuffer B (video.c)
+ram  $5DC00+2000     screen A: 40x25 characters of 2 bytes (video.c)
+ram  $5E400+2000     screen B (video.c)
+
+# Colour RAM, cleared to 0: no attributes (video.c)
+ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
+
+# The disk (build.sh). The program itself is found by its contents.
+file SMARAGD.LOGO   @$12000     title logo, 288x144 pixels (mkgfx.py)
+file SMARAGD.SCORES @file       high score table, written by the game (hiscore.c)
+file CAVE??-?       @cave_file  a cave in one of its four levels (mkcave.py)
+file DEMO??         @demo_moves the screencast's moves for a cave (solve.c)

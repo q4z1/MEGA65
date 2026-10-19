@@ -1,0 +1,583 @@
+#!/usr/bin/env python3
+"""Where a MEGA65 program's memory goes: the RAM, the program, the disk.
+
+Usage: mega65-mem [--top N] [--files] <program folder, or a file in it>
+
+Reads what the build leaves in <program>/build/ - the linker's map
+(<name>.map), the program with its symbols and debug information
+(<name>.prg.elf) and, if there is one, the disk image (<name>.d81) - and
+prints
+  - bank 0 as the CPU sees it, and chip RAM banks 1-5: who holds each
+    range, and what is free (largest first)
+  - the program by source file: code, read-only data, data, BSS, zero page
+  - its largest symbols
+  - the files it loads into its own variables, and how full they leave them
+  - the disk: each file's blocks, bytes and load address, and the blocks free
+
+The linker knows only its own sections. What the MEGA65 itself uses is in
+MEGA65 below; what the program places by hand, and what the files on its
+disk are, come from the file `memmap` in the program folder, if there is
+one:
+
+    ram  <range> <what>         memory the program uses outside the
+                                linker's sections
+    file <name> [@<to>] <what>  a file on the disk; <name> may hold * ? [...]
+                                and goes in quotes if it holds spaces
+
+<range> is $START-$END (END included) or $START+SIZE, numbers in $hex or
+decimal; addresses have up to 28 bits ($FF80000 is the colour RAM, $8000000
+the attic RAM). @<to> says that the program loads the file, without its two
+bytes of load address: to an address (@$12000 - the memory up to the end
+of the largest such file then counts as held by <what>), or into a variable
+(@cave_file - each file is checked against the variable's size). # starts
+a comment.
+
+The program folder is found as .vscode/run-current.sh finds it: the
+nearest folder upwards with a build.sh, otherwise the file's own folder.
+"""
+
+import argparse
+import fnmatch
+import os
+import re
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+LLVM = os.path.join(ROOT, "toolchain", "llvm-mos", "bin")
+sys.path.insert(0, HERE)
+import mkd81  # noqa: E402
+
+# The address spaces shown: name, start, end (inclusive), shown even when
+# nothing of the program lies in them
+AREAS = [
+    ("Bank 0, as the CPU sees it", 0x0000, 0xFFFF, True),
+    ("Chip RAM, banks 1-5", 0x10000, 0x5FFFF, True),
+    ("Colour RAM", 0xFF80000, 0xFF87FFF, False),
+    ("Attic RAM", 0x8000000, 0x87FFFFF, False),
+]
+
+# The MEGA65 with ROM 920413 in C65 mode, as a program built with llvm-mos
+# finds it (llvm-mos' mega65/lib/link.ld): start, end, kind, what. "basic":
+# BASIC's, so free for a program that does not go back to it - and one with
+# the llvm-mos runtime never does.
+MEGA65 = [
+    (0x0000, 0x0001, "system", "CPU port"),
+    (0x0002, 0x008F, "free", "zero page for llvm-mos"),
+    (0x0090, 0x00FF, "system", "KERNAL's zero page"),
+    (0x0100, 0x01FF, "system", "CPU stack"),
+    (0x0200, 0x07FF, "system", "KERNAL's and BASIC's work area"),
+    (0x0800, 0x0FFF, "system", "the KERNAL's screen (80x25)"),
+    (0x1000, 0x1FFF, "system", "KERNAL's and BASIC's work area"),
+    (0x2000, 0x2000, "system", "BASIC's 0 before the program"),
+    (0x2001, 0xCFFF, "free", "the linker's RAM"),
+    (0xD000, 0xDFFF, "system", "I/O"),
+    (0xE000, 0xFFFF, "system", "KERNAL (ROM, from $3E000)"),
+    (0x10000, 0x11FFF, "system", "DOS's work area"),
+    (0x12000, 0x1F7FF, "basic", "BASIC's variables"),
+    (0x1F800, 0x1FFFF, "system", "colour RAM's first 2K (also at $D800)"),
+    (0x20000, 0x3FFFF, "system", "ROM: BASIC, KERNAL, DOS, character sets"),
+    (0x40000, 0x5FFFF, "free", ""),
+    (0xFF80000, 0xFF87FFF, "free", ""),
+    (0x8000000, 0x87FFFFF, "free", ""),
+]
+
+# The linker's output sections: what they hold, and their column in the
+# table by source file
+# How the bytes of an area are counted
+TOTALS = {"linker": "the linker's", "program": "the program's own (memmap)",
+          "system": "the system's", "free": "free"}
+
+SECTIONS = {
+    ".basic_header": ("BASIC line: SYS to the program", "code"),
+    ".zp.data": ("zero page variables with a value", "zp"),
+    ".zp.bss": ("zero page variables", "zp"),
+    ".zp": ("zero page: the compiler's", "zp"),
+    ".text": ("code", "code"),
+    ".rodata": ("read-only data", "rodata"),
+    ".data": ("variables with a value", "data"),
+    ".bss": ("variables, cleared at the start", "bss"),
+    ".noinit": ("variables, not cleared", "bss"),
+}
+COLS = ["code", "rodata", "data", "bss", "zp"]
+# Sections in the ELF file only, not in the program
+NOT_LOADED = (".debug", ".comment", ".symtab", ".strtab", ".shstrtab", ".llvm")
+
+TYPES = ["del", "seq", "prg", "usr", "rel", "cbm"]
+
+
+def num(text):
+    text = text.strip()
+    if text.startswith("$"):
+        return int(text[1:], 16)
+    return int(text, 0)
+
+
+def hexa(a):
+    return f"${a:04X}" if a < 0x10000 else f"${a:05X}" if a < 0x100000 else f"${a:07X}"
+
+
+def program_dir(path):
+    d = os.path.abspath(path if os.path.isdir(path) else os.path.dirname(path))
+    p = d
+    while p not in (ROOT, "/") and not os.path.exists(os.path.join(p, "build.sh")):
+        p = os.path.dirname(p)
+    return p if os.path.exists(os.path.join(p, "build.sh")) else d
+
+
+# ---------------------------------------------------------------- inputs
+
+def read_map(path):
+    """lld's map: the output sections [(name, vma, lma, size)] and the input
+    sections in them [{out, vma, size, obj, sec, syms}]."""
+    outs, ins = [], []
+    line_re = re.compile(r"^\s*([0-9a-f]+)\s+([0-9a-f]+)\s+([0-9a-f]+)\s+\d+ (\s*)(.*)$")
+    for line in open(path):
+        m = line_re.match(line)
+        if not m:
+            continue
+        vma, lma, size = (int(m.group(i), 16) for i in (1, 2, 3))
+        depth, text = len(m.group(4)), m.group(5)
+        if depth == 0:
+            if text.startswith("."):
+                outs.append((text, vma, lma, size))
+        elif depth == 8 and outs:
+            if "=" in text:
+                continue
+            m2 = re.match(r"^(.*):\((.*)\)$", text)
+            if m2:
+                ins.append({"out": outs[-1][0], "vma": vma, "size": size,
+                            "obj": m2.group(1), "sec": m2.group(2), "syms": []})
+        elif depth == 16 and ins and "=" not in text:
+            ins[-1]["syms"].append((vma, text))
+    return outs, ins
+
+
+def read_nm(elf):
+    syms = {}
+    try:
+        out = subprocess.run([os.path.join(LLVM, "llvm-nm"), elf], check=True,
+                             capture_output=True, text=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return syms
+    for line in out.splitlines():
+        p = line.split()
+        if len(p) == 3:
+            syms[p[2]] = int(p[0], 16)
+    return syms
+
+
+def read_dwarf(elf, folder):
+    """From the debug information: the source file (the compile unit,
+    relative to the program folder) of each function, label and variable by
+    address, of each function by name, and the address ranges of the units
+    that give one (assembly files)."""
+    by_addr, by_name, ranges = {}, {}, []
+
+    def dump(what):
+        try:
+            return subprocess.run([os.path.join(LLVM, "llvm-dwarfdump"), what, elf],
+                                  check=True, capture_output=True, text=True).stdout
+        except (OSError, subprocess.CalledProcessError):
+            return ""
+
+    # .debug_addr: the tables DW_OP_addrx indexes, by their offset
+    tables, start, cur = {}, 0, None
+    for line in dump("--debug-addr").splitlines():
+        m = re.match(r"Address table header: length = (0x[0-9a-f]+)", line)
+        if m:
+            cur = tables.setdefault(start + 8, [])  # DWARF 5, 32 bit: 8 bytes header
+            start += 4 + int(m.group(1), 16)
+        elif cur is not None and re.fullmatch(r"\s*0x[0-9a-f]+\s*", line):
+            cur.append(int(line, 16))
+
+    cu, base, die = None, 0, None
+
+    def done(d):
+        nonlocal cu
+        if not d:
+            return
+        if d["tag"] == "compile_unit":
+            path = os.path.join(d.get("comp_dir", ""), d.get("name", "?"))
+            cu = os.path.relpath(path, folder) if os.path.isabs(path) else path
+            if d.get("low_pc") and d.get("high_pc"):
+                ranges.append((d["low_pc"], d["high_pc"], cu))
+            return
+        if cu is None:
+            return
+        if d.get("addr") is not None:
+            by_addr.setdefault(d["addr"], cu)
+        if d["tag"] == "subprogram" and d.get("name"):
+            by_name.setdefault(d["name"], cu)
+
+    for line in dump("--debug-info").splitlines():
+        m = re.match(r"^0x[0-9a-f]+:\s+DW_TAG_(\w+)", line)
+        if m:
+            done(die)
+            die = {"tag": m.group(1)}
+            continue
+        if die is None:
+            continue
+        m = re.match(r"^\s+DW_AT_(\w+)\s+\((.*)\)\s*$", line)
+        if not m:
+            continue
+        at, val = m.groups()
+        if die["tag"] == "compile_unit":
+            if at in ("name", "comp_dir"):
+                die[at] = val.strip('"')
+            elif at in ("low_pc", "high_pc"):
+                die[at] = int(val, 16)
+            elif at == "addr_base":
+                base = int(val, 16)
+            continue
+        if at == "name":
+            die["name"] = val.strip('"')
+        elif at == "low_pc":
+            die["addr"] = int(val, 16)
+        elif at == "location":
+            m = re.match(r"DW_OP_addrx (0x[0-9a-f]+|\d+)", val)
+            if m and base in tables and int(m.group(1), 0) < len(tables[base]):
+                die["addr"] = tables[base][int(m.group(1), 0)]
+            m = re.match(r"DW_OP_addr (0x[0-9a-f]+)", val)
+            if m:
+                die["addr"] = int(m.group(1), 16)
+    done(die)
+    return by_addr, by_name, ranges
+
+
+def read_memmap(path):
+    """The program's memmap: [(start, end, what)] and [(pattern, to, what)]."""
+    rams, files = [], []
+    if not os.path.exists(path):
+        return rams, files
+    line_re = re.compile(r'^(\w+)\s+("[^"]*"|\S+)(?:\s+@(\S+))?\s*(.*)$')
+    for n, line in enumerate(open(path), 1):
+        line = re.sub(r'^((?:[^"#]|"[^"]*")*)#.*', r"\1", line).strip()
+        if not line:
+            continue
+        m = line_re.match(line)
+        try:
+            if not m or m.group(1) not in ("ram", "file") or (m.group(1) == "ram" and m.group(3)):
+                raise ValueError("expected: ram <range> <what>, or file <name> [@<to>] <what>")
+            kind, name, to, what = m.groups()
+            if kind == "ram":
+                start, end = parse_range(name)
+                rams.append((start, end, what))
+            else:
+                if to and (to[0] == "$" or to[0].isdigit()):
+                    to = num(to)
+                files.append((name.strip('"'), to, what))
+        except ValueError as e:
+            sys.exit(f"{path}:{n}: {e}")
+    return rams, files
+
+
+def parse_range(text):
+    if "+" in text:
+        a, n = text.split("+", 1)
+        start, size = num(a), num(n)
+        if size < 1:
+            raise ValueError(f"empty range {text}")
+        return start, start + size - 1
+    if "-" in text:
+        a, b = text.split("-", 1)
+        start, end = num(a), num(b)
+        if end < start:
+            raise ValueError(f"range {text} ends before it starts")
+        return start, end
+    raise ValueError(f"range {text}: $START-$END or $START+SIZE")
+
+
+def read_disk(path):
+    """The disk's files [(name, type, blocks, data)] and its blocks free."""
+    img = open(path, "rb").read()
+    files = [(name.decode("latin-1"), typ, blocks, mkd81.file_data(img, t, s))
+             for name, typ, t, s, blocks in mkd81.directory(img)]
+    return files, mkd81.free_blocks(img)
+
+
+# ---------------------------------------------------------------- the program
+
+def units(ins, by_addr, by_name, ranges):
+    """Each input section the program holds, with a name, a source file and
+    its column."""
+    out = []
+    lto = re.compile(r"\.lto\.o$")
+    for u in ins:
+        if u["size"] == 0 or u["out"].startswith(NOT_LOADED):
+            continue
+        obj, sec = u["obj"], u["sec"]
+        names = [n for a, n in u["syms"] if a == u["vma"]] or [n for a, n in u["syms"]]
+        name = names[0] if names else sec
+        # the linker's own (merged strings and constants): of all files
+        src = "(strings, constants)" if obj == "<internal>" else by_addr.get(u["vma"])
+        if src is None:
+            src = next((f for lo, hi, f in ranges if lo <= u["vma"] < hi), None)
+        if src is None and not names:
+            # .rodata.main: constants of the function main
+            m = re.match(r"^\.\w+(?:\.\w+)?\.([A-Za-z_]\w*)$", sec)
+            if m and m.group(1) in by_name:
+                src = by_name[m.group(1)]
+                name = f"{sec} (constants of {m.group(1)})"
+        if src is None:
+            if not lto.search(obj):
+                src = "(llvm-mos start-up)"
+            elif names:
+                src = "(libc, runtime)"
+            else:
+                src = "(compiler)"
+                if sec.startswith(".zp"):
+                    name = f"{sec} (locals)"
+                elif "static_stack" in sec:
+                    name = f"{sec} (locals)"
+        col = SECTIONS.get(u["out"], ("", "data"))[1]
+        out.append({**u, "name": name, "src": src, "col": col})
+    return out
+
+
+# ---------------------------------------------------------------- RAM
+
+class Layer:
+    def __init__(self, start, end, kind, what, prio):
+        self.start, self.end, self.kind, self.what, self.prio = start, end, kind, what, prio
+
+
+def paint(layers, lo, hi):
+    """The ranges from lo to hi, each with the layers lying over it, topmost
+    first, ranges of the same top layer merged."""
+    cuts = {lo, hi + 1}
+    for la in layers:
+        if la.end >= lo and la.start <= hi:
+            cuts.add(max(la.start, lo))
+            cuts.add(min(la.end, hi) + 1)
+    cuts = sorted(cuts)
+    out = []
+    for a, b in zip(cuts, cuts[1:]):
+        over = sorted((la for la in layers if la.start <= a and la.end >= b - 1),
+                      key=lambda la: -la.prio)
+        if out and out[-1][2] and over and out[-1][2][0] is over[0]:
+            out[-1][1] = b - 1
+        else:
+            out.append([a, b - 1, over])
+    return out
+
+
+def ram_layers(outs, syms, rams, files, disk_files):
+    layers = [Layer(s, e, k, w, 0) for s, e, k, w in MEGA65]
+    rc0, rc31 = syms.get("__rc0"), syms.get("__rc31")
+    if rc0 is not None and rc31 is not None:
+        layers.append(Layer(rc0, rc31, "linker", "llvm-mos' registers __rc0-__rc31", 1))
+    heap, stack = syms.get("__heap_start"), syms.get("__stack")
+    if heap is not None and stack is not None and heap < stack:
+        # from the end of the sections: the heap starts aligned
+        last = max((v + n for o, v, l, n in outs if n and 0x2001 <= v < stack), default=heap)
+        heap = last if heap - 2 < last < heap else heap
+        layers.append(Layer(heap, stack - 1, "free",
+                            f"the linker's RAM: heap; the soft stack grows down from {hexa(stack)}", 1))
+    for name, vma, lma, size in outs:
+        if size == 0 or name not in SECTIONS:
+            continue
+        layers.append(Layer(vma, vma + size - 1, "linker", f"{name:14} {SECTIONS[name][0]}", 2))
+        if lma != vma:
+            layers.append(Layer(lma, lma + size - 1, "linker",
+                                f"{name:14} its values, copied to {hexa(vma)} at the start", 2))
+    for start, end, what in rams:
+        layers.append(Layer(start, end, "program", what, 3))
+    for pat, to, what in files:
+        if isinstance(to, int):
+            sizes = [len(d) - 2 for n, t, b, d in disk_files if match(pat, n)]
+            if sizes and max(sizes) > 0:
+                layers.append(Layer(to, to + max(sizes) - 1, "program",
+                                    f"file {pat}: {what}", 3))
+    return layers
+
+
+def clashes(layers):
+    out = []
+    mine = [la for la in layers if la.kind == "program"]
+    for i, a in enumerate(mine):
+        for b in mine[i + 1:] + [la for la in layers if la.kind == "linker"]:
+            if a.start <= b.end and b.start <= a.end:
+                out.append(f"\"{a.what}\" overlaps \"{' '.join(b.what.split())}\" at "
+                           f"{hexa(max(a.start, b.start))}")
+    return out
+
+
+def use_of(start, kind, what, area):
+    if start < 0x100:
+        return "zero page variables"
+    if start < 0xD000 and kind == "free":
+        return "code or data, in the program"
+    where = what if kind == "basic" else area if start >= 0x60000 else ""
+    return "data, with DMA or 32-bit pointers" + (f" ({where})" if where else "")
+
+
+def ram(layers, warn):
+    used = [la for la in layers if la.kind != "system" and not (la.kind == "free" and la.prio == 0)]
+    free = []
+    for title, lo, hi, always in AREAS:
+        if not always and not any(la.start <= hi and la.end >= lo for la in used):
+            continue
+        totals = {}
+        print(f"{title}: who holds what")
+        w = len(hexa(hi))
+        print(f"  {'range':{2 * w + 1}}  {'bytes':>7}  owner")
+        for start, end, over in paint(layers, lo, hi):
+            n = end - start + 1
+            top = over[0] if over else Layer(start, end, "free", "", 0)
+            kind = top.kind
+            if kind in ("free", "basic"):
+                text = "** free **" + (f" ({top.what})" if top.what else "")
+                free.append((n, start, end, kind, top.what, title))
+                kind = "free"
+            else:
+                text = top.what
+                if kind == "program":
+                    under = next((la for la in over[1:] if la.kind in ("system", "basic")), None)
+                    if under:
+                        text += f"  [instead of: {under.what}]"
+            totals[kind] = totals.get(kind, 0) + n
+            print(f"  {hexa(start)}-{hexa(end)}  {n:7}  {text}")
+        print("  " + ", ".join(f"{TOTALS[k]} {totals[k]}" for k in TOTALS if k in totals)
+              + f" of {hi - lo + 1} bytes")
+        print()
+    for text in warn:
+        print(f"WARNING: {text}")
+    if warn:
+        print()
+    print("RAM: free, largest first")
+    for n, start, end, kind, what, area in sorted(free, key=lambda f: (-f[0], f[1])):
+        rng = f"{hexa(start)}-{hexa(end)}"
+        print(f"  {n:7}  {rng:17}  {use_of(start, kind, what, area)}")
+
+
+def by_source(us):
+    print("The program by source file (bytes)")
+    rows = {}
+    for u in us:
+        row = rows.setdefault(u["src"], dict.fromkeys(COLS, 0))
+        row[u["col"]] += u["size"]
+    width = max([22] + [len(s) + 1 for s in rows])
+    print(f"  {'file':{width}}" + "".join(f"{c:>8}" for c in COLS) + f"{'total':>8}")
+    sums = dict.fromkeys(COLS, 0)
+    for src, row in sorted(rows.items(), key=lambda r: (-sum(r[1].values()), r[0])):
+        for c in COLS:
+            sums[c] += row[c]
+        print(f"  {src:{width}}" + "".join(f"{row[c]:8}" for c in COLS) + f"{sum(row.values()):8}")
+    print(f"  {'':{width}}" + "".join(f"{sums[c]:8}" for c in COLS) + f"{sum(sums.values()):8}")
+    print("  (bss: cleared at the start, not in the file; zp: zero page)")
+
+
+def largest(us, top):
+    print(f"The {top} largest symbols")
+    for u in sorted(us, key=lambda u: (-u["size"], u["vma"]))[:top]:
+        print(f"  {u['size']:6}  {hexa(u['vma'])}  {u['name'][:34]:34} {u['out']:9} {u['src']}")
+
+
+# ---------------------------------------------------------------- the disk
+
+def match(pat, name):
+    return fnmatch.fnmatchcase(name.upper(), pat.upper())
+
+
+def loads(files, disk_files, us):
+    rows = [(pat, to) for pat, to, what in files if isinstance(to, str)]
+    if not rows:
+        return
+    print("Files loaded into variables: how full they leave them")
+    print(f"  {'file':16} {'variable':16} {'size':>6} {'files':>6} {'bytes':>11}  full")
+    for pat, to in rows:
+        u = next((u for u in us if u["name"] == to), None)
+        sizes = [len(d) - 2 for n, t, b, d in disk_files if match(pat, n)]
+        if u is None:
+            print(f"  {pat:16} {to:16} {'':>6} {len(sizes):6}  (not in this build)")
+            continue
+        if not sizes:
+            print(f"  {pat:16} {to:16} {u['size']:6} {0:6}  (none on the disk)")
+            continue
+        lo, hi = min(sizes), max(sizes)
+        span = f"{lo}" if lo == hi else f"{lo}-{hi}"
+        flag = "  ** TOO LARGE **" if hi > u["size"] else ""
+        print(f"  {pat:16} {to:16} {u['size']:6} {len(sizes):6} {span:>11}  "
+              f"{100 * hi // u['size']:3}%{flag}")
+    print("  (bytes: without the load address)")
+
+
+def disk(path, disk_files, free, files, prg, show_all):
+    print(f"Disk: {os.path.relpath(path)}")
+    print(f"  {'file':20} {'type':4} {'blocks':>6} {'bytes':>11}  {'load':5}  what")
+    prg_data = open(prg, "rb").read() if prg and os.path.exists(prg) else None
+    used = 0
+    groups = {}
+    for name, typ, blocks, data in disk_files:
+        used += blocks
+        pat, what = next(((p, w) for p, t, w in files if match(p, name)), (None, ""))
+        if not what and data == prg_data:
+            what = f"the program ({os.path.relpath(prg)})"
+        groups.setdefault(pat if pat and any(c in pat for c in "*?[") else name, []).append(
+            (name, typ, blocks, data, what))
+    for key, members in groups.items():
+        rows = members if show_all or len(members) <= 3 else None
+        if rows is None:
+            name = f"{key} ({len(members)})"
+            typs = {m[1] for m in members}
+            blocks = sum(m[2] for m in members)
+            sizes = [len(m[3]) for m in members]
+            loads_ = {m[3][0] | m[3][1] << 8 for m in members if len(m[3]) >= 2}
+            rows = [(name, typs.pop() if len(typs) == 1 else 0, blocks,
+                     sizes, loads_.pop() if len(loads_) == 1 else None, members[0][4])]
+        else:
+            rows = [(n, t, b, [len(d)], d[0] | d[1] << 8 if len(d) >= 2 else None, w)
+                    for n, t, b, d, w in rows]
+        for name, typ, blocks, sizes, load, what in rows:
+            typ = TYPES[typ & 7] if typ and (typ & 7) < len(TYPES) else "?"
+            lo, hi = min(sizes), max(sizes)
+            span = f"{lo}" if lo == hi else f"{lo}-{hi}"
+            ld = "$" + f"{load:04X}" if load is not None else ""
+            print(f"  {name:20} {typ:4} {blocks:6} {span:>11}  {ld:5}  {what}")
+    print(f"  {len(disk_files)} files, {used} blocks used, {free} free "
+          f"({80 * 40 - 40} on an empty disk)")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0],
+                                 formatter_class=argparse.RawDescriptionHelpFormatter,
+                                 epilog="\n".join(__doc__.split("\n")[2:]))
+    ap.add_argument("program", help="the program's folder, or a file in it")
+    ap.add_argument("--top", type=int, default=15, help="largest symbols to list, 0 for none")
+    ap.add_argument("--files", action="store_true",
+                    help="list every file on the disk, not groups of them")
+    a = ap.parse_args()
+    folder = program_dir(a.program)
+    name = os.path.basename(folder)
+    build = os.path.join(folder, "build")
+    mapf, elf = f"{build}/{name}.map", f"{build}/{name}.prg.elf"
+    d81, prg = f"{build}/{name}.d81", f"{build}/{name}.prg"
+    if not os.path.exists(mapf):
+        sys.exit(f"{os.path.relpath(mapf)}: missing - build the program first")
+    os.chdir(folder)
+    outs, ins = read_map(mapf)
+    syms = read_nm(elf) if os.path.exists(elf) else {}
+    by_addr, by_name, ranges = read_dwarf(elf, folder) if os.path.exists(elf) else ({}, {}, [])
+    rams, files = read_memmap(os.path.join(folder, "memmap"))
+    disk_files, free = read_disk(d81) if os.path.exists(d81) else ([], None)
+    us = units(ins, by_addr, by_name, ranges)
+
+    print(f"{name}: memory and disk\n")
+    layers = ram_layers(outs, syms, rams, files, disk_files)
+    ram(layers, clashes(layers))
+    print()
+    by_source(us)
+    if a.top:
+        print()
+        largest(us, a.top)
+    if disk_files:
+        print()
+        loads(files, disk_files, us)
+        print()
+        disk(d81, disk_files, free, files, prg, a.files)
+
+
+if __name__ == "__main__":
+    main()

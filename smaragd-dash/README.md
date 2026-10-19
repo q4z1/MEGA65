@@ -77,6 +77,19 @@ title shows the name in big letters instead of the logo, and there are no
 caves to play. `build/preview.png` shows all tiles enlarged,
 `build/preview-logo.png` the logo as the MEGA65 shows it.
 
+`memmap` tells `toolchain/tools/bin/mega65-mem` what the linker does not
+know: the DMA list, framebuffers, screens and status characters in banks 4
+and 5, the colour RAM, and what the files on the disk are and where they
+are loaded. Then
+
+```sh
+toolchain/tools/bin/mega65-mem smaragd-dash/  # from the repository root
+```
+
+shows the whole RAM with what is free, the program by source file, and the
+disk; it also checks that the caves, the moves and the high scores fit
+the variables they are loaded into.
+
 The engine tests run on the host:
 
 ```sh
@@ -131,6 +144,7 @@ the video `screenshots/first-six-caves.mp4` with
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
+| `memmap` | the memory outside the linker's sections, and the disk's files, for `mega65-mem` |
 
 **The rules** follow Boulder Dash 1: the cave is scanned once per tick
 from top left to bottom right, and what moves down or right is marked so it

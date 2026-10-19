@@ -78,6 +78,40 @@ emulated time to ffmpeg, so the video does not stutter however fast the
 machine running it is. [toolchain/tools/bin/mega65-cast](toolchain/tools/bin/mega65-cast)
 does the recording and also works on its own, with any PRG or D81.
 
+### Memory map
+
+*Terminal → Run Task… → MEGA65: Memory map (active program)* builds the
+program and shows where its memory goes:
+[toolchain/tools/bin/mega65-mem](toolchain/tools/bin/mega65-mem) lists bank 0
+and chip RAM banks 1-5 range by range - the linker's sections, the MEGA65's
+own areas (KERNAL, I/O, ROM, ...), what the program places by hand - and
+what is free, largest first; then the program by source file (code,
+read-only data, data, BSS, zero page; from the debug information, so it
+works with LTO), its largest symbols, and the files on the disk with their
+blocks, bytes and load address.
+
+```sh
+toolchain/tools/bin/mega65-mem main/                # after a build
+toolchain/tools/bin/mega65-mem --files smaragd-dash/  # every file on the disk
+```
+
+What the linker cannot know goes into a file `memmap` in the program folder
+(an example: [smaragd-dash/memmap](smaragd-dash/memmap)):
+
+```
+ram  $0800+6006      DMA list for a frame         # bank 0, by hand
+ram  $40000-$4DBFF   framebuffer A                # up to 28-bit addresses
+file SMARAGD.LOGO   @$12000     title logo        # loaded to an address
+file CAVE??-?       @cave_file  a cave            # loaded into a variable
+```
+
+`ram` marks memory as the program's; overlaps with the linker's sections
+or with each other are reported. `file` describes files on the disk (with
+`*`, `?`, `[...]`); with `@` it also says where the program loads them
+(without the load address): to an address, which then counts as used up to
+the end of the largest of them, or into a variable, which each file is
+checked against.
+
 To disassemble:
 
 ```sh

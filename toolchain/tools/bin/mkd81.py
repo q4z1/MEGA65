@@ -95,25 +95,51 @@ class D81:
                 b[o + 1:o + 6] = bits.to_bytes(5, "little")
 
 
-def read_file(img, name):
-    """The contents of file `name` in the image `img`, or None."""
-    def sector(t, s):
-        o = ((t - 1) * SECTORS + s) * 256
-        return img[o:o + 256]
-    want = petscii_name(name)
+def _sector(img, t, s):
+    o = ((t - 1) * SECTORS + s) * 256
+    return img[o:o + 256]
+
+
+def directory(img):
+    """The files in the image `img`, in directory order: (name, type, first
+    track, first sector, blocks). The type is the entry's byte 2 (0x82: PRG,
+    closed); the name is the 16 bytes without their padding."""
+    out = []
     t, s = DIR_TRACK, 3
     while t:
-        sec = sector(t, s)
+        sec = _sector(img, t, s)
         for e in range(0, 256, 32):
-            if sec[e + 2] and sec[e + 5:e + 21] == want:
-                data = b""
-                ft, fs = sec[e + 3], sec[e + 4]
-                while ft:
-                    blk = sector(ft, fs)
-                    ft, fs = blk[0], blk[1]
-                    data += blk[2:] if ft else blk[2:fs + 1]
-                return data
+            if sec[e + 2]:
+                out.append((bytes(sec[e + 5:e + 21]).rstrip(b"\xa0"), sec[e + 2],
+                            sec[e + 3], sec[e + 4], sec[e + 30] | sec[e + 31] << 8))
         t, s = sec[0], sec[1]
+    return out
+
+
+def file_data(img, t, s):
+    """The contents of the file that starts at track t, sector s."""
+    data = b""
+    while t:
+        blk = _sector(img, t, s)
+        t, s = blk[0], blk[1]
+        data += blk[2:] if t else blk[2:s + 1]
+    return data
+
+
+def free_blocks(img):
+    """The blocks free on the disk, as the directory reports them (3160 on
+    an empty disk: the directory track does not count)."""
+    return sum(_sector(img, DIR_TRACK, 1 + half)[0x10 + 6 * i]
+               for half in (0, 1) for i in range(40)
+               if half * 40 + i + 1 != DIR_TRACK)
+
+
+def read_file(img, name):
+    """The contents of file `name` in the image `img`, or None."""
+    want = petscii_name(name).rstrip(b"\xa0")
+    for n, _, t, s, _ in directory(img):
+        if n == want:
+            return file_data(img, t, s)
     return None
 
 
