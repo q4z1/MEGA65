@@ -39,6 +39,8 @@ In VS Code (with the repository root open):
 
 - **F5** builds the program the active file belongs to and starts it in Xemu.
 - **Ctrl+Shift+B** only builds; errors show up under "Problems".
+- *Terminal → Run Task… → MEGA65: Run demo disk* starts one of the demo disks
+  from `toolchain/disks/` (see [toolchain/README.md](toolchain/README.md)).
 
 Without an editor:
 

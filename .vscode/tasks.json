@@ -56,6 +56,36 @@
                 "cwd": "${workspaceFolder}"
             },
             "problemMatcher": []
+        },
+        {
+            // Insert a demo disk from toolchain/disks and start its first
+            // program (Xemu types RUN "*).
+            "label": "MEGA65: Run demo disk",
+            "type": "shell",
+            "command": "${workspaceFolder}/toolchain/tools/bin/xmega65",
+            "args": [
+                "-8",
+                "toolchain/disks/${input:demoDisk}",
+                "-autoload"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "demoDisk",
+            "type": "pickString",
+            "description": "Demo disk",
+            "options": [
+                { "label": "Flying Craft (full color mode)", "value": "demos-fcm.d81" },
+                { "label": "IFF image slideshow", "value": "slideshow.d81" },
+                { "label": "Palette editor", "value": "palette-editor1.d81" },
+                { "label": "Character editor (full color mode)", "value": "char-editor-fcm3.d81" }
+            ],
+            "default": "demos-fcm.d81"
         }
     ]
 }

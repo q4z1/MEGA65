@@ -27,7 +27,20 @@ Third-party files are listed in `.gitignore` and stay out of the repo:
 `char-editor-fcm3.zip` is unpacked into `disks/`; the original is in
 `downloads/`.
 
-To insert a disk: `tools/bin/xmega65 -8 disks/slideshow.d81`.
+To insert a disk: `tools/bin/xmega65 -8 disks/slideshow.d81`. With
+`-autoload` Xemu also types `RUN "*` and starts the first program on it:
+
+```sh
+tools/bin/xmega65 -8 disks/demos-fcm.d81 -autoload        # Flying Craft (full color mode)
+tools/bin/xmega65 -8 disks/slideshow.d81 -autoload        # IFF image slideshow
+tools/bin/xmega65 -8 disks/palette-editor1.d81 -autoload  # palette editor
+tools/bin/xmega65 -8 disks/char-editor-fcm3.d81 -autoload # character editor
+```
+
+`demos-fcm.d81` holds two more demos that `-autoload` does not reach. Insert
+the disk without it and type `RUN "SHOW-FCM-RAND4"` or `RUN "ICONS-FCM"`
+(in Xemu `"` is Shift+2). In VS Code the task *MEGA65: Run demo disk* offers
+the disks in a list.
 
 ## The ROM
 
