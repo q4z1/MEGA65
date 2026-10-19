@@ -66,7 +66,7 @@ static uint8_t nsprites;
 enum { TR_NONE, TR_EMBERS, TR_GLITTER, TR_CRUMBS, TR_DUST_L, TR_DUST_R };
 static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUSTL0, T_DUSTR0};
 static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1};
-static const uint8_t trail_step[] = {0, 3, 5, 4, 5, 5};  // frames per stage
+static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5};  // frames per stage
 #define TRAILS 48
 static uint16_t trail_cell[TRAILS];
 static uint8_t trail_kind[TRAILS];  // TR_*

@@ -522,13 +522,14 @@ def draw_glitter(stage):
 
 
 def draw_crumbs(stage):
-    """Dug dirt: a few crumbs that trickle down and darken."""
+    """Dug dirt: a few crumbs that trickle down and darken - quietly, it
+    happens at every step through dirt."""
     t = new_tile()
-    cols = [[hexc("b08050"), hexc("8a5a30")], [hexc("8a5a30"), hexc("6b4322")],
-            [hexc("6b4322"), hexc("4a2c16")]][stage]
+    cols = [[hexc("8a5a30"), hexc("6b4322")], [hexc("6b4322"), hexc("4a2c16")],
+            [hexc("4a2c16"), hexc("3a2210")]][stage]
     r = random.Random(90)
     crumbs = [(r.randint(3, 12), r.uniform(3, 9)) for _ in range(5)]
-    for k, (x, y) in enumerate(crumbs[:[5, 4, 2][stage]]):
+    for k, (x, y) in enumerate(crumbs[:[3, 2, 1][stage]]):
         cy = int(round(y + stage * (2.2 + 0.4 * k)))
         if cy < T:
             t[cy][x] = cols[k & 1]
