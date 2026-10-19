@@ -73,6 +73,17 @@ same data. It also sets `GDK_BACKEND=x11` whenever X11 is available
 (`DISPLAY`): Xemu's right-click menu is a GTK popup, and under Wayland GTK
 does not open it over the SDL window.
 
+### Gamepads
+
+Xemu uses SDL2's plain joystick interface and treats every joystick as the
+one joystick of a port (port 2 unless changed in its menu): left stick and
+D-pad move, any button fires. No mapping is needed. On the Steam Deck the
+built-in controller (`28de:1205`) is a joystick as well; the wrapper hides it
+from SDL (`SDL_GAMECONTROLLER_IGNORE_DEVICES`) as soon as another joystick is
+connected, so an external gamepad does not have to share the port with it.
+`MEGA65_PAD_IGNORE` overrides the list (`vendor/product`, comma separated;
+empty hides nothing).
+
 ### Once: system files onto the SD image
 
 A freshly created SD image is only formatted, and Xemu then reports *"Cannot
@@ -124,4 +135,5 @@ Useful for automated tests:
 tools/bin/xmega65 -headless -sleepless -prg x.prg -screenshot x.png
 ```
 
-(The screenshot is taken on exit.)
+(The screenshot is taken on exit; `-dumpmem file` saves the 384K of chip
+RAM on exit as well.)
