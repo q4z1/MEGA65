@@ -482,6 +482,45 @@ def draw_butterfly(frame):
     return t
 
 
+# What the creatures leave behind for a moment, in four stages: only a few
+# pixels, it is meant to be seen in passing.
+
+def draw_embers(stage):
+    """Firefly: embers that rise a little and die down, white-hot to dark red."""
+    t = new_tile()
+    cols = [[hexc("fff4c0"), hexc("ffd060")], [hexc("ffb030"), hexc("f06414")],
+            [hexc("e04810"), hexc("a01c08")], [hexc("8a1808"), hexc("5a1006")]][stage]
+    r = random.Random(70)
+    embers = [(r.uniform(2, 13), r.uniform(5, 13), r.uniform(-0.6, 0.6)) for _ in range(5)]
+    for k, (x, y, drift) in enumerate(embers[:5 - stage]):
+        ex = int(round(x + drift * stage * 2))
+        ey = int(round(y - stage * 1.6))
+        if 0 <= ex < T and 0 <= ey < T:
+            t[ey][ex] = cols[k & 1]
+            if stage == 0 and k < 2 and ey + 1 < T:
+                t[ey + 1][ex] = cols[1]  # the hottest still have a tail
+    return t
+
+
+def draw_glitter(stage):
+    """Butterfly: a soft glitter in the colours of its wings that fades
+    slowly - a calm trail behind the flutter."""
+    t = new_tile()
+    r = random.Random(80 + stage)
+    cols = [hexc("a0f0ff"), hexc("30b0f0"), hexc("2850c8"), hexc("1c3480")]
+    n = [2, 2, 2, 1][stage]
+    for k in range(n):
+        x, y = r.randint(2, 13), r.randint(2, 13)
+        c = cols[stage] if k == 0 else cols[min(stage + 1, 3)]
+        if k == 1 and stage == 1:
+            c = hexc("a050a0")  # a hint of the pink of its eye spots
+        t[y][x] = c
+        if k == 0 and stage == 0:  # a small star: arms two shades darker
+            for ax, ay in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                t[ay][ax] = cols[2]
+    return t
+
+
 def draw_explosion(stage):
     t = new_tile()
     rad = [3.5, 6.0, 7.6, 7.8, 7.0][stage]
@@ -743,6 +782,8 @@ def build_tiles():
     tiles += [(f"AMOEBA{i}", draw_amoeba(i)) for i in range(4)]
     tiles += [(f"MAGIC{i}", draw_magic(i)) for i in range(4)]
     tiles += [(f"COVER{i}", draw_cover(i)) for i in range(2)]
+    tiles += [(f"EMBERS{i}", draw_embers(i)) for i in range(4)]
+    tiles += [(f"GLITTER{i}", draw_glitter(i)) for i in range(4)]
     return tiles
 
 

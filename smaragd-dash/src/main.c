@@ -58,6 +58,18 @@ static uint8_t etile[E_COUNT];      // tile per element, animated
 static Sprite sprites[MAX_SPRITES];
 static uint8_t nsprites;
 
+// Where a creature was, it leaves something behind for a moment: a firefly
+// embers that rise and die down quickly, a butterfly a soft glitter that
+// fades slowly, calm behind its flutter. Drawn on empty cells only; the
+// rules know nothing of it.
+#define TRAILS        48
+#define EMBERS_STEP   3             // frames per stage, 4 stages
+#define GLITTER_STEP  5
+static uint16_t trail_cell[TRAILS];
+static uint8_t trail_tile[TRAILS];  // its first stage; 0: none
+static uint8_t trail_born[TRAILS];  // frame
+static uint8_t trail_next;
+
 static bool pal;
 static uint8_t frame;
 static uint8_t held, pressed;       // IN_* now, and newly pressed this frame
@@ -171,6 +183,41 @@ static uint8_t rockford_tile(void) {
     return T_RF_VIEW0 + VIEW_FRONT;
 }
 
+// After a tick: the cells the creatures left
+static void add_trails(void) {
+    for (uint16_t i = CAVE_W; i < CAVE_SIZE - CAVE_W; i++) {
+        uint8_t m = moved[i];
+        if (m == DIR_NONE)
+            continue;
+        uint8_t e = cave[i], t;
+        if (e >= E_FIREFLY && e < E_FIREFLY + 4)
+            t = T_EMBERS0;
+        else if (e >= E_BUTTERFLY && e < E_BUTTERFLY + 4)
+            t = T_GLITTER0;
+        else
+            continue;
+        trail_cell[trail_next] = m == DIR_UP ? i + CAVE_W : m == DIR_DOWN ? i - CAVE_W : m == DIR_LEFT ? i + 1 : i - 1;
+        trail_tile[trail_next] = t;
+        trail_born[trail_next] = frame;
+        trail_next = (trail_next + 1) % TRAILS;
+    }
+}
+
+// The trails over the empty cells (update_tiles has just set them)
+static void draw_trails(void) {
+    for (uint8_t k = 0; k < TRAILS; k++) {
+        if (!trail_tile[k])
+            continue;
+        uint8_t step = trail_tile[k] == T_EMBERS0 ? EMBERS_STEP : GLITTER_STEP;
+        uint8_t stage = (uint8_t)(frame - trail_born[k]) / step;
+        uint16_t c = trail_cell[k];
+        if (stage >= 4)
+            trail_tile[k] = 0;
+        else if (tiles[c] == T_SPACE && cave[c] == E_SPACE)
+            tiles[c] = trail_tile[k] + stage;
+    }
+}
+
 static void update_tiles(void) {
     uint8_t f = frame;
     etile[E_DIAMOND] = etile[E_DIAMOND_F] = T_DIAMOND0 + ((f >> 2) & 7);
@@ -214,6 +261,7 @@ static void update_tiles(void) {
             tiles[i] = t;
         }
     }
+    draw_trails();
 }
 
 // The view follows Rockford like the original: it starts to scroll when he
@@ -853,6 +901,7 @@ static uint8_t play_cave(void) {
     uint8_t after = 0;  // frames since Rockford died
 
     cave_start(d);
+    memset(trail_tile, 0, sizeof trail_tile);
     slide = 0;
     rf_view = VIEW_FRONT;
     memset(covered, 1, sizeof covered);
@@ -895,6 +944,7 @@ static uint8_t play_cave(void) {
             latched = DIR_NONE;
             fire_latched = false;
             cave_tick(in);
+            add_trails();
             if (moved[game.player] != DIR_NONE)
                 rf_foot ^= 1;
             sound_tick(game.sound);
