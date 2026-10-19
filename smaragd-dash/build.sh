@@ -3,8 +3,9 @@
 # in tools/, the moves for the screencast by tools/solve.c; then everything is
 # compiled into build/smaragd-dash.prg, which goes onto the disk image
 # build/smaragd-dash.d81 together with the title logo (build/gen/logo.bin) and
-# the caves (build/caves/caveNN-L.bin as CAVENN-L: cave and level) and the
-# screencast's moves (demoNN.bin as DEMONN). The game loads them from that disk.
+# the caves (build/caves/caveNN-L.bin as CAVENN-L: cave and level), the
+# screencast's moves (demoNN.bin as DEMONN) and the high scores
+# (SMARAGD.SCORES). The game loads them from that disk.
 # Called by .vscode/run-current.sh with the compiler in $MEGA65_CC.
 
 set -e
@@ -28,5 +29,10 @@ set --
 for f in build/caves/*.bin; do
     set -- "$@" "$f=$(basename "$f" .bin)"
 done
-../toolchain/tools/bin/mkd81.py build/smaragd-dash.d81 "SMARAGD DASH" \
-    "build/smaragd-dash.prg=SMARAGD DASH" "build/gen/logo.bin=SMARAGD.LOGO" "$@"
+# The high score table: one sector of zeros, which the game reads as the
+# default table and overwrites (src/hiscore.c); a new build keeps the one
+# on the old disk.
+head -c 254 /dev/zero > build/gen/scores.bin
+../toolchain/tools/bin/mkd81.py --keep SMARAGD.SCORES build/smaragd-dash.d81 "SMARAGD DASH" \
+    "build/smaragd-dash.prg=SMARAGD DASH" "build/gen/logo.bin=SMARAGD.LOGO" \
+    "build/gen/scores.bin=SMARAGD.SCORES" "$@"

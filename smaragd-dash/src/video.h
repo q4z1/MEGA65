@@ -49,6 +49,10 @@ uint8_t status_code_at(uint8_t col);  // what is shown in a column
 // col is the character column (1-38 visible), y the pixel row (0-175).
 void video_clear(void);
 void video_text(uint8_t col, uint8_t y, const char *text);
+// in other colours: palette entry rows[r] for pixel row r (16 rows)
+void video_text_in(uint8_t col, uint8_t y, const char *text, const uint8_t *rows);
+void video_tile(uint8_t col, uint8_t y, uint8_t tile);  // a 16x16 tile, 2 columns
+void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h);  // h pixel rows black
 void video_big_text(uint8_t col, uint8_t y, const char *text);  // 2 columns per letter
 void video_shine(uint8_t phase);  // cycle the big letters' colours
 void video_logo(uint8_t col, uint8_t y);  // the logo loaded to $12000

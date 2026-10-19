@@ -6,6 +6,8 @@
 // neither the ROM nor interrupts, and between two sectors disk_busy can
 // show that something is happening. It reads the disk image mounted in
 // drive 0 (a real disk would also need the head stepped to the track).
+// Writing goes the same way back: a sector is read, changed in the
+// controller's buffer and written, so a file can be rewritten in place.
 //
 // The D81 (1581 format) has 80 tracks of 40 logical sectors of 256 bytes;
 // the controller reads physical sectors of 512 bytes, 10 per side: logical
@@ -49,8 +51,9 @@ static uint8_t dma_list[] = {
     0, 0,                // modulo
 };
 
-static void dma_copy(uint8_t src_mb, uint32_t src, uint32_t dst, uint16_t len) {
+static void dma_copy(uint8_t src_mb, uint32_t src, uint8_t dst_mb, uint32_t dst, uint16_t len) {
     dma_list[2] = src_mb;
+    dma_list[4] = dst_mb;
     dma_list[7] = (uint8_t)len;
     dma_list[8] = len >> 8;
     dma_list[9] = (uint8_t)src;
@@ -98,7 +101,27 @@ static bool read_sector(uint8_t t, uint8_t s) {
         if (disk_busy)
             disk_busy();
     }
-    dma_copy(0xFF, 0xD6C00 + ((uint16_t)(s & 1) << 8), (uint16_t)blk, 256);
+    dma_copy(0xFF, 0xD6C00 + ((uint16_t)(s & 1) << 8), 0, (uint16_t)blk, 256);
+    return true;
+}
+
+// blk[] back as logical sector s of the physical sector read last
+// (read_sector of the same s just before): into its half of the
+// controller's buffer, and the whole buffer onto the disk
+static bool write_sector(uint8_t s) {
+    dma_copy(0, (uint16_t)blk, 0xFF, 0xD6C00 + ((uint16_t)(s & 1) << 8), 256);
+    wait_ready();
+    POKE(FDC_TRACK, in_buf_track);
+    POKE(FDC_SECTOR, in_buf_sector);
+    POKE(FDC_SIDE, in_buf_side);
+    POKE(FDC_COMMAND, 0x01);  // buffer pointers to the start
+    wait_ready();
+    POKE(FDC_COMMAND, 0x80);  // write the sector
+    wait_ready();
+    if (PEEK(FDC_STATUS) & 0x18) {
+        in_buf_track = 0xFF;
+        return false;
+    }
     return true;
 }
 
@@ -137,7 +160,7 @@ bool disk_load(const char *name, uint8_t bank, uint16_t addr) {
             break;
         uint16_t end = blk[0] ? 256 : blk[1] + 1;
         if (end > from) {
-            dma_copy(0, (uint16_t)blk + from, dst, end - from);
+            dma_copy(0, (uint16_t)blk + from, 0, dst, end - from);
             dst += end - from;
         }
         from = 2;
@@ -146,4 +169,30 @@ bool disk_load(const char *name, uint8_t bank, uint16_t addr) {
     }
     POKE(FDC_CONTROL, 0);  // motor and LED off
     return ok;
+}
+
+bool disk_save(const char *name, const void *data, uint16_t len) {
+    uint8_t t, s;
+    bool ok = find(name, &t, &s);
+    const uint8_t *src = data;
+    uint8_t from = 4;
+    while (ok && t && len) {
+        if (!(ok = read_sector(t, s)))
+            break;
+        uint16_t end = blk[0] ? 256 : blk[1] + 1;
+        if (end > from) {
+            uint16_t n = end - from;
+            if (n > len)
+                n = len;
+            memcpy(blk + from, src, n);
+            src += n;
+            len -= n;
+            ok = write_sector(s);
+        }
+        from = 2;
+        t = blk[0];
+        s = blk[1];
+    }
+    POKE(FDC_CONTROL, 0);
+    return ok && !len;
 }

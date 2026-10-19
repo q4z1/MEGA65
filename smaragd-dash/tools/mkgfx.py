@@ -12,6 +12,9 @@ Output:
     pal_r/g/b  palette, nybble-swapped as the VIC-IV wants it
     font_bits  8x16 glyphs, 1 bit per pixel; coloured at run time
     icon_gfx   8x16 full-colour glyphs for the status line
+    title_row, rank_row
+               palette entries per pixel row for the big letters and for
+               the high score table's places
     sep_gfx    one 8x8 character for the line under the status
     pal1_r/g/b palette 1 for the title screen: the logo's colours, plus the
                status font's at the same entries as in palette 0
@@ -576,6 +579,19 @@ TITLE_RAMP = [hexc("0c5a30"), hexc("16904a"), hexc("3cc870"), hexc("8cf0b0"),
               hexc("f0fff4"), hexc("8cf0b0"), hexc("3cc870"), hexc("16904a")]
 
 
+# The high score table: gold (the font's own), silver and bronze for the
+# best three, ice blue for the others; a new entry shines green like the
+# big letters
+RANK_RAMPS = [FONT_RAMP,
+              [hexc("ffffff"), hexc("dce4f4"), hexc("a8b4d0"), hexc("68749c")],
+              [hexc("ffe0c0"), hexc("f0a868"), hexc("c07038"), hexc("7c4020")],
+              [hexc("e0f8ff"), hexc("90d4f4"), hexc("4890d0"), hexc("284c8c")]]
+
+
+def rank_colours():
+    return [ramp(r, max(0, y - 1) / 13) for r in RANK_RAMPS for y in range(16)]
+
+
 def title_colours():
     return [ramp(TITLE_RAMP + [TITLE_RAMP[0]], i / 16) for i in range(16)]
 
@@ -786,6 +802,7 @@ def main():
     for c in SEP_ROWS:
         sep += [pal(next(it)) if c else 0] * 8
     title_row = [pal.unique(c) for c in title_colours()]
+    rank_row = [pal(c) for c in rank_colours()]
 
     ui_entries = set(font_row) | {font_shadow} | set(icon_bytes) | set(sep)
     logo, pal1, logo_pix = make_logo(ui_entries)
@@ -809,6 +826,7 @@ def main():
         f.write("extern const char font_chars[GLYPH_COUNT + 1];\n")
         f.write("extern const uint8_t font_row[16];\n")
         f.write("extern const uint8_t title_row[16];  // palette entries of the big letters\n")
+        f.write("extern const uint8_t rank_row[4 * 16];  // font colours: gold, silver, bronze, blue\n")
         f.write(f"#define FONT_SHADOW {font_shadow}\n")
         f.write(f"extern const uint8_t icon_gfx[{len(icons)} * 128];\n")
         f.write("extern const uint8_t sep_gfx[64];\n")
@@ -823,6 +841,7 @@ def main():
         f.write(c_array("font_bits", font_bits))
         f.write(c_array("font_row", font_row))
         f.write(c_array("title_row", title_row))
+        f.write(c_array("rank_row", rank_row))
         f.write(c_array("icon_gfx", icon_bytes))
         f.write(c_array("sep_gfx", sep))
         f.write(c_array("pal1_r", [swap(c[0]) for c in pal1]))

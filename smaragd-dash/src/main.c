@@ -1,11 +1,13 @@
 // Smaragd Dash: a Boulder Dash style game for the MEGA65.
 //
 // main.c runs the game: the title screen with its music, where the joystick
-// picks the level and the cave to start with, then the caves: a cave is
+// picks the level and the cave to start with, and which takes turns with
+// the high score table; then the caves: a cave is
 // loaded from the disk, uncovered, Rockford hatches, and the cave
 // runs in ticks of the cave's speed while the screen is redrawn every frame
-// (50 Hz PAL, 60 Hz NTSC). The rules are in engine.c, the display in
-// video.c.
+// (50 Hz PAL, 60 Hz NTSC). After the game a good score gets three letters
+// in the table, as in the arcades. The rules are in engine.c, the display
+// in video.c, the table and its file in hiscore.c.
 //
 // Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
 // itself: the title runs for a while, then the caves play the moves that
@@ -20,6 +22,7 @@
 #include "disk.h"
 #include "engine.h"
 #include "gfx.h"
+#include "hiscore.h"
 #include "hw.h"
 #include "input.h"
 #include "levels.h"
@@ -57,7 +60,6 @@ static uint8_t cave_no, level;      // from 0
 static uint8_t start_cave, start_level;  // picked on the title
 static uint32_t score;              // before the current cave
 static uint32_t next_life;
-static uint32_t hiscore;
 static bool have_logo;              // the logo file was on the disk
 
 // The cave being played, as loaded from the disk (CAVE01, CAVE02, ...;
@@ -91,7 +93,7 @@ static void init_tiles(void) {
 
 static uint8_t rockford_tile(void) {
     if (game.moving)
-        return (game.facing == DIR_LEFT ? T_RF_LEFT0 : T_RF_RIGHT0) + ((frame >> 2) & 3);
+        return (game.facing == DIR_LEFT ? T_RF_LEFT0 : T_RF_RIGHT0) + ((frame >> 2) & 3) * 2;
     // Standing still: now and then blink or tap a foot
     if ((frame & 15) == 0) {
         uint8_t r = rnd();
@@ -304,16 +306,25 @@ static void spin(void) {
     }
 }
 
-// Load a file with the spinner and `what` in the status line
-static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr) {
+// The spinner and `what` in the status line while the disk is busy
+static void busy(const char *what) {
     status_clear();
     status_print(5, what);
     spin_frame = 0xFF;
     spin();
     disk_busy = spin;
-    bool ok = disk_load(file, bank, addr);
+}
+
+static void not_busy(void) {
     disk_busy = 0;
     status_clear();
+}
+
+// Load a file with the spinner and `what` in the status line
+static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr) {
+    busy(what);
+    bool ok = disk_load(file, bank, addr);
+    not_busy();
     return ok;
 }
 
@@ -436,7 +447,7 @@ static void title_status(void) {
     status_put(16, ' ');
     put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
     status_print(22, "HI-SCORE");
-    put_num(31, hiscore, 6);
+    put_num(31, hs_table[0].score, 6);
 }
 
 // Up and down pick the level, left and right the cave to start with
@@ -458,61 +469,281 @@ static void title_pick(void) {
     }
 }
 
-static void title_screen(void) {
-    static const char press[] = "PRESS FIRE TO START";
-    static const char blank[] = "                   ";
+// ---------------------------------------------------------------- high scores
+
+#define HS_COL 6   // the table's lines: "1ST  ROC  012345  CAVE 12/3"
+#define HS_Y0  42  // its first line; one every 16 pixel rows
+
+static uint8_t hs_new = HS_COUNT;  // the entry of the last game, shining
+
+static const char places[] = "1ST2ND3RD4TH5TH6TH7TH8TH";
+
+static const uint8_t *place_colours(uint8_t rank) {
+    return rank_row + (rank < 3 ? rank : 3) * 16;
+}
+
+// v as six digits from p on
+static void digits6(char *p, uint32_t v) {
+    for (uint8_t k = 6; k--; v /= 10)
+        p[k] = '0' + v % 10;
+}
+
+static void hs_line(uint8_t i) {
+    static char line[28];
+    const HiScore *e = &hs_table[i];
+    memset(line, ' ', 27);
+    memcpy(line, places + i * 3, 3);
+    memcpy(line + 5, e->name, 3);
+    digits6(line + 10, e->score);
+    memcpy(line + 18, "CAVE", 4);
+    char *p = line + 23;
+    uint8_t c = e->cave + 1;
+    if (c >= 10)
+        *p++ = '0' + c / 10;
+    *p++ = '0' + c % 10;
+    *p++ = '/';
+    *p = '1' + e->level;
+    video_text_in(HS_COL, HS_Y0 + i * 16, line, i == hs_new ? title_row : place_colours(i));
+}
+
+static void scores_page(void) {
+    video_clear();
+    video_palette(0);
+    video_big_text(CENTRE(22), 2, "HIGH SCORES");
+}
+
+// The table builds up line by line, emeralds turn beside the heading, and
+// Rockford walks beside the new entry, which shines like the heading.
+static void scores_frame(uint16_t pf) {
+    if (pf >= 8 && pf < 8 + 6 * HS_COUNT && (pf - 8) % 6 == 0)
+        hs_line((pf - 8) / 6);
+    if ((pf & 3) == 0) {
+        uint8_t t = T_DIAMOND0 + ((pf >> 2) & 7);
+        video_tile(5, 10, t);
+        video_tile(33, 10, t);
+        if (hs_new < HS_COUNT && pf >= 8 + 6 * hs_new)
+            video_tile(HS_COL - 3, HS_Y0 + hs_new * 16, T_RF_RIGHT0 + ((pf >> 2) & 3) * 2);
+    }
+    if (pf % 3 == 0)
+        video_shine(pf / 3);
+}
+
+// The letters of a name; up and down go through them
+static const char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-! ";
+#define LETTERS     (sizeof letters - 1)
+#define NAME_COL    15  // the three big letters at columns 15, 19 and 23
+#define NAME_Y      72
+#define CURSOR_Y    (NAME_Y + 38)
+#define NAME_TIME   30  // seconds to enter it
+static char last_name[3] = {'A', 'A', 'A'};  // what the next one starts with
+
+static void big_letter(uint8_t i, char ch) {
+    char text[2] = {ch, 0};
+    video_big_text(NAME_COL + i * 4, NAME_Y, text);
+}
+
+static uint8_t letter_index(char ch) {
+    uint8_t i = 0;
+    while (i < LETTERS - 1 && letters[i] != ch)
+        i++;
+    return i;
+}
+
+// Three letters for the entry at `rank`, arcade style: up and down change
+// the letter, fire or right take it, left goes back. The keyboard works
+// too: a letter or digit is taken at once, Del goes back.
+static void enter_name(HiScore *e, uint8_t rank) {
+    static char line[] = "000000 POINTS - 1ST PLACE";
+    const uint8_t fps = pal ? 50 : 60;
+    video_clear();
+    video_palette(0);
+    video_big_text(CENTRE(28), 4, "NEW HIGH SCORE");
+    digits6(line, e->score);
+    memcpy(line + 16, places + rank * 3, 3);
+    video_text_in(CENTRE(25), 44, line, place_colours(rank));
+    video_text(CENTRE(31), 136, "UP/DOWN LETTER   FIRE/RIGHT OK");
+    video_text(CENTRE(32), 156, "LEFT BACK - OR TYPE THE LETTERS");
+    memcpy(e->name, last_name, 3);
+    for (uint8_t i = 0; i < 3; i++)
+        big_letter(i, e->name[i]);
+    status_clear();
+    status_print(2, "ENTER YOUR NAME");
+    status_put(30, ICON(ICON_CLOCK));
+    while (PEEK(0xD610))  // forget the keys typed so far
+        POKE(0xD610, 0);
+
+    uint8_t pos = 0, shown = 0, rep = 0, sec = 0, left = NAME_TIME;
+    bool armed = false;  // fire from the last life must be let go first
+    put_num(32, left, 2);
+    for (uint16_t f = 0; pos < 3; f++) {
+        if (shown != pos) {  // the emerald goes under the letter being entered
+            video_blank(NAME_COL + shown * 4, CURSOR_Y, 2, 16);
+            shown = pos;
+        }
+        if ((f & 3) == 0)
+            video_tile(NAME_COL + pos * 4, CURSOR_Y, T_DIAMOND0 + ((f >> 2) & 7));
+        if (f % 3 == 0)
+            video_shine(f / 3);
+        title_frame();
+
+        uint8_t step = 0;  // 1 up, 2 down
+        uint8_t ud = held & (IN_UP | IN_DOWN);
+        if (!ud)
+            rep = 0;
+        else {
+            if (rep == 0 || rep == 16)  // at once, then repeated while held
+                step = ud & IN_UP ? 1 : 2;
+            if (++rep > 16)
+                rep = 12;
+        }
+        if (step) {
+            uint8_t i = letter_index(e->name[pos]);
+            i = step == 1 ? (i + 1) % LETTERS : (i + LETTERS - 1) % LETTERS;
+            e->name[pos] = letters[i];
+            big_letter(pos, letters[i]);
+            sound_crackle();
+        }
+        uint8_t key = PEEK(0xD610);
+        if (key) {
+            POKE(0xD610, 0);
+            if (key >= 'a' && key <= 'z')
+                key -= 'a' - 'A';
+            if (key == 0x14 && pos) {  // Del
+                pos--;
+                sound_crackle();
+            } else if (key != ' ' && letters[letter_index(key)] == key) {
+                e->name[pos] = key;
+                big_letter(pos++, key);
+                sound_bonus();
+            }
+        } else if ((pressed & IN_LEFT) && pos) {
+            pos--;
+            sound_crackle();
+        } else if ((pressed & IN_RIGHT) || (armed && (pressed & IN_BUTTON))) {
+            pos++;
+            sound_bonus();
+        }
+        if (!(held & IN_BUTTON))
+            armed = true;
+        if (++sec >= fps) {
+            sec = 0;
+            put_num(32, --left, 2);
+            if (left < 10)
+                sound_clock();
+            if (!left)
+                break;
+        }
+    }
+    memcpy(last_name, e->name, 3);
+    video_blank(NAME_COL, CURSOR_Y, 10, 16);
+    status_center("WELL DONE!");
+    sound_life();
+    for (uint8_t f = 0; f < 75; f++) {
+        if (f % 3 == 0)
+            video_shine(f / 3);
+        title_frame();
+    }
+}
+
+// The table back onto the disk; the scores stay in memory either way
+static void save_scores(void) {
+    busy("SAVING HIGH SCORES");
+    bool ok = hiscore_save();
+    not_busy();
+    if (!ok) {
+        status_center("HIGH SCORES NOT SAVED");
+        for (uint8_t f = 0; f < 100; f++)
+            title_frame();
+    }
+}
+
+// ---------------------------------------------------------------- title screen
+
+#define LOGO_FRAMES   768  // the logo page with all its lines once
+#define SCORES_FRAMES 500  // the high score table (twice as long with a new entry)
+
+static void logo_page(void) {
     video_clear();
     if (have_logo) {
         video_palette(1);
         video_logo(CENTRE(LOGO_W / 8), 2);
     } else {  // started without the disk: the logo as text
+        video_palette(0);
         video_big_text(CENTRE(14), 8, "SMARAGD");
         video_big_text(CENTRE(8), 44, "DASH");
         video_text(CENTRE(26), 88, "DIG  -  COLLECT  -  ESCAPE");
         video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
         video_text(CENTRE(26), 156, "P PAUSE   RUN/STOP GIVE UP");
     }
+}
+
+static void logo_frame(uint16_t pf) {
+    static const char press[] = "PRESS FIRE TO START";
+    static const char blank[] = "                   ";
+    if (have_logo) {
+        // the line under the logo: "press fire", blinking, and in
+        // between the controls
+        if ((pf & 31) == 0) {
+            switch ((pf >> 7) % 6) {
+            case 1:
+                title_line("JOYSTICK, GAMEPAD OR CURSOR KEYS");
+                break;
+            case 3:
+                title_line("UP/DOWN: LEVEL   LEFT/RIGHT: CAVE");
+                break;
+            case 5:
+                title_line("P PAUSE   RUN/STOP GIVE UP");
+                break;
+            default:
+                title_line((pf & 32) ? "" : press);
+            }
+        }
+    } else {
+        if ((pf & 31) == 0)
+            video_text(CENTRE(19), 112, (pf & 32) ? blank : press);
+        if (pf % 3 == 0)
+            video_shine(pf / 3);
+    }
+}
+
+// The logo and the high score table take turns, like an arcade machine
+// waiting for a player; after a game the table comes first.
+static void title_screen(bool scores) {
+    if (scores)
+        scores_page();
+    else
+        logo_page();
     title_status();
     sound_off();
     music_start();
     // The button counts only after it was let go once (Return from the
     // emulator's RUN, or fire still held from the last game)
     bool armed = false;
-    for (uint16_t f = 0;; f++) {
-        if (have_logo) {
-            // the line under the logo: "press fire", blinking, and in
-            // between the controls
-            if ((f & 31) == 0) {
-                switch ((f >> 7) % 6) {
-                case 1:
-                    title_line("JOYSTICK, GAMEPAD OR CURSOR KEYS");
-                    break;
-                case 3:
-                    title_line("UP/DOWN: LEVEL   LEFT/RIGHT: CAVE");
-                    break;
-                case 5:
-                    title_line("P PAUSE   RUN/STOP GIVE UP");
-                    break;
-                default:
-                    title_line((f & 32) ? "" : press);
-                }
-            }
-        } else {
-            if ((f & 31) == 0)
-                video_text(CENTRE(19), 112, (f & 32) ? blank : press);
-            if (f % 3 == 0)
-                video_shine(f / 3);
-        }
+    uint16_t pf = 0;  // frames on this page
+    for (;;) {
+        if (scores)
+            scores_frame(pf);
+        else
+            logo_frame(pf);
         title_frame();
         title_pick();
         if (armed && (pressed & IN_BUTTON))
             break;
 #ifdef SCREENCAST
-        if (f == DEMO_TITLE_FRAMES)
+        if (pf == DEMO_TITLE_FRAMES)  // on the logo page, the first
             break;
 #endif
         if (!(held & IN_BUTTON))
             armed = true;
+        if (++pf > (scores ? (hs_new < HS_COUNT ? 2 * SCORES_FRAMES : SCORES_FRAMES) : LOGO_FRAMES)) {
+            pf = 0;
+            scores = !scores;
+            video_shine(0);
+            if (scores)
+                scores_page();
+            else
+                logo_page();
+        }
     }
     music_stop();
     video_shine(0);
@@ -655,11 +886,12 @@ int main(void) {
     video_init();
     sound_init();
     init_tiles();
-    // The title logo from the disk to $12000
+    // The title logo from the disk to $12000, and the high scores
     have_logo = load("LOADING", "SMARAGD.LOGO", 1, 0x2000);
+    hiscore_load();
 
-    for (;;) {
-        title_screen();
+    for (bool after_game = false;; after_game = true) {
+        title_screen(after_game);
         lives = LIVES;
         score = 0;
         next_life = LIFE_POINTS;
@@ -689,10 +921,18 @@ int main(void) {
                 demo_end();
 #endif
         }
-        if (score > hiscore)
-            hiscore = score;
         status_center(have_cave ? "GAME OVER" : "NO CAVES ON THE DISK");
         sound_off();
         wait_button(250);
+        uint8_t rank = have_cave ? hiscore_rank(score) : HS_COUNT;
+        hs_new = rank;
+        if (rank < HS_COUNT) {
+            HiScore *e = hiscore_insert(rank);
+            e->score = score;
+            e->cave = cave_no;
+            e->level = level;
+            enter_name(e, rank);
+            save_scores();
+        }
     }
 }

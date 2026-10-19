@@ -2,13 +2,19 @@
 """Writes a D81 disk image (1581 format, as the MEGA65's internal drive
 uses) with the given files, all of type PRG.
 
-Usage: mkd81.py <out.d81> <disk name> <file>[=<name on disk>] ...
+Usage: mkd81.py [--keep <name>]... <out.d81> <disk name> <file>[=<name on disk>] ...
 
 The first file is the one `RUN "*"` (and Xemu's -autoload) starts. Names
 are upper-cased; files are stored as they are, so a PRG keeps its load
 address in its first two bytes.
+
+--keep <name>: if <out.d81> exists already and holds a file of that name
+with the same length as the new one, the file keeps its old contents. For
+files the program writes itself (a high score table, say), which would
+otherwise be reset by every build.
 """
 
+import os
 import sys
 
 TRACKS, SECTORS = 80, 40
@@ -89,22 +95,64 @@ class D81:
                 b[o + 1:o + 6] = bits.to_bytes(5, "little")
 
 
+def read_file(img, name):
+    """The contents of file `name` in the image `img`, or None."""
+    def sector(t, s):
+        o = ((t - 1) * SECTORS + s) * 256
+        return img[o:o + 256]
+    want = petscii_name(name)
+    t, s = DIR_TRACK, 3
+    while t:
+        sec = sector(t, s)
+        for e in range(0, 256, 32):
+            if sec[e + 2] and sec[e + 5:e + 21] == want:
+                data = b""
+                ft, fs = sec[e + 3], sec[e + 4]
+                while ft:
+                    blk = sector(ft, fs)
+                    ft, fs = blk[0], blk[1]
+                    data += blk[2:] if ft else blk[2:fs + 1]
+                return data
+        t, s = sec[0], sec[1]
+    return None
+
+
 def main():
-    if len(sys.argv) < 4:
+    args = sys.argv[1:]
+    keep = set()
+    while len(args) > 1 and args[0] == "--keep":
+        keep.add(petscii_name(args[1]))
+        args = args[2:]
+    if len(args) < 3:
         sys.exit(__doc__)
-    out, disk_name, files = sys.argv[1], sys.argv[2], sys.argv[3:]
+    out, disk_name, files = args[0], args[1], args[2:]
+    old = None
+    if keep and os.path.exists(out):
+        with open(out, "rb") as f:
+            old = f.read()
+        if len(old) != TRACKS * SECTORS * 256:
+            old = None
     d = D81()
     entries = []
+    kept = []
     for spec in files:
         path, _, name = spec.partition("=")
         name = name or path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
         with open(path, "rb") as f:
-            start, blocks = d.write_file(f.read())
+            data = f.read()
+        if old and petscii_name(name) in keep:
+            prev = read_file(old, name)
+            if prev is not None and len(prev) == len(data):
+                data = prev
+                kept.append(name)
+        start, blocks = d.write_file(data)
         entries.append((name, start, blocks))
     d.finish(disk_name, entries)
     with open(out, "wb") as f:
         f.write(d.img)
     print(f"mkd81: {out}: " + ", ".join(f"{n} ({b} blocks)" for n, _, b in entries))
+    if kept:
+        print("mkd81: kept from the old image: " + ", ".join(kept))
 
 
 if __name__ == "__main__":

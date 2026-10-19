@@ -33,8 +33,10 @@ static uint8_t drawn_fx;       // fine scroll of the one just drawn
 
 // ---------------------------------------------------------------- DMA
 
+// The list for a frame takes 6K: it lies below the program, at $0800-$1F75,
+// where BASIC had its screen. The game never goes back to BASIC.
 #define MAX_JOBS 500
-static uint8_t dmalist[6 + 12 * MAX_JOBS];
+#define dmalist  ((uint8_t *)0x0800)
 static uint8_t *dp, *last_cmd;
 
 // Enhanced DMA list: F018A format, megabyte 0 for source and target. Each
@@ -285,9 +287,10 @@ static uint8_t font_index(uint8_t ch) {
 
 static uint8_t glyph[512];
 
-// Colour a character of the font into glyph[] (8x16, rows of 8 bytes) and
-// return where its pixels are: glyph[] or, for an icon, the icon itself.
-static uint16_t make_glyph(uint8_t ch) {
+// Colour a character of the font into glyph[] (8x16, rows of 8 bytes), with
+// the palette entry rows[r] for pixel row r, and return where its pixels
+// are: glyph[] or, for an icon, the icon itself.
+static uint16_t make_glyph(uint8_t ch, const uint8_t *rows) {
     if (ch >= 0x80)
         return (uint16_t)icon_gfx + (ch & 0x7F) * 128;
     const uint8_t *b = font_bits + font_index(ch) * 16;
@@ -295,7 +298,7 @@ static uint16_t make_glyph(uint8_t ch) {
     uint8_t prev = 0;
     for (uint8_t r = 0; r < 16; r++) {
         uint8_t bits = b[r];
-        uint8_t col_r = font_row[r];
+        uint8_t col_r = rows[r];
         for (uint8_t m = 0x80; m; m >>= 1)
             *g++ = (bits & m) ? col_r : (prev & m) ? FONT_SHADOW : 0;
         prev = bits >> 1;  // shadow: one pixel right and down
@@ -307,7 +310,7 @@ void status_put(uint8_t col, uint8_t ch) {
     if (col >= COLS || status_code[col] == ch)
         return;
     status_code[col] = ch;
-    uint16_t src = make_glyph(ch);
+    uint16_t src = make_glyph(ch, font_row);
     dma_begin(0);
     dma_copy(src, 0, STATUS_OFF + col * (STATUS_ROWS * 64), STATUS_BANK, 128);
     dma_run();
@@ -362,9 +365,28 @@ void video_logo(uint8_t col, uint8_t y) {
     dma_run();
 }
 
-void video_text(uint8_t col, uint8_t y, const char *text) {
+void video_text_in(uint8_t col, uint8_t y, const char *text, const uint8_t *rows) {
     for (; *text; text++, col++)
-        to_both(make_glyph((uint8_t)*text), col, y, 128);
+        to_both(make_glyph((uint8_t)*text, rows), col, y, 128);
+}
+
+void video_text(uint8_t col, uint8_t y, const char *text) {
+    video_text_in(col, y, text, font_row);
+}
+
+void video_tile(uint8_t col, uint8_t y, uint8_t tile) {
+    uint16_t src = (uint16_t)tile_gfx + (tile << 8);
+    to_both(src, col, y, 128);
+    to_both(src + 128, col + 1, y, 128);
+}
+
+void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h) {
+    dma_begin(0);
+    for (uint16_t dst = col * FB_COL + y * 8; cols--; dst += FB_COL) {
+        dma_fill(0, dst, FB_BANK_A, h * 8);
+        dma_fill(0, dst, FB_BANK_B, h * 8);
+    }
+    dma_run();
 }
 
 // Twice the size: 16x32 pixels per character in the shining title colours,

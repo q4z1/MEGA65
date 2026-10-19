@@ -17,6 +17,27 @@ The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
 melody on the right channel. Fire starts the game.
 
+### High scores
+
+As in the arcades: the best eight scores, each with three letters, the
+score and the cave and level where the game ended. The title screen shows
+the table in turn with the logo (15 seconds logo, 10 seconds table); the
+best score is in its status line. Gold, silver and bronze for the first
+three, ice blue for the others.
+
+When a game ends with a score for the table, the game asks for the three
+letters: up and down go through the letters (A-Z, 0-9, `.`, `-`, `!` and
+space; held, they repeat), fire or right takes one, left goes back. Or type
+them: a letter or digit is taken at once, Del goes back. There are 30
+seconds for it; then the letters stay as they are. The next entry starts
+with the last name. After that the table comes first on the title, the new
+entry shining green with Rockford walking beside it.
+
+The table is written back to the disk at once (`SMARAGD.SCORES`), so it is
+still there the next time; a new build keeps it, too (`mkd81.py --keep`).
+To start again from the default table, delete `build/smaragd-dash.d81`
+before building.
+
 ![Title screen](screenshots/title.png)
 
 ![In the first cave](screenshots/cave.png) ![A boulder fell on Rockford](screenshots/explosion.png)
@@ -33,6 +54,7 @@ melody on the right channel. Fire starts the game.
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
+| up/down, fire/right, left; or type | the name for the high score table |
 
 ## Building and running
 
@@ -47,8 +69,9 @@ smaragd-dash/build.sh                       # build only
 (`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the title
-logo (`SMARAGD.LOGO`), the caves (`CAVE01-1` ... `CAVE25-4`: cave and level) and the moves
-for the screencast (`DEMO01`, ...; see below). F5 starts
+logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
+(`CAVE01-1` ... `CAVE25-4`: cave and level) and the moves for the
+screencast (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, and there are no
 caves to play. `build/preview.png` shows all tiles enlarged,
@@ -95,12 +118,13 @@ the video `screenshots/first-six-caves.mp4` with
 | File | |
 | --- | --- |
 | `src/engine.c` | the cave rules, without hardware access |
-| `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives |
+| `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens |
+| `src/hiscore.c` | the high score table and its file |
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/input.c` | joysticks and keyboard |
 | `src/sound.c` | sound effects on the first and third SID (left and right) |
 | `src/music.c` | music player on the second and fourth SID |
-| `src/disk.c` | loading files from the disk, through the floppy controller |
+| `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`) |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
@@ -127,7 +151,9 @@ unique, so the playfield is a framebuffer (banks 4 and 5, two of them,
 alternating). Its characters are stored column by column, so the pixel rows
 of a column follow each other 8 bytes apart and a tile half lands on any
 pixel row with one DMA copy: about 480 chained DMA jobs draw the view each
-frame, and vertical scrolling costs nothing extra. Horizontal fine scrolling
+frame, and vertical scrolling costs nothing extra. Their list (6K) lies
+below the program at $0800, where BASIC had its screen; the game never
+goes back to BASIC. Horizontal fine scrolling
 moves the character generator (TEXTXPOS); it is switched while the thin line
 is drawn, whose pixel rows are single colours, so the status line stays in
 place. The frame loop: game logic during the vertical blank, the
@@ -166,7 +192,11 @@ the controller's sector buffer ($FFD6C00). It needs neither the ROM nor
 interrupts, so it works at any time, and after each sector it calls a
 hook: while loading, the status line shows an emerald that turns. It
 reads the disk image mounted in drive 0; a real floppy would also need the
-head stepped to the track.
+head stepped to the track. Writing goes the other way: `disk_save`
+rewrites a file that is on the disk already, in place - each sector is
+read, changed in the controller's buffer and written back. That is how the
+high scores get onto the disk: `build.sh` puts a file of one sector there,
+`hiscore.c` fills it.
 
 Without the logo the title text is drawn with the status font; the big
 letters are the same font at twice the size, in 16 palette entries of
