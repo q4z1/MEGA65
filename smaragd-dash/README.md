@@ -68,13 +68,13 @@ smaragd-dash/build.sh                       # build only
 `build.sh` generates the graphics (`tools/mkgfx.py`) and the music
 (`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
-puts it on the disk image `build/smaragd-dash.d81` together with the title
-logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
+puts it on the disk image `build/smaragd-dash.d81` together with the tiles
+(`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
 (`CAVE01-1` ... `CAVE25-4`: cave and level) and the moves for the
 screencast (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
-title shows the name in big letters instead of the logo, and there are no
-caves to play. `build/preview.png` shows all tiles enlarged,
+title shows the name in big letters instead of the logo, the tiles stay
+black, and there are no caves to play. `build/preview.png` shows all tiles enlarged,
 `build/preview-logo.png` the logo as the MEGA65 shows it.
 
 `memmap` tells `toolchain/tools/bin/mega65-mem` what the linker does not
@@ -187,7 +187,11 @@ the drums.
 room for about 44K of code and data, the logo at 288x144 pixels takes
 41K. So it is a file of its own on the disk, loaded at the start into
 bank 1 at $12000, from where DMA copies it into both framebuffers for the
-title screen.
+title screen. The tiles (54 of 256 bytes, 13.5K) follow it at $1C200, a
+file of their own as well: they are only ever copied by DMA, so they need
+not lie in bank 0, which keeps its room for code. Logo and tiles fill bank 1
+up to the colour RAM at $1F800 exactly; `video.c` checks that at compile
+time. Bank 1 is also all the C65 has beyond bank 0.
 `mkgfx.py` scales it down and gives it palette 1: all entries the status
 font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.

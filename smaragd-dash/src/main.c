@@ -886,8 +886,10 @@ int main(void) {
     video_init();
     sound_init();
     init_tiles();
-    // The title logo from the disk to $12000, and the high scores
-    have_logo = load("LOADING", "SMARAGD.LOGO", 1, 0x2000);
+    // The tiles from the disk - without the spinner, which is made of
+    // them -, the title logo and the high scores (video.h)
+    disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
+    have_logo = load("LOADING", "SMARAGD.LOGO", GFX_BANK, LOGO_OFF);
     hiscore_load();
 
     for (bool after_game = false;; after_game = true) {

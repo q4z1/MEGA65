@@ -15,9 +15,9 @@
 #define SCREEN_BANK 5
 #define SCREEN_A    0xDC00u    // screen RAM A at $5DC00 (40x25 x 2 bytes)
 #define SCREEN_B    0xE400u    // screen RAM B at $5E400
-// The title logo, loaded from the disk (see main.c)
-#define LOGO_BANK   1
-#define LOGO_OFF    0x2000u    // $12000
+// The logo and the tiles from the disk (video.h)
+_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= TILES_OFF, "the logo reaches the tiles");
+_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= 0xF800, "the tiles reach the colour RAM at $1F800");
 
 #define COLS      40
 #define ROWS      25
@@ -156,10 +156,12 @@ void video_init(void) {
         POKE(0xD800 + i, 0);
     POKE(0xD030, PEEK(0xD030) & ~0x01);
 
-    // Framebuffers and status black, separator line drawn
+    // Framebuffers and status black, separator line drawn; the tiles
+    // black until they are loaded (or if they are not on the disk)
     dma_begin(0);
     dma_fill(0, 0x0000, FB_BANK_A, 0);           // 0 = 64K
     dma_fill(0, 0x0000, FB_BANK_B, 0);
+    dma_fill(0, TILES_OFF, GFX_BANK, TILE_COUNT * 256);
     for (uint8_t c = 0; c < COLS; c++)
         dma_copy((uint16_t)sep_gfx, 0, STATUS_OFF + c * (STATUS_ROWS * 64) + 128, STATUS_BANK, 64);
     dma_run();
@@ -227,7 +229,7 @@ void video_show(void) {
         (p)[2] = l_ >> 8;              \
         (p)[3] = (uint8_t)s_;          \
         (p)[4] = s_ >> 8;              \
-        (p)[5] = 0;                    \
+        (p)[5] = GFX_BANK;             \
         (p)[6] = (uint8_t)d_;          \
         (p)[7] = d_ >> 8;              \
         (p)[8] = (bank);               \
@@ -243,7 +245,7 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
     const uint8_t yo = cam_y & 15;          // pixel rows of the top tiles above the view
     const uint8_t first = 16 - yo;
     const uint8_t *top = tiles + (cam_y >> 4) * CAVE_W;
-    const uint16_t space = (uint16_t)tile_gfx + T_SPACE * 256;
+    const uint16_t space = TILES_OFF + T_SPACE * 256;
     uint16_t dcol = 0;
     uint8_t *p;
 
@@ -252,7 +254,7 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
     p = dp;
     for (uint8_t c = 0; c < COLS; c++, wc++, dcol += FB_COL) {
         const uint8_t *tp = top + (wc >> 1);
-        uint16_t gfx = (uint16_t)tile_gfx + ((wc & 1) ? 128 : 0);
+        uint16_t gfx = TILES_OFF + ((wc & 1) ? 128 : 0);
         bool outside = wc < 0 || wc >= CAVE_W * 2;
         uint16_t d = dcol + first * 8;
         uint8_t y = first;
@@ -318,11 +320,11 @@ void status_put(uint8_t col, uint8_t ch) {
 
 void status_tile(uint8_t col, uint8_t tile) {
     status_code[col] = status_code[col + 1] = 0xFF;  // no character
-    uint16_t src = (uint16_t)tile_gfx + (tile << 8);
+    uint16_t src = TILES_OFF + (tile << 8);
     uint16_t dst = STATUS_OFF + col * (STATUS_ROWS * 64);
     dma_begin(0);
-    dma_copy(src, 0, dst, STATUS_BANK, 128);
-    dma_copy(src + 128, 0, dst + STATUS_ROWS * 64, STATUS_BANK, 128);
+    dma_copy(src, GFX_BANK, dst, STATUS_BANK, 128);
+    dma_copy(src + 128, GFX_BANK, dst + STATUS_ROWS * 64, STATUS_BANK, 128);
     dma_run();
 }
 
@@ -345,12 +347,13 @@ void video_clear(void) {
     drawn_fx = shown_fx = 0;
 }
 
-// Copy len bytes into both framebuffers at column col, pixel row y
-static void to_both(uint16_t src, uint8_t col, uint8_t y, uint16_t len) {
+// Copy len bytes from sbank:src into both framebuffers at column col,
+// pixel row y
+static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_t len) {
     uint16_t dst = col * FB_COL + y * 8;
     dma_begin(0);
-    dma_copy(src, 0, dst, FB_BANK_A, len);
-    dma_copy(src, 0, dst, FB_BANK_B, len);
+    dma_copy(src, sbank, dst, FB_BANK_A, len);
+    dma_copy(src, sbank, dst, FB_BANK_B, len);
     dma_run();
 }
 
@@ -359,15 +362,15 @@ void video_logo(uint8_t col, uint8_t y) {
     dma_begin(0);
     for (uint8_t c = 0; c < LOGO_W / 8; c++, src += LOGO_H * 8) {
         uint16_t dst = (col + c) * FB_COL + y * 8;
-        dma_copy(src, LOGO_BANK, dst, FB_BANK_A, LOGO_H * 8);
-        dma_copy(src, LOGO_BANK, dst, FB_BANK_B, LOGO_H * 8);
+        dma_copy(src, GFX_BANK, dst, FB_BANK_A, LOGO_H * 8);
+        dma_copy(src, GFX_BANK, dst, FB_BANK_B, LOGO_H * 8);
     }
     dma_run();
 }
 
 void video_text_in(uint8_t col, uint8_t y, const char *text, const uint8_t *rows) {
     for (; *text; text++, col++)
-        to_both(make_glyph((uint8_t)*text, rows), col, y, 128);
+        to_both(make_glyph((uint8_t)*text, rows), 0, col, y, 128);
 }
 
 void video_text(uint8_t col, uint8_t y, const char *text) {
@@ -375,9 +378,9 @@ void video_text(uint8_t col, uint8_t y, const char *text) {
 }
 
 void video_tile(uint8_t col, uint8_t y, uint8_t tile) {
-    uint16_t src = (uint16_t)tile_gfx + (tile << 8);
-    to_both(src, col, y, 128);
-    to_both(src + 128, col + 1, y, 128);
+    uint16_t src = TILES_OFF + (tile << 8);
+    to_both(src, GFX_BANK, col, y, 128);
+    to_both(src + 128, GFX_BANK, col + 1, y, 128);
 }
 
 void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h) {
@@ -402,8 +405,8 @@ void video_big_text(uint8_t col, uint8_t y, const char *text) {
                     uint8_t sh = r >= 2 && x >= 2 && (b[(r - 2) >> 1] & (0x80 >> ((x - 2) >> 1)));
                     *g++ = on ? title_row[r >> 1] : sh ? FONT_SHADOW : 0;
                 }
-        to_both((uint16_t)glyph, col, y, 256);
-        to_both((uint16_t)glyph + 256, col + 1, y, 256);
+        to_both((uint16_t)glyph, 0, col, y, 256);
+        to_both((uint16_t)glyph + 256, 0, col + 1, y, 256);
     }
 }
 
