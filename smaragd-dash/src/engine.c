@@ -7,6 +7,8 @@
 uint8_t cave[CAVE_SIZE];
 struct game game;
 uint8_t moved[CAVE_SIZE];
+Event events[MAX_EVENTS];
+uint8_t nevents;
 
 // Cell offsets for DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT
 static const int8_t dir_off[4] = {-CAVE_W, 1, CAVE_W, -1};
@@ -94,6 +96,13 @@ void cave_second(void) {
         game.amoeba_timer--;
 }
 
+static void event(uint16_t cell, uint8_t what) {
+    if (nevents < MAX_EVENTS) {
+        events[nevents].cell = cell;
+        events[nevents++].what = what;
+    }
+}
+
 // Blow up the 3x3 cells around c; they turn into `kind` (E_EXPLODE or
 // E_EXPLODE_D). Steel and the in/outbox survive.
 static void explode(uint16_t c, uint8_t kind) {
@@ -162,6 +171,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
         if (t == E_DIRT) {
             cave[j] = E_SPACE;
             game.sound |= SND_DIRT;
+            event(j, EV_DUG);
         } else if (t == E_DIAMOND) {
             cave[j] = E_SPACE;
             collect();
@@ -174,6 +184,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
         break;
     case E_DIRT:
         game.sound |= SND_DIRT;
+        event(i, EV_DUG);
         break;
     case E_DIAMOND:
         collect();
@@ -211,6 +222,7 @@ void cave_tick(uint8_t input) {
 
     game.sound = 0;
     memset(moved, DIR_NONE, CAVE_SIZE);
+    nevents = 0;
     if (game.hatch_ticks)
         game.hatch_ticks--;
 
@@ -255,6 +267,8 @@ void cave_tick(uint8_t input) {
             } else if (!((props[below] & P_ROUND) && roll(i, e))) {
                 cave[i] = still;
                 game.sound |= e == E_BOULDER_F ? SND_BOULDER : SND_DIAMOND;
+                if (e == E_BOULDER_F)
+                    event(i, EV_LANDED);
             }
             break;
         }
@@ -333,10 +347,12 @@ void cave_tick(uint8_t input) {
                     cave[j] = (base + turn) | SCANNED;
                     cave[i] = E_SPACE;
                     moved[j] = turn;
+                    event(i, fly ? EV_FIREFLY : EV_BUTTERFLY);
                 } else if (cave[j = i + dir_off[dir]] == E_SPACE) {
                     cave[j] = e | SCANNED;
                     cave[i] = E_SPACE;
                     moved[j] = dir;
+                    event(i, fly ? EV_FIREFLY : EV_BUTTERFLY);
                 } else {
                     cave[i] = base + (fly ? (dir + 1) & 3 : (dir + 3) & 3);
                 }

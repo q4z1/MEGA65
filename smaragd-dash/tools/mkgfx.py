@@ -521,6 +521,49 @@ def draw_glitter(stage):
     return t
 
 
+def draw_crumbs(stage):
+    """Dug dirt: a few crumbs that trickle down and darken."""
+    t = new_tile()
+    cols = [[hexc("b08050"), hexc("8a5a30")], [hexc("8a5a30"), hexc("6b4322")],
+            [hexc("6b4322"), hexc("4a2c16")]][stage]
+    r = random.Random(90)
+    crumbs = [(r.randint(3, 12), r.uniform(3, 9)) for _ in range(5)]
+    for k, (x, y) in enumerate(crumbs[:[5, 4, 2][stage]]):
+        cy = int(round(y + stage * (2.2 + 0.4 * k)))
+        if cy < T:
+            t[cy][x] = cols[k & 1]
+    return t
+
+
+# The dust beside a landing boulder, for the cell on its right (x from the
+# boulder's side): light and close first, then thinner, further out and a
+# little higher. Letters: 1 light, 2 middle, 3 dark.
+DUST = [
+    ["               ",
+     "               ",
+     "1              ",
+     "21 2           ",
+     "112            "],
+    ["  2  3         ",
+     " 3 2           ",
+     "   3  3        ",
+     "  3  3         ",
+     "               "],
+]
+DUST_COLS = {"1": hexc("a09484"), "2": hexc("7a6e62"), "3": hexc("4e463e")}
+
+
+def draw_dust(stage, right):
+    """A boulder lands: a puff of dust at its foot, in the cell beside it
+    (right: the cell on its right, the puff at its left edge)."""
+    t = new_tile()
+    for y, row in enumerate(DUST[stage]):
+        for x, ch in enumerate(row):
+            if ch != " ":
+                t[11 + y][x if right else T - 1 - x] = DUST_COLS[ch]
+    return t
+
+
 def draw_explosion(stage):
     t = new_tile()
     rad = [3.5, 6.0, 7.6, 7.8, 7.0][stage]
@@ -784,6 +827,9 @@ def build_tiles():
     tiles += [(f"COVER{i}", draw_cover(i)) for i in range(2)]
     tiles += [(f"EMBERS{i}", draw_embers(i)) for i in range(4)]
     tiles += [(f"GLITTER{i}", draw_glitter(i)) for i in range(4)]
+    tiles += [(f"CRUMBS{i}", draw_crumbs(i)) for i in range(3)]
+    tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
+    tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]
     return tiles
 
 

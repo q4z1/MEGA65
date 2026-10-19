@@ -185,11 +185,18 @@ keep up with the ground; pushing against a boulder or a wall, he walks on
 the spot. When he stops he keeps his direction for a moment, then turns to
 the front, where he blinks and taps his foot now and then.
 
-**The creatures** leave something behind for a moment where they were,
-on the empty cell only: a firefly a few embers that rise a little and die
-down quickly, a butterfly a soft glitter in the colours of its wings that
-fades slowly, so its quick round looks calmer. Only the drawing knows of
-it (`main.c`, four tiles each from `mkgfx.py`).
+**Little things** stay behind for a moment, on empty cells only: where a
+firefly was, a few embers that rise a little and die down quickly; where a
+butterfly was, a soft glitter in the colours of its wings that fades
+slowly, so its quick round looks calmer; crumbs where Rockford digs, and
+a puff of dust beside a boulder that lands. Each emerald sparkles at its
+own moment. The engine notes where something happened (`events[]`, like
+`moved[]`; the rules use neither), `main.c` draws it with tiles from
+`mkgfx.py`.
+
+**Text on the title screens** - the line under the logo, the lines of the
+high score table - is drawn eight letters per frame: a whole line at once
+took longer than a frame, and the music stumbled.
 
 **The screen** is 40x25 characters in full-colour mode (256 colours, one
 byte per pixel). Rows 0-1 are the status line, row 2 a thin line, rows 3-24

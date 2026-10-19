@@ -58,16 +58,20 @@ static uint8_t etile[E_COUNT];      // tile per element, animated
 static Sprite sprites[MAX_SPRITES];
 static uint8_t nsprites;
 
-// Where a creature was, it leaves something behind for a moment: a firefly
-// embers that rise and die down quickly, a butterfly a soft glitter that
-// fades slowly, calm behind its flutter. Drawn on empty cells only; the
-// rules know nothing of it.
-#define TRAILS        48
-#define EMBERS_STEP   3             // frames per stage, 4 stages
-#define GLITTER_STEP  5
+// What is left behind for a moment, on an empty cell: where a firefly was,
+// embers that rise and die down quickly; where a butterfly was, a soft
+// glitter that fades slowly, calm behind its quick round; crumbs where
+// Rockford dug, and dust beside a boulder that lands. Only the drawing
+// knows of it.
+enum { TR_NONE, TR_EMBERS, TR_GLITTER, TR_CRUMBS, TR_DUST_L, TR_DUST_R };
+static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUSTL0, T_DUSTR0};
+static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1};
+static const uint8_t trail_step[] = {0, 3, 5, 4, 5, 5};  // frames per stage
+#define TRAILS 48
 static uint16_t trail_cell[TRAILS];
-static uint8_t trail_tile[TRAILS];  // its first stage; 0: none
-static uint8_t trail_born[TRAILS];  // frame
+static uint8_t trail_kind[TRAILS];  // TR_*
+static uint8_t trail_tile[TRAILS];  // its stage now
+static uint8_t trail_wait[TRAILS];  // frames until the next
 static uint8_t trail_next;
 
 static bool pal;
@@ -183,40 +187,58 @@ static uint8_t rockford_tile(void) {
     return T_RF_VIEW0 + VIEW_FRONT;
 }
 
-// After a tick: the cells the creatures left
+static void add_trail(uint16_t cell, uint8_t kind) {
+    trail_cell[trail_next] = cell;
+    trail_kind[trail_next] = kind;
+    trail_tile[trail_next] = trail_first[kind];
+    trail_wait[trail_next] = trail_step[kind];
+    trail_next = (trail_next + 1) % TRAILS;
+}
+
+// After a tick: what it leaves behind (engine.h)
 static void add_trails(void) {
-    for (uint16_t i = CAVE_W; i < CAVE_SIZE - CAVE_W; i++) {
-        uint8_t m = moved[i];
-        if (m == DIR_NONE)
-            continue;
-        uint8_t e = cave[i], t;
-        if (e >= E_FIREFLY && e < E_FIREFLY + 4)
-            t = T_EMBERS0;
-        else if (e >= E_BUTTERFLY && e < E_BUTTERFLY + 4)
-            t = T_GLITTER0;
-        else
-            continue;
-        trail_cell[trail_next] = m == DIR_UP ? i + CAVE_W : m == DIR_DOWN ? i - CAVE_W : m == DIR_LEFT ? i + 1 : i - 1;
-        trail_tile[trail_next] = t;
-        trail_born[trail_next] = frame;
-        trail_next = (trail_next + 1) % TRAILS;
+    for (uint8_t k = 0; k < nevents; k++) {
+        uint16_t c = events[k].cell;
+        switch (events[k].what) {
+        case EV_FIREFLY:
+            add_trail(c, TR_EMBERS);
+            break;
+        case EV_BUTTERFLY:
+            add_trail(c, TR_GLITTER);
+            break;
+        case EV_DUG:
+            add_trail(c, TR_CRUMBS);
+            break;
+        case EV_LANDED:
+            add_trail(c - 1, TR_DUST_L);
+            add_trail(c + 1, TR_DUST_R);
+            break;
+        }
     }
 }
 
 // The trails over the empty cells (update_tiles has just set them)
 static void draw_trails(void) {
     for (uint8_t k = 0; k < TRAILS; k++) {
-        if (!trail_tile[k])
+        uint8_t kind = trail_kind[k];
+        if (!kind)
             continue;
-        uint8_t step = trail_tile[k] == T_EMBERS0 ? EMBERS_STEP : GLITTER_STEP;
-        uint8_t stage = (uint8_t)(frame - trail_born[k]) / step;
         uint16_t c = trail_cell[k];
-        if (stage >= 4)
-            trail_tile[k] = 0;
-        else if (tiles[c] == T_SPACE && cave[c] == E_SPACE)
-            tiles[c] = trail_tile[k] + stage;
+        if (tiles[c] == T_SPACE && cave[c] == E_SPACE)
+            tiles[c] = trail_tile[k];
+        if (!--trail_wait[k]) {
+            if (trail_tile[k] == trail_last[kind]) {
+                trail_kind[k] = TR_NONE;
+            } else {
+                trail_tile[k]++;
+                trail_wait[k] = trail_step[kind];
+            }
+        }
     }
 }
+
+// Each emerald sparkles at its own moment
+static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4};
 
 static void update_tiles(void) {
     uint8_t f = frame;
@@ -243,6 +265,7 @@ static void update_tiles(void) {
     if (y1 >= CAVE_H)
         y1 = CAVE_H - 1;
     uint8_t cover = T_COVER0 + ((f >> 1) & 1);
+    uint8_t sparkle = f >> 2;
     nsprites = 0;
     for (uint8_t y = y0; y <= y1; y++) {
         uint16_t i = y * CAVE_W + x0;
@@ -251,7 +274,8 @@ static void update_tiles(void) {
                 tiles[i] = cover;
                 continue;
             }
-            uint8_t t = etile[cave[i]];
+            uint8_t e = cave[i];
+            uint8_t t = e == E_DIAMOND ? T_DIAMOND0 + ((sparkle + glint[(x + y * 7) & 15]) & 7) : etile[e];
             if (slide && moved[i] != DIR_NONE && nsprites < MAX_SPRITES) {
                 Sprite *s = &sprites[nsprites++];
                 cell_pos(i, &s->x, &s->y);
@@ -309,12 +333,22 @@ static void camera(bool jump) {
 
 // ---------------------------------------------------------------- status
 
-// not inlined: it is called from many places, and memory is short
+// Without division, which is slow on the 6502: each power of ten is taken
+// away as often as it goes. Only the last `digits` digits are shown. Not
+// inlined: it is called from many places.
+static const uint32_t pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
+
 __attribute__((noinline)) static void put_num(uint8_t col, uint32_t v, uint8_t digits) {
-    col += digits;
+    while (v >= pow10[digits])
+        v -= pow10[digits];
     while (digits--) {
-        status_put(--col, '0' + v % 10);
-        v /= 10;
+        uint32_t p = pow10[digits];
+        uint8_t d = '0';
+        while (v >= p) {
+            v -= p;
+            d++;
+        }
+        status_put(col++, d);
     }
 }
 
@@ -545,10 +579,42 @@ static void demo_end(void) {
 
 // ---------------------------------------------------------------- title
 
+// Text on the title screens goes a few letters per frame (title_frame): a
+// whole line at once takes longer than a frame, and the music would stumble.
+#define TEXT_STEP 8
+static char text_buf[39];
+static uint8_t text_pos, text_col, text_y;
+static const uint8_t *text_rows;
+
+static void text_more(uint8_t n) {
+    char one[2] = {0, 0};
+    for (; n && text_buf[text_pos]; n--, text_pos++) {
+        one[0] = text_buf[text_pos];
+        video_text_in(text_col + text_pos, text_y, one, text_rows);
+    }
+}
+
+// Text drawn over the next frames; what still waits is drawn first
+static void text_later(uint8_t col, uint8_t y, const char *text, const uint8_t *rows) {
+    text_more(255);
+    strcpy(text_buf, text);
+    text_pos = 0;
+    text_col = col;
+    text_y = y;
+    text_rows = rows;
+}
+
+// A new page: what still waits is not drawn
+static void text_cancel(void) {
+    text_buf[0] = 0;
+    text_pos = 0;
+}
+
 static void title_frame(void) {
     video_sync();
     video_show();
     music_frame();
+    text_more(TEXT_STEP);
     frame++;
     uint8_t in = input_read();
     pressed = in & ~held;
@@ -565,7 +631,7 @@ static void title_line(const char *text) {
     memset(line, ' ', 38);
     memcpy(line + (38 - n) / 2, text, n);
     line[38] = 0;
-    video_text(1, 152, line);
+    text_later(1, 152, line, font_row);
 }
 
 // The status line on the title: what the game starts with, and the hi-score
@@ -633,10 +699,11 @@ static void hs_line(uint8_t i) {
     *p++ = '0' + c % 10;
     *p++ = '/';
     *p = '1' + e->level;
-    video_text_in(HS_COL, HS_Y0 + i * 16, line, i == hs_new ? title_row : place_colours(i));
+    text_later(HS_COL, HS_Y0 + i * 16, line, i == hs_new ? title_row : place_colours(i));
 }
 
 static void scores_page(void) {
+    text_cancel();
     video_clear();
     video_palette(0);
     video_big_text(CENTRE(22), 2, "HIGH SCORES");
@@ -793,6 +860,7 @@ static void save_scores(void) {
 #define SCORES_FRAMES 500  // the high score table (twice as long with a new entry)
 
 static void logo_page(void) {
+    text_cancel();
     video_clear();
     if (have_logo) {
         video_palette(1);
@@ -833,7 +901,7 @@ static void logo_frame(uint16_t pf) {
         }
     } else {
         if ((pf & 31) == 0)
-            video_text(CENTRE(19), 112, (pf & 32) ? blank : press);
+            text_later(CENTRE(19), 112, (pf & 32) ? blank : press, font_row);
         if (pf % 3 == 0)
             video_shine(pf / 3);
     }
@@ -880,6 +948,8 @@ static void title_screen(bool scores) {
     }
     music_stop();
     video_shine(0);
+    text_cancel();
+    video_clear();  // the logo goes before the game's palette comes
     video_palette(0);
     sound_init();
 }
@@ -901,7 +971,7 @@ static uint8_t play_cave(void) {
     uint8_t after = 0;  // frames since Rockford died
 
     cave_start(d);
-    memset(trail_tile, 0, sizeof trail_tile);
+    memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
     rf_view = VIEW_FRONT;
     memset(covered, 1, sizeof covered);

@@ -101,6 +101,18 @@ extern struct game game;
 // The rules do not use it.
 extern uint8_t moved[CAVE_SIZE];
 
+// What else happened in the last tick, for the drawing's little effects
+// (the rules do not use it either): a creature left a cell, a boulder
+// landed, dirt was dug (the cell Rockford snapped, or the one he left).
+enum { EV_FIREFLY, EV_BUTTERFLY, EV_LANDED, EV_DUG };
+#define MAX_EVENTS 32  // more are left out
+typedef struct {
+    uint16_t cell;
+    uint8_t what;  // EV_*
+} Event;
+extern Event events[MAX_EVENTS];
+extern uint8_t nevents;
+
 void cave_start(const CaveDef *def);
 void cave_tick(uint8_t input);
 void cave_second(void);  // call once per second while the player is alive
