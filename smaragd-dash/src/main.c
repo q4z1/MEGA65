@@ -47,12 +47,19 @@ static uint8_t covered[CAVE_SIZE];  // 1: cell still hidden (start and end)
 static bool any_covered;
 static uint8_t etile[E_COUNT];      // tile per element, animated
 
+// What moved in the last tick slides from its old cell into the new one
+// until the next tick: the rules stay in cells, only the drawing is smooth.
+#define MAX_SPRITES 64              // more are drawn in their cells
+static Sprite sprites[MAX_SPRITES];
+static uint8_t nsprites;
+
 static bool pal;
 static uint8_t frame;
 static uint8_t held, pressed;       // IN_* now, and newly pressed this frame
 static uint16_t cam_x, cam_y;
 static bool scroll_x, scroll_y;
 static uint8_t idle;                // Rockford's idle animation
+static uint8_t slide;               // pixels the last tick's moves have still to go
 static uint8_t flash;               // frames left of the exit flash
 
 static uint8_t lives;
@@ -77,6 +84,26 @@ static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/sol
 #endif
 
 // ---------------------------------------------------------------- drawing
+
+// Top left pixel of cell i as drawn: still on its way if it moved
+static void cell_pos(uint16_t i, uint16_t *x, uint16_t *y) {
+    *x = (i % CAVE_W) * 16;
+    *y = (i / CAVE_W) * 16;
+    switch (moved[i]) {
+    case DIR_UP:
+        *y += slide;
+        break;
+    case DIR_RIGHT:
+        *x -= slide;
+        break;
+    case DIR_DOWN:
+        *y -= slide;
+        break;
+    case DIR_LEFT:
+        *x += slide;
+        break;
+    }
+}
 
 static void init_tiles(void) {
     etile[E_SPACE] = T_SPACE;
@@ -119,20 +146,35 @@ static void update_tiles(void) {
     }
     etile[E_ROCKFORD] = rockford_tile();
 
-    // only the cells in view
+    // only the cells in view, and around it what may slide into it
     uint8_t x0 = cam_x >> 4, y0 = cam_y >> 4;
     uint8_t x1 = x0 + VIEW_W / 16 + 1, y1 = y0 + VIEW_H / 16 + 1;
     if (x0)
         x0--;
+    if (y0)
+        y0--;
     if (x1 >= CAVE_W)
         x1 = CAVE_W - 1;
     if (y1 >= CAVE_H)
         y1 = CAVE_H - 1;
     uint8_t cover = T_COVER0 + ((f >> 1) & 1);
+    nsprites = 0;
     for (uint8_t y = y0; y <= y1; y++) {
         uint16_t i = y * CAVE_W + x0;
-        for (uint8_t x = x0; x <= x1; x++, i++)
-            tiles[i] = (any_covered && covered[i]) ? cover : etile[cave[i]];
+        for (uint8_t x = x0; x <= x1; x++, i++) {
+            if (any_covered && covered[i]) {
+                tiles[i] = cover;
+                continue;
+            }
+            uint8_t t = etile[cave[i]];
+            if (slide && moved[i] != DIR_NONE && nsprites < MAX_SPRITES) {
+                Sprite *s = &sprites[nsprites++];
+                cell_pos(i, &s->x, &s->y);
+                s->tile = t;
+                t = T_SPACE;
+            }
+            tiles[i] = t;
+        }
     }
 }
 
@@ -162,8 +204,10 @@ static void follow(uint16_t *cam, bool *active, uint16_t p, uint16_t view, uint1
 }
 
 static void camera(bool jump) {
-    uint16_t px = (game.player % CAVE_W) * 16 + 8;
-    uint16_t py = (game.player / CAVE_W) * 16 + 8;
+    uint16_t px, py;
+    cell_pos(game.player, &px, &py);
+    px += 8;
+    py += 8;
     if (jump) {
         cam_x = px < VIEW_W / 2 ? 0 : px - VIEW_W / 2;
         cam_y = py < VIEW_H / 2 ? 0 : py - VIEW_H / 2;
@@ -248,7 +292,7 @@ static void status_intro(void) {
 static void next_frame(void) {
     video_sync();
     update_tiles();
-    video_render(tiles, cam_x, cam_y);
+    video_render(tiles, cam_x, cam_y, sprites, nsprites);
     video_show();
     frame++;
     if (flash && !--flash)
@@ -768,6 +812,7 @@ static uint8_t play_cave(void) {
     uint8_t after = 0;  // frames since Rockford died
 
     cave_start(d);
+    slide = 0;
     memset(covered, 1, sizeof covered);
     camera(true);
     status_intro();
@@ -816,6 +861,9 @@ static uint8_t play_cave(void) {
                 sound_exit();
             }
         }
+        // How far the moves of the tick have come: they end with the next
+        // one, so what stops always reaches its cell.
+        slide = tick_acc >= tick_len ? 0 : 16 - tick_acc * 16 / tick_len;
         if (game.state == PS_ALIVE && ++sec >= fps) {
             sec = 0;
             cave_second();

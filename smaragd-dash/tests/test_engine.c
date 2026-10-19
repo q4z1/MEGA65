@@ -201,6 +201,31 @@ int main(void) {
     ticks(1, DIR_DOWN);
     EXPECT("Rockford enters the exit", game.state == PS_EXITED);
 
+    // The moves of a tick, for drawing them (moved[])
+#define AT(x, y) moved[((y) + 1) * CAVE_W + (x) + 1]
+    SETUP("r  ", "   ", " R ");
+    ticks(1, DIR_RIGHT);
+    EXPECT("moves: boulder falls, Rockford walks",
+           AT(0, 1) == DIR_DOWN && AT(2, 2) == DIR_RIGHT && AT(0, 0) == DIR_NONE && AT(1, 2) == DIR_NONE);
+    ticks(1, DIR_NONE);
+    EXPECT("moves: only those of the last tick", AT(2, 2) == DIR_NONE && AT(0, 2) == DIR_DOWN);
+    ticks(1, DIR_NONE);
+    EXPECT("moves: a landed boulder did not move", AT(0, 2) == DIR_NONE);
+
+    SETUP(" q ", "   ");
+    ticks(1, DIR_NONE);
+    EXPECT("moves: firefly turns left and moves", AT(1, 1) == DIR_DOWN);
+
+    SETUP("r", "R", " ");
+    ticks(1, DIR_NONE);
+    ticks(1, DIR_DOWN);
+    ticks(1, DIR_NONE);
+    EXPECT("moves: the boulder follows", AT(0, 1) == DIR_DOWN);
+    ticks(1, DIR_NONE);
+    EXPECT("moves: none where it exploded",
+           game.state == PS_DEAD && AT(0, 1) == DIR_NONE && AT(0, 2) == DIR_NONE);
+#undef AT
+
     printf(failures ? "\n%d FAILED\n" : "\nall passed\n", failures);
     return failures != 0;
 }

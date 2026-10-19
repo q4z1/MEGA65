@@ -156,7 +156,12 @@ the amoeba blows them up, and butterflies leave nine emeralds. The amoeba
 grows slowly, then fast; shut in it turns to emeralds, at 200 cells to
 boulders. The magic wall turns boulders into emeralds and back for a while.
 A tick takes the cave's `speed` (140 ms in the first cave); Rockford moves
-one cell per tick and the screen is redrawn every frame.
+one cell per tick and the screen is redrawn every frame. What moved in a
+tick - Rockford, boulders, emeralds, fireflies, butterflies - slides from
+its old cell into the new one until the next tick, so it always ends up in
+its cell: the rules stay in cells, only the drawing is smooth, and the game
+plays at the same speed as before. The engine notes the moves of each tick
+(`moved[]`) for that.
 
 **The screen** is 40x25 characters in full-colour mode (256 colours, one
 byte per pixel). Rows 0-1 are the status line, row 2 a thin line, rows 3-24
@@ -165,7 +170,11 @@ unique, so the playfield is a framebuffer (banks 4 and 5, two of them,
 alternating). Its characters are stored column by column, so the pixel rows
 of a column follow each other 8 bytes apart and a tile half lands on any
 pixel row with one DMA copy: about 480 chained DMA jobs draw the view each
-frame, and vertical scrolling costs nothing extra. Their list (6K) lies
+frame, and vertical scrolling costs nothing extra. What slides between two
+cells is drawn afterwards over an empty cell, with DMA transparency for
+pixel value 0: on a character column as two tile halves, otherwise one DMA
+job per pixel column, which copies every 8th byte of the tile into every
+8th byte of the framebuffer column (the DMA's skip rate). Their list (6K) lies
 below the program at $0800, where BASIC had its screen; the game never
 goes back to BASIC. Horizontal fine scrolling
 moves the character generator (TEXTXPOS); it is switched while the thin line

@@ -239,7 +239,98 @@ void video_show(void) {
         (p) += 12;                     \
     } while (0)
 
-void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
+// A sprite job (see dma_job): its own options first, then the job. DMA
+// transparency for pixel value 0, the skip rate for source and target.
+#define SPRITE_JOB 19
+
+#define SJOB(p, step, src, dst, bank, len) \
+    do {                                   \
+        uint16_t s_ = (src);               \
+        uint16_t d_ = (dst);               \
+        (p)[0] = 0x07;                     \
+        (p)[1] = 0x86;                     \
+        (p)[2] = 0x00;                     \
+        (p)[3] = 0x83;                     \
+        (p)[4] = (step);                   \
+        (p)[5] = 0x85;                     \
+        (p)[6] = (step);                   \
+        (p)[7] = 0x00;                     \
+        (p)[8] = 4;                        \
+        (p)[9] = (len);                    \
+        (p)[10] = 0;                       \
+        (p)[11] = (uint8_t)s_;             \
+        (p)[12] = s_ >> 8;                 \
+        (p)[13] = GFX_BANK;                \
+        (p)[14] = (uint8_t)d_;             \
+        (p)[15] = d_ >> 8;                 \
+        (p)[16] = (bank);                  \
+        (p)[17] = 0;                       \
+        (p)[18] = 0;                       \
+        (p) += SPRITE_JOB;                 \
+    } while (0)
+
+// The sprites go into a list of their own, after the cells are drawn: the
+// options are set by every job, so it does not matter whether the DMA keeps
+// them from one chained job to the next. A full list is run and started
+// again.
+static uint8_t *sprite_list(void) {
+    uint8_t *p = dmalist;
+    p[0] = 0x0A;
+    p[1] = 0x80;
+    p[2] = 0x00;
+    p[3] = 0x81;
+    p[4] = 0x00;
+    return p + 5;
+}
+
+static uint8_t *sprite_run(uint8_t *p) {
+    if (p != dmalist + 5) {
+        last_cmd = p - SPRITE_JOB + 8;
+        dma_run();
+    }
+    return sprite_list();
+}
+
+// A sprite at pixel column x of the framebuffer (any), its rows r0 to
+// r0 + rows - 1 at pixel row y + r0 of the view. On a character column it
+// is two copies of a tile half; otherwise one copy per pixel column, from
+// one byte in 8 of the tile to one in 8 of the framebuffer column.
+static uint8_t *sprite_jobs(uint8_t *p, int16_t x, uint16_t src, uint16_t dst, uint8_t rows, uint8_t bank) {
+    if (!(x & 7)) {
+        for (uint8_t h = 0; h < 2; h++, x += 8, src += 128)
+            if (x >= 0 && x < COLS * 8)
+                SJOB(p, 1, src, dst + (x >> 3) * FB_COL, bank, rows * 8);
+        return p;
+    }
+    for (uint8_t k = 0; k < 16; k++, x++, src++) {
+        if (k == 8)
+            src += 128 - 8;
+        if (x >= 0 && x < COLS * 8)
+            SJOB(p, 8, src, dst + (x >> 3) * FB_COL + (x & 7), bank, rows);
+    }
+    return p;
+}
+
+static void draw_sprites(const Sprite *s, uint8_t n, uint16_t cam_x, uint16_t cam_y, uint8_t bank) {
+    const uint16_t left = (cam_x & ~7) - 8;  // cave pixel column of FB column 0
+    uint8_t *p = sprite_list();
+    for (; n; n--, s++) {
+        int16_t x = (int16_t)(s->x - left);
+        int16_t y = (int16_t)(s->y - cam_y);
+        if (x <= -16 || x >= COLS * 8 || y <= -16 || y >= VIEW_H)
+            continue;
+        uint8_t r0 = y < 0 ? (uint8_t)-y : 0;
+        uint8_t rows = 16 - r0;
+        if (y + 16 > VIEW_H)
+            rows -= y + 16 - VIEW_H;
+        if (p > dmalist + MAX_JOBS * 12 - 16 * SPRITE_JOB)
+            p = sprite_run(p);
+        p = sprite_jobs(p, x, TILES_OFF + (s->tile << 8) + r0 * 8, (y + r0) * 8, rows, bank);
+    }
+    sprite_run(p);
+}
+
+void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sprite *sprites, uint8_t n) {
     const uint8_t bank = back ? FB_BANK_B : FB_BANK_A;
     int8_t wc = (int8_t)(cam_x >> 3) - 1;  // cave character column of FB column 0
     const uint8_t yo = cam_y & 15;          // pixel rows of the top tiles above the view
@@ -266,6 +357,8 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
     }
     last_cmd = p - 12;
     dma_run();
+    if (n)
+        draw_sprites(sprites, n, cam_x, cam_y, bank);
 }
 
 void video_flash(bool on) {

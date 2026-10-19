@@ -36,9 +36,18 @@ void video_init(void);
 // Game logic runs between video_show and the next video_sync.
 void video_sync(void);
 
+// A tile at any pixel position (cave pixels, its top left corner), drawn
+// over the cells with pixel value 0 transparent: what moves between two
+// cells.
+typedef struct {
+    uint16_t x, y;
+    uint8_t tile;
+} Sprite;
+
 // tiles[] holds a tile number per cave cell (only the cells in view are
-// read), (cam_x, cam_y) is the top left pixel of the view.
-void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y);
+// read), (cam_x, cam_y) is the top left pixel of the view; then the n
+// sprites are drawn over them.
+void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sprite *sprites, uint8_t n);
 
 void video_show(void);
 

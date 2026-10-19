@@ -6,6 +6,7 @@
 
 uint8_t cave[CAVE_SIZE];
 struct game game;
+uint8_t moved[CAVE_SIZE];
 
 // Cell offsets for DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT
 static const int8_t dir_off[4] = {-CAVE_W, 1, CAVE_W, -1};
@@ -69,6 +70,7 @@ void cave_start(const CaveDef *def) {
     memset(&game, 0, sizeof game);
     game.def = def;
     memcpy(cave, def->map, CAVE_SIZE);
+    memset(moved, DIR_NONE, CAVE_SIZE);
     for (uint16_t i = 0; i < CAVE_SIZE; i++)
         if (cave[i] == E_INBOX)
             game.player = i;
@@ -104,6 +106,7 @@ static void explode(uint16_t c, uint8_t kind) {
             if (e == E_ROCKFORD)
                 game.state = PS_DEAD;
             cave[j] = kind | SCANNED;
+            moved[j] = DIR_NONE;
         }
     game.sound |= SND_EXPLODE;
 }
@@ -131,11 +134,13 @@ static bool roll(uint16_t i, uint8_t falling) {
     if (cave[i - 1] == E_SPACE && cave[i + CAVE_W - 1] == E_SPACE) {
         cave[i - 1] = falling | SCANNED;
         cave[i] = E_SPACE;
+        moved[i - 1] = DIR_LEFT;
         return true;
     }
     if (cave[i + 1] == E_SPACE && cave[i + CAVE_W + 1] == E_SPACE) {
         cave[i + 1] = falling | SCANNED;
         cave[i] = E_SPACE;
+        moved[i + 1] = DIR_RIGHT;
         return true;
     }
     return false;
@@ -185,6 +190,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
             uint16_t k = j + dir_off[dir];
             if (cave[k] == E_SPACE && (cave_rnd() & 3) == 0) {
                 cave[k] = E_BOULDER | SCANNED;
+                moved[k] = dir;
                 game.sound |= SND_BOULDER;
                 break;
             }
@@ -195,6 +201,7 @@ static void move_rockford(uint16_t i, uint8_t input) {
     }
     cave[j] = E_ROCKFORD | SCANNED;
     cave[i] = E_SPACE;
+    moved[j] = dir;
     game.player = j;
 }
 
@@ -204,6 +211,7 @@ void cave_tick(uint8_t input) {
     uint8_t amoeba_odds = game.amoeba_timer ? 8 : 64;  // of 256
 
     game.sound = 0;
+    memset(moved, DIR_NONE, CAVE_SIZE);
     if (game.hatch_ticks)
         game.hatch_ticks--;
 
@@ -220,6 +228,7 @@ void cave_tick(uint8_t input) {
             if (below == E_SPACE) {
                 cave[i + CAVE_W] = falling | SCANNED;
                 cave[i] = E_SPACE;
+                moved[i + CAVE_W] = DIR_DOWN;
             } else if (props[below & ~SCANNED] & P_ROUND) {
                 roll(i, falling);
             }
@@ -232,6 +241,7 @@ void cave_tick(uint8_t input) {
             if (below == E_SPACE) {
                 cave[i + CAVE_W] = e | SCANNED;
                 cave[i] = E_SPACE;
+                moved[i + CAVE_W] = DIR_DOWN;
             } else if (props[below] & P_CRUSH) {
                 uint8_t bfly = below >= E_BUTTERFLY && below < E_BUTTERFLY + 4;
                 explode(i + CAVE_W, bfly ? E_EXPLODE_D : E_EXPLODE);
@@ -323,9 +333,11 @@ void cave_tick(uint8_t input) {
                 if (cave[j] == E_SPACE) {
                     cave[j] = (base + turn) | SCANNED;
                     cave[i] = E_SPACE;
+                    moved[j] = turn;
                 } else if (cave[j = i + dir_off[dir]] == E_SPACE) {
                     cave[j] = e | SCANNED;
                     cave[i] = E_SPACE;
+                    moved[j] = dir;
                 } else {
                     cave[i] = base + (fly ? (dir + 1) & 3 : (dir + 3) & 3);
                 }

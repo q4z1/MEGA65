@@ -96,6 +96,11 @@ struct game {
 extern uint8_t cave[CAVE_SIZE];
 extern struct game game;
 
+// The moves of the last tick, for drawing them smoothly: per cell the
+// direction its content moved in to get there, DIR_NONE if it did not move.
+// The rules do not use it.
+extern uint8_t moved[CAVE_SIZE];
+
 void cave_start(const CaveDef *def);
 void cave_tick(uint8_t input);
 void cave_second(void);  // call once per second while the player is alive
