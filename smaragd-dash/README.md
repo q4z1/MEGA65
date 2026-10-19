@@ -15,7 +15,9 @@ the game goes on with the first one of the next level.
 
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
-melody on the right channel. Fire starts the game.
+melody on the right channel. Fire starts the game. The line under the
+logo takes turns: "press fire", the controls, and the version (the file
+`VERSION`, which is also in the disk's name).
 
 ### High scores
 
@@ -70,8 +72,8 @@ smaragd-dash/build.sh                       # build only
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
 (`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
-(`CAVE01-1` ... `CAVE25-4`: cave and level) and the moves for the
-screencast (`DEMO01`, ...; see below). F5 starts
+(`CAVE01-1` ... `CAVE25-4`: cave and level); the screencast build adds
+its moves (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, the tiles stay
 black, and there are no caves to play. `build/preview.png` shows all tiles enlarged,
@@ -105,8 +107,10 @@ the music and the sounds: the title for fifteen seconds, then all caves of
 level 1, solved.
 Built with `-DSCREENCAST`, the game presses fire on the title by itself,
 loads the moves for each cave with it from the disk (`DEMO01`, `DEMO02`, ...,
-written by the solver as `build/caves/demoNN.bin`), and stops the emulator
-after the last cave, which ends the recording.
+written by the solver as `build/caves/demoNN.bin`; only this build puts
+them on the disk), and stops the emulator after the last cave, which ends
+the recording. `-DDEMO_LAST=6` in `MEGA65_CFLAGS` makes it stop after the
+sixth.
 
 The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
 the host at every build. It plays the caves with the game's own engine
@@ -123,8 +127,14 @@ moves with the next build.
 
 The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`,
 the video `screenshots/first-six-caves.mp4` with
-`MEGA65_CAST=1 MEGA65_CAST_OPTS="-x 1 -s 2" .vscode/run-current.sh smaragd-dash/`
-(original size, without the boot screen) and copied there.
+
+```sh
+MEGA65_CFLAGS=-DDEMO_LAST=6 MEGA65_CAST=1 MEGA65_CAST_OPTS="-x 1 -s 2" \
+    .vscode/run-current.sh smaragd-dash/
+```
+
+(the first six caves, original size, without the boot screen) and copied
+there.
 
 ## How it works
 

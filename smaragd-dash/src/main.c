@@ -29,10 +29,14 @@
 #include "mem.h"
 #include "music.h"
 #include "sound.h"
+#include "version.h"
 #include "video.h"
 
 #ifdef SCREENCAST
 #include "demo.h"
+#ifndef DEMO_LAST
+#define DEMO_LAST DEMO_CAVES  // the caves it plays; -DDEMO_LAST=6: the first six
+#endif
 #endif
 
 #define LIVES       3
@@ -760,9 +764,9 @@ static void logo_frame(uint16_t pf) {
     static const char blank[] = "                   ";
     if (have_logo) {
         // the line under the logo: "press fire", blinking, and in
-        // between the controls
+        // between the controls and the version; 8 lines of 96 frames
         if ((pf & 31) == 0) {
-            switch ((pf >> 7) % 6) {
+            switch (pf / 96) {
             case 1:
                 title_line("JOYSTICK, GAMEPAD OR CURSOR KEYS");
                 break;
@@ -771,6 +775,9 @@ static void logo_frame(uint16_t pf) {
                 break;
             case 5:
                 title_line("P PAUSE   RUN/STOP GIVE UP");
+                break;
+            case 7:
+                title_line("VERSION " VERSION);
                 break;
             default:
                 title_line((pf & 32) ? "" : press);
@@ -988,7 +995,7 @@ int main(void) {
         while (lives) {
 #ifdef SCREENCAST
             // after the last cave with moves
-            if (cave_no >= DEMO_CAVES)
+            if (cave_no >= DEMO_LAST || cave_no >= DEMO_CAVES)
                 demo_end();
 #endif
             if (!(have_cave = next_cave()))
