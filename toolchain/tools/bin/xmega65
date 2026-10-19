@@ -1,20 +1,20 @@
 #!/bin/sh
-# Startet Xemu/MEGA65 (toolchain/xemu) mit dem selbst gebauten
-# toolchain/rom/MEGA65.ROM. Alle Argumente gehen an Xemu, z.B.:
+# Starts Xemu/MEGA65 (toolchain/xemu) with the self-built
+# toolchain/rom/MEGA65.ROM. All arguments are passed on to Xemu, e.g.:
 #
-#   xmega65 -prg build/main.prg      Programm laden und starten
-#   xmega65 -8 disk.d81              D81-Image als Laufwerk 8
+#   xmega65 -prg build/main.prg      load and run a program
+#   xmega65 -8 disk.d81              D81 image as drive 8
 #
-# Xemu laeuft direkt in der VS-Code-Flatpak-Sandbox (es wurde dort gebaut).
-# Seine Einstellungen und das SD-Karten-Image liegen unter
-# ~/.local/share/xemu-lgb/mega65/ - in der Sandbox zeigt XDG_DATA_HOME
-# sonst nach ~/.var/app/..., daher wird es hier fest gesetzt.
+# Xemu runs directly inside the VS Code Flatpak sandbox (it was built there).
+# Its settings and the SD card image live in ~/.local/share/xemu-lgb/mega65/;
+# inside the sandbox XDG_DATA_HOME would point to ~/.var/app/... instead, so
+# it is set explicitly here.
 
 export XDG_DATA_HOME="$HOME/.local/share"
 
-# Xemus Menue (Rechtsklick) ist ein GTK-Popup. Unter Wayland kann GTK es
-# nicht ueber dem SDL-Fenster oeffnen - das Menue fehlt dann einfach. Mit
-# X11 (XWayland) geht es; ohne DISPLAY wuerde GTK aber gar nicht starten.
+# Xemu's menu (right click) is a GTK popup. Under Wayland GTK cannot open it
+# over the SDL window - the menu is then simply missing. With X11 (XWayland)
+# it works; without DISPLAY, however, GTK would not start at all.
 if [ -n "$DISPLAY" ] && [ -z "$GDK_BACKEND" ]; then
     export GDK_BACKEND=x11
 fi
@@ -24,11 +24,11 @@ XEMU="$TC/xemu/build/bin/xmega65.native"
 ROM="$TC/rom/MEGA65.ROM"
 
 if [ ! -x "$XEMU" ]; then
-    echo "Xemu fehlt: make -C $TC/xemu" >&2
+    echo "Xemu missing: make -C $TC/xemu" >&2
     exit 1
 fi
 if [ ! -f "$ROM" ]; then
-    echo "MEGA65.ROM fehlt: $TC/rom/build-rom.sh" >&2
+    echo "MEGA65.ROM missing: $TC/rom/build-rom.sh" >&2
     exit 1
 fi
 exec "$XEMU" -rom "$ROM" "$@"

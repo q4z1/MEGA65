@@ -1,12 +1,12 @@
-# Uebersetzungsergebnisse
+# Build results
 build/
 *.o
 *.prg
 *.prg.elf
 *.map
 
-# toolchain: fremde Dateien - Downloads, Disketten, SDKs und das ROM (Commodore-Copyright,
-# darf nicht weitergegeben werden) - alles per Skript wiederherstellbar
+# toolchain: third-party files - downloads, disks, SDKs and the ROM
+# (Commodore copyright, may not be redistributed) - all restorable by script
 toolchain/downloads/
 toolchain/disks/
 toolchain/mega65go/

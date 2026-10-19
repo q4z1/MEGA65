@@ -4,7 +4,7 @@ Programs for the **MEGA65** in C and 45GS02 assembly, built with
 [llvm-mos](https://llvm-mos.org/) and run in
 [Xemu](https://github.com/lgblgblgb/xemu) with the MEGA65 ROM 920413.
 
-As in the Plus/4 playground, each subfolder is a self-contained program.
+Each subfolder is a self-contained program.
 
 | Folder | What it is |
 | --- | --- |
@@ -26,11 +26,11 @@ implementation made intensive use of AI ([Claude](https://claude.ai) by Anthropi
 Everything lives under [toolchain/](toolchain/README.md) and can be set up
 again with `toolchain/setup.sh`.
 
-**Why llvm-mos and not cc65:** the installed cc65 2.18 does not know the
-MEGA65 at all (only newer versions have a `mega65` target), and its code size
-was already the reason the Plus/4 games moved to assembly. llvm-mos optimizes
-across all files (LTO), keeps local variables in zero page instead of on a
-software stack, and emits 45GS02 instructions on its own. Assembly files
+**Why llvm-mos and not cc65:** cc65 2.18, the version installed here, does
+not know the MEGA65 at all (only newer versions have a `mega65` target), and
+it produces a good deal more code than hand-written assembly. llvm-mos
+optimizes across all files (LTO), keeps local variables in zero page instead
+of on a software stack, and emits 45GS02 instructions on its own. Assembly files
 (`.s`) are assembled and linked by the same tool; inline assembly works too.
 
 ## Building and running

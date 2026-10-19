@@ -1,7 +1,7 @@
 {
-    // IntelliSense fuer llvm-mos (Ziel mega65). Die Include-Pfade folgen der
-    // Kette in toolchain/llvm-mos/bin/mos-mega65.cfg -> mos-commodore.cfg ->
-    // mos-common.cfg.
+    // IntelliSense for llvm-mos (target mega65). The include paths follow
+    // the chain in toolchain/llvm-mos/bin/mos-mega65.cfg -> mos-commodore.cfg
+    // -> mos-common.cfg.
     "configurations": [
         {
             "name": "MEGA65 (llvm-mos)",

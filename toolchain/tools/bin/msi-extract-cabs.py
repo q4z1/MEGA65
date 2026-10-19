@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Holt die eingebetteten CAB-Archive aus einem Windows-Installer (.msi).
+"""Pulls the embedded CAB archives out of a Windows Installer (.msi).
 
-Ein MSI ist eine OLE-Verbunddatei; die eigentlichen Dateien stecken in
-CAB-Archiven, die als Streams darin liegen. Diese Streams werden hier
-anhand der CAB-Signatur "MSCF" erkannt und als <name>.cab abgelegt;
-auspacken lassen sie sich danach mit bsdtar oder cabextract.
+An MSI is an OLE compound file; the actual files are stored in CAB
+archives kept as streams inside it. These streams are recognized here by
+the CAB signature "MSCF" and saved as <name>.cab; bsdtar or cabextract
+can unpack them afterwards.
 
-Braucht olefile (liegt unter toolchain/tools/python).
+Needs olefile (installed under toolchain/tools/python).
 
-Aufruf: msi-extract-cabs.py <datei.msi> <zielverzeichnis>
+Usage: msi-extract-cabs.py <file.msi> <target-directory>
 """
 
 import os
@@ -22,7 +22,7 @@ import olefile  # noqa: E402
 
 def main():
     if len(sys.argv) != 3:
-        sys.exit("Aufruf: msi-extract-cabs.py <datei.msi> <zielverzeichnis>")
+        sys.exit("usage: msi-extract-cabs.py <file.msi> <target-directory>")
     msi, outdir = sys.argv[1], sys.argv[2]
     os.makedirs(outdir, exist_ok=True)
     ole = olefile.OleFileIO(msi)
@@ -32,7 +32,7 @@ def main():
             if s.read(4) != b"MSCF":
                 continue
         data = ole.openstream(entry).read()
-        # MSI kodiert Stream-Namen; fuer den Dateinamen reicht ASCII
+        # MSI encodes stream names; ASCII is enough for the file name
         name = re.sub(r"[^A-Za-z0-9._-]", "_", "_".join(entry)).strip("_")
         out = os.path.join(outdir, (name or "stream%d" % found) + ".cab")
         with open(out, "wb") as f:
@@ -40,7 +40,7 @@ def main():
         print(out)
         found += 1
     if not found:
-        sys.exit("keine CAB-Archive in %s gefunden" % msi)
+        sys.exit("no CAB archives found in %s" % msi)
 
 
 if __name__ == "__main__":

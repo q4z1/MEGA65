@@ -2,12 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            // F5: baut das Programm, zu dem die aktive Datei gehoert, und
-            // startet es in Xemu. "node-terminal" ist nur das Vehikel, um per
-            // F5 einen Befehl auszufuehren - es ist kein JavaScript im Spiel.
+            // F5: builds the program the active file belongs to and starts
+            // it in Xemu. "node-terminal" is only the vehicle for running a
+            // command via F5 - there is no JavaScript involved.
             "type": "node-terminal",
             "request": "launch",
-            "name": "MEGA65: Aktives Programm bauen & starten",
+            "name": "MEGA65: Build & run active program",
             "command": "${workspaceFolder}/.vscode/run-current.sh '${file}'",
             "cwd": "${workspaceFolder}"
         }

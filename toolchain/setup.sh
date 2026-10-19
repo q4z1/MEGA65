@@ -1,13 +1,13 @@
 #!/bin/sh
-# Richtet die komplette Werkzeugkette unter toolchain/ ein. Was schon da
-# ist, wird uebersprungen; jeder Schritt laesst sich auch einzeln aufrufen.
+# Sets up the complete toolchain under toolchain/. Whatever is already there
+# is skipped; each step can also be run on its own.
 #
-#   llvm-mos/            C-Compiler, Assembler, Linker (Ziel mos-mega65)
-#   tools/               Hilfswerkzeuge (tools/build-tools.sh)
-#   xemu/build/bin/      Xemu, aus dem Git-Checkout gebaut
-#   rom/MEGA65.ROM       das ROM (rom/build-rom.sh)
+#   llvm-mos/            C compiler, assembler, linker (target mos-mega65)
+#   tools/               helper tools (tools/build-tools.sh)
+#   xemu/build/bin/      Xemu, built from the git checkout
+#   rom/MEGA65.ROM       the ROM (rom/build-rom.sh)
 #
-# Aufruf: toolchain/setup.sh
+# Usage: toolchain/setup.sh
 
 set -e
 
@@ -26,12 +26,12 @@ if [ ! -x "$TC/llvm-mos/bin/mos-mega65-clang" ]; then
     tar xf "$DL/llvm-mos-linux.tar.xz" -C "$TC"
 fi
 
-echo "== Hilfswerkzeuge"
+echo "== Helper tools"
 "$TC/tools/build-tools.sh"
 
 if [ ! -x "$TC/xemu/build/bin/xmega65.native" ]; then
     echo "== Xemu"
-    # Git-Submodul; nach einem Klon ohne --recursive ist der Ordner leer
+    # git submodule; after a clone without --recursive the folder is empty
     if [ ! -f "$TC/xemu/Makefile" ]; then
         git -C "$TC/.." submodule update --init toolchain/xemu
     fi
@@ -43,12 +43,12 @@ if [ ! -f "$TC/rom/MEGA65.ROM" ]; then
     "$TC/rom/build-rom.sh"
 fi
 
-# Das ROM auch in Xemus Datenordner legen: "Update files on SD image" im
-# Xemu-Menue nimmt es dann ohne Dateiauswahl (siehe README).
+# Put the ROM into Xemu's data folder as well: "Update files on SD image" in
+# Xemu's menu then takes it without a file selection (see README).
 XEMU_DATA="$HOME/.local/share/xemu-lgb/mega65"
 if [ ! -f "$XEMU_DATA/MEGA65.ROM" ]; then
     mkdir -p "$XEMU_DATA"
     cp "$TC/rom/MEGA65.ROM" "$XEMU_DATA/MEGA65.ROM"
 fi
 
-echo "Alles bereit."
+echo "All set."

@@ -1,17 +1,17 @@
-// Hello World fuer den MEGA65: C mit einer Routine in 45GS02-Assembler
-// (colors.s). Dient als Vorlage und als Probe, dass Compiler, ROM und
-// Emulator zusammenspielen.
+// Hello world for the MEGA65: C with one routine in 45GS02 assembly
+// (colors.s). Serves as a template and as a check that compiler, ROM and
+// emulator work together.
 
 #include <stdint.h>
 #include <stdio.h>
 
-// colors.s: Rahmen- und Hintergrundfarbe setzen (A = Rahmen, X = Hintergrund)
+// colors.s: set border and background colour (A = border, X = background)
 void set_colors(uint8_t border, uint8_t background);
 
 int main(void) {
-    set_colors(6, 0);  // blau / schwarz
-    printf("\x93");    // PETSCII: Bildschirm loeschen
+    set_colors(6, 0);  // blue / black
+    printf("\x93");    // PETSCII: clear screen
     printf("hello world!\n");
-    printf("c und assembler auf dem mega65\n");
+    printf("c and assembly on the mega65\n");
     return 0;
 }

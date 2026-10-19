@@ -1,14 +1,14 @@
 #!/bin/sh
-# Baut das Programm, zu dem die uebergebene Datei gehoert, fuer den MEGA65
-# und startet es in Xemu.
+# Builds the program the given file belongs to for the MEGA65 and starts it
+# in Xemu.
 #
-# Ein Programm ist ein Ordner (main/, ...). Bringt er ein eigenes build.sh
-# mit, baut das; sonst werden alle .c- und .s-Dateien direkt im Ordner mit
-# llvm-mos zu build/<ordner>.prg uebersetzt.
+# A program is a folder (main/, ...). If it brings its own build.sh, that
+# builds it; otherwise all .c and .s files directly in the folder are built
+# with llvm-mos into build/<folder>.prg.
 #
-# Aufruf: run-current.sh <pfad/zur/datei>
-#   MEGA65_RUN=0       nur bauen, nicht starten
-#   MEGA65_PRG=<name>  ein anderes Programm aus build/ starten
+# Usage: run-current.sh <path/to/file>
+#   MEGA65_RUN=0       only build, don't start
+#   MEGA65_PRG=<name>  start another program from build/
 
 set -e
 
@@ -18,13 +18,13 @@ CC="$TC/llvm-mos/bin/mos-mega65-clang"
 SRC="$1"
 
 if [ -z "$SRC" ] || [ ! -e "$SRC" ]; then
-    echo "Fehler: keine Datei uebergeben oder '$SRC' existiert nicht." >&2
-    echo "In VS Code muss eine Datei des Programms im Editor aktiv sein." >&2
+    echo "Error: no file given, or '$SRC' does not exist." >&2
+    echo "In VS Code, a file of the program must be active in the editor." >&2
     exit 1
 fi
 
-# Programmordner: der naechste Ordner nach oben mit build.sh, sonst der
-# Ordner der Datei selbst (oder der uebergebene Ordner)
+# Program folder: the nearest folder upwards with a build.sh, otherwise the
+# file's own folder (or the folder given)
 if [ -d "$SRC" ]; then
     DIR=$(cd "$SRC" && pwd)
 else
@@ -37,7 +37,7 @@ done
 [ -f "$D/build.sh" ] && DIR=$D
 case "$DIR" in
     "$ROOT"|"$TC"|"$TC"/*|"$ROOT/.vscode")
-        echo "Fehler: '$SRC' gehoert zu keinem Programmordner." >&2
+        echo "Error: '$SRC' does not belong to a program folder." >&2
         exit 1
         ;;
 esac
@@ -47,10 +47,10 @@ OUT="$DIR/build"
 mkdir -p "$OUT"
 
 if [ -f "$DIR/build.sh" ]; then
-    echo "Baue $NAME ueber $DIR/build.sh ..."
+    echo "Building $NAME via $DIR/build.sh ..."
     MEGA65_CC="$CC" sh "$DIR/build.sh"
 else
-    # Eigene Compilerschalter: Datei cflags im Programmordner
+    # Extra compiler flags: file cflags in the program folder
     EXTRA=""
     [ -f "$DIR/cflags" ] && EXTRA=$(cat "$DIR/cflags")
     set --
@@ -58,19 +58,19 @@ else
         [ -f "$f" ] && set -- "$@" "$f"
     done
     if [ $# = 0 ]; then
-        echo "Fehler: keine .c- oder .s-Dateien in $DIR." >&2
+        echo "Error: no .c or .s files in $DIR." >&2
         exit 1
     fi
-    echo "Baue $NAME ..."
-    # -g und die .elf-Datei fuer Disassembly/Symbole, .map fuer die Belegung
+    echo "Building $NAME ..."
+    # -g and the .elf file for disassembly/symbols, .map for the memory layout
     # shellcheck disable=SC2086
     "$CC" -Os -g -Wall $EXTRA -o "$OUT/$NAME.prg" \
         -Wl,-Map="$OUT/$NAME.map" "$@"
 fi
 START=${MEGA65_PRG:-$NAME}
-echo "Fertig: $OUT/$START.prg"
+echo "Done: $OUT/$START.prg"
 
 [ "$MEGA65_RUN" = 0 ] && exit 0
 
-echo "Starte Xemu ..."
+echo "Starting Xemu ..."
 exec "$TC/tools/bin/xmega65" -prg "$OUT/$START.prg"

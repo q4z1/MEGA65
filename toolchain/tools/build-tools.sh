@@ -1,11 +1,11 @@
 #!/bin/sh
-# Baut bzw. installiert die kleinen Hilfswerkzeuge unter toolchain/tools:
+# Builds or installs the small helper tools under toolchain/tools:
 #
-#   bin/cabextract   aus den Quellen (tools/src), fuer die CABs im C64-Forever-MSI
-#   python/olefile   Python-Modul zum Lesen des MSI (OLE-Verbunddatei)
+#   bin/cabextract   from source (tools/src), for the CABs in the C64 Forever MSI
+#   python/olefile   Python module for reading the MSI (OLE compound file)
 #
-# bin/bspatch.py, bin/msi-extract-cabs.py und bin/xmega65 sind Skripte und
-# liegen fertig im Verzeichnis.
+# bin/bspatch.py, bin/msi-extract-cabs.py and bin/xmega65 are scripts and
+# are ready to use as they are.
 
 set -e
 
@@ -30,4 +30,4 @@ if [ ! -f "$HERE/python/olefile/__init__.py" ]; then
     python3 -m pip install -q --target "$HERE/python" olefile
 fi
 
-echo "Werkzeuge in $HERE/bin bereit."
+echo "Tools ready in $HERE/bin."

@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            // Strg+Shift+B: baut das Programm der aktiven Datei, ohne Xemu
-            // zu starten.
-            "label": "MEGA65: Build (aktives Programm)",
+            // Ctrl+Shift+B: builds the program of the active file without
+            // starting Xemu.
+            "label": "MEGA65: Build (active program)",
             "type": "shell",
             "command": "${workspaceFolder}/.vscode/run-current.sh",
             "args": [
@@ -16,7 +16,7 @@
                     "MEGA65_RUN": "0"
                 }
             },
-            // clang-Meldungen: datei:zeile:spalte: error: text
+            // clang messages: file:line:column: error: text
             "problemMatcher": {
                 "owner": "llvm-mos",
                 "fileLocation": "absolute",
@@ -35,8 +35,8 @@
             }
         },
         {
-            // Wie F5, nur als Task: bauen und in Xemu starten.
-            "label": "MEGA65: Build & Run (aktives Programm)",
+            // Like F5, just as a task: build and start in Xemu.
+            "label": "MEGA65: Build & Run (active program)",
             "type": "shell",
             "command": "${workspaceFolder}/.vscode/run-current.sh",
             "args": [
@@ -48,8 +48,8 @@
             "problemMatcher": []
         },
         {
-            // Xemu ohne Programm starten (BASIC 65).
-            "label": "MEGA65: Xemu starten",
+            // Start Xemu without a program (BASIC 65).
+            "label": "MEGA65: Start Xemu",
             "type": "shell",
             "command": "${workspaceFolder}/toolchain/tools/bin/xmega65",
             "options": {
