@@ -376,9 +376,11 @@ def ram_layers(outs, syms, rams, files, disk_files):
         layers.append(Layer(heap, stack - 1, "free",
                             f"the linker's RAM: heap; the soft stack grows down from {hexa(stack)}", 1))
     for name, vma, lma, size in outs:
-        if size == 0 or name not in SECTIONS:
+        if size == 0 or name.startswith(NOT_LOADED):
             continue
-        layers.append(Layer(vma, vma + size - 1, "linker", f"{name:14} {SECTIONS[name][0]}", 2))
+        # sections of the program's own linker script: placed there, not loaded
+        what = SECTIONS[name][0] if name in SECTIONS else "placed by the linker script"
+        layers.append(Layer(vma, vma + size - 1, "linker", f"{name:14} {what}", 2))
         if lma != vma:
             layers.append(Layer(lma, lma + size - 1, "linker",
                                 f"{name:14} its values, copied to {hexa(vma)} at the start", 2))
