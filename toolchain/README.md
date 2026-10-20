@@ -29,6 +29,7 @@ toolchain/setup.sh
 | `tools/bin/m68k-dis.py` | recursive-descent 68000 disassembler: follows branches and calls, so code and data come apart; labels from a symbol file | written here |
 | `tools/bin/amiga-run` | Amiga emulator without a window, driven by a command script: frames, joystick, mouse, keys, screenshots, memory dumps, breakpoints, traces, snapshots (see below) | `tools/amiga-run/`, on the core of [vAmiga](https://github.com/dirkwhoffmann/vAmiga) (pinned commit, cloned into `tools/src/vAmiga`) |
 | `*.rom` | an Amiga Kickstart ROM (1.3 for the A500), for `amiga-run` – local only, not in the repo | your own copy |
+| `fonts/` | free fonts (SIL Open Font License): Exo 2, Rajdhani, Titillium Web – for screens rendered at build time | [google/fonts](https://github.com/google/fonts), pinned commit, by `setup.sh` |
 | `tools/python/` | Python modules `olefile` (reading the MSI) and `capstone` (disassembler) | pip |
 | `downloads/` | the downloaded archives (SDK, MSI, ROM patch, sources) | |
 
