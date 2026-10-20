@@ -11,6 +11,9 @@ from the character's palette bank (colour RAM). Banks 0-11 are the page's,
 found here for each page; banks 12-15 are ramps from the background to a
 text colour, for the text the game puts in at run time (pages.h).
 
+Drawings come from art/NAME.png where there is one (our own artwork, a
+transparent ground), else from tools/art.py.
+
 Writes into GENDIR:
     pages/pNAME.bin  a page (on the disk as PNAME): the palette (16 banks of 16
                   colours, R G B), the number of characters (2 bytes), then,
@@ -267,6 +270,17 @@ def centred(img, y, s, f, fg):
 
 
 ART = set()  # the colours of the page's drawings
+ART_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art')
+
+
+def drawing(name, width, fallback):
+    """The drawing art/NAME.png (transparent ground), width pixels wide; if
+    there is none, the one fallback(width) draws"""
+    path = os.path.join(ART_DIR, name + '.png')
+    if not os.path.exists(path):
+        return fallback(width)
+    im = Image.open(path).convert('RGBA')
+    return im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
 
 
 def paste_art(img, art_img, xy, colours=15):
@@ -349,7 +363,7 @@ CAR = 'LOTUS ESPRIT TURBO SE'
 def page_spec1():
     img, d = canvas()
     header(img, 'SPECIFICATION', CAR + '   1 / 4')
-    car = art.esprit_side(470)
+    car = drawing('side-view', 470, art.esprit_side)
     paste_art(img, car, ((W - car.width) // 2, 52), 28)
     facts(img, 192, [
         ('ENGINE', '2174 cc, four cylinders in line, mid-mounted, rear-wheel drive'),
