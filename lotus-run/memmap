@@ -4,6 +4,8 @@
 # Bank 0
 ram  $0800+6144      DMA list being collected (dma.c)
 
+ram  $E000+8176      the course, under the KERNAL (main.c, TRACK_BUF)
+
 # Bank 1
 ram  $10000+2000     screen: 40x25 characters of 2 bytes (video.c)
 ram  $10800+40000    conversion list: picture to characters, 1600 jobs (video.c)
@@ -17,12 +19,19 @@ ram  $50000+64000    the characters on screen: 1000 x 64 bytes (video.c)
 # Attic RAM: the road line patterns as pixels, then the sprite banks of the
 # course, one byte per pixel
 ram  $8000000+147456 road line patterns drawn out (ROADPIX, road_pixels.c)
-ram  $8024000+262144 sprite banks (the course's, about 200K; banks.c)
+ram  $8024000+30720  the course's backdrop, 960 x 32 (banks.c)
+ram  $802B800+4416   the panel as shown (panel.c)
+ram  $802CA00+36864  the panel and its values' pictures (PANEL, banks.c)
+ram  $8035A00+14336  the lap bar's pictures (LAPBAR, banks.c)
+ram  $8039200+262144 sprite banks (the course's, about 200K; banks.c)
 
 # Colour RAM, cleared to 0: no attributes (video.c)
 ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
 
 # The disk (build.sh). The program itself is found by its contents.
-file TRACK??         @track_buf  a course (tools/mkdata.py)
+file TRACK??         @$E000      a course (tools/mkdata.py)
 file ROADPAT         @$1A800     road line patterns (tools/mkdata.py)
 file SPR??           @$40000     a sprite bank, unpacked to attic RAM (tools/mksprites.py)
+file BACK?           @$40000     a backdrop, unpacked to attic RAM (tools/mksprites.py)
+file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprites.py)
+file LAPBAR          @$40000     the lap bar, unpacked to attic RAM (tools/mksprites.py)

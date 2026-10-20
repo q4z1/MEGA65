@@ -12,22 +12,27 @@
 #include "hw.h"
 #include "input.h"
 #include "mem.h"
+#include "panel.h"
 #include "progdata.h"
 #include "race.h"
 #include "render.h"
 #include "road_pixels.h"
 #include "track.h"
 #include "tracks.h"
+
+_Static_assert(TRACK_SIZE <= TRACK_BUF_SIZE, "the largest course does not fit into TRACK_BUF");
 #include "video.h"
 
-// The course from the disk (tools/mkdata.py: TRACKnn)
-static uint8_t track_buf[TRACK_SIZE];
 
 // The race view's colours 1-7 (those of 12-15 change down the screen,
-// render.c; 8-11 are the scenery's, per picture)
+// render.c; 8-11 are the scenery's, per picture), the panel's 17-19, 25-27
 static void view_colours(void) {
     for (uint8_t i = 0; i < 7; i++)
         video_colour(1 + i, tab_view_colours[i]);
+    for (uint8_t i = 0; i < 3; i++) {
+        video_colour(17 + i, tab_panel_colours[i]);
+        video_colour(25 + i, tab_panel_colours[3 + i]);
+    }
 }
 
 static void halt(uint8_t colour) {
@@ -69,17 +74,18 @@ int main(void) {
     char name[] = "TRACK00";
     name[5] = "0123456789ABCDEF"[race.course >> 4];
     name[6] = "0123456789ABCDEF"[race.course & 15];
-    if (!disk_load(name, (uint16_t)track_buf) || !disk_load("ROADPAT", ROADPAT))
+    if (!disk_load(name, (uint16_t)TRACK_BUF) || !disk_load("ROADPAT", ROADPAT))
         halt(2);
     road_pixels_init();
-    Track *t = (Track *)track_buf;
-    if (!banks_load(t) || !backdrop_load(t->header[1]))
+    Track *t = (Track *)TRACK_BUF;
+    if (!banks_load(t) || !backdrop_load(t->header[1]) || !panel_load() || !lapbar_load())
         halt(7);
     view_colours();
     race_track = t;
     race.segments = t->segments;
     race.random[0] = 0x12345678;
     race_init();
+    panel_reset();
 
     view_scale = 512;
     view_lines = 192;
@@ -94,9 +100,11 @@ int main(void) {
         while ((uint8_t)(frame_done - last_picture) < 2);
         last_picture = frame_done;
         race_picture();
+        panel_picture();
         const Player *p = &race.p[0];
         View v = {t, p->pos_view, (int16_t)(p->x_view >> 16), p->slope_view, (uint16_t)p->u16_view};
         render_view(&v);
+        panel_draw();
         video_show();
         for (uint8_t i = 0; i < 4; i++)
             video_colour(8 + i, p->colours[i]);

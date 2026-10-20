@@ -36,7 +36,7 @@ build/offsets > build/gen/offsets.inc
 
 # The data files, each behind two bytes of (unused) load address
 set --
-for f in build/gen/track*.bin build/gen/roadpat.bin build/gen/spr*.bin build/gen/back*.bin; do
+for f in build/gen/track*.bin build/gen/roadpat.bin build/gen/spr*.bin build/gen/back*.bin build/gen/panel.bin build/gen/lapbar.bin; do
     name=$(basename "$f" .bin | tr a-z A-Z)
     { printf '\000\000'; cat "$f"; } > "build/disk/$name"
     set -- "$@" "build/disk/$name=$name"

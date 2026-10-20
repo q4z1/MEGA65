@@ -176,6 +176,20 @@ LIST_BASE = 0xB168
 VIEW_COLOURS = 0xB280  # MOVE COLOR01 ... COLOR07
 
 
+PANEL_COLOURS = 0xB29C  # MOVE COLOR17 ... COLOR31: the panel's sprites
+
+
+def panel_colours(orig):
+    """Colours 17-19 and 25-27 (the panel's two sprite colour sets)"""
+    import amiga
+    hunk = bytes(amiga.parse_hunks(open(os.path.join(orig, 'main.bin'), 'rb').read())[1]['data'])
+    moves = struct.unpack_from('>24H', hunk, PANEL_COLOURS - LIST_BASE)
+    regs = list(moves[0::2])
+    if regs != [0x1A2, 0x1A4, 0x1A6, 0x1AA, 0x1AC, 0x1AE, 0x1B2, 0x1B4, 0x1B6, 0x1BA, 0x1BC, 0x1BE]:
+        sys.exit('main.bin: the panel colours are not where expected')
+    return list(moves[1:6:2]) + list(moves[13:18:2])
+
+
 def view_colours(orig):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import amiga
@@ -197,6 +211,8 @@ def program_tables(orig, gen):
         c.append(c_array(name, ctype, list(values)))
     h.append('extern const uint16_t tab_view_colours[7];  // colours 1-7 of the race view')
     c.append(c_array('tab_view_colours', 'uint16_t', view_colours(orig)))
+    h.append('extern const uint16_t tab_panel_colours[6];  // colours 17-19 and 25-27: the panel')
+    c.append(c_array('tab_panel_colours', 'uint16_t', panel_colours(orig)))
     with open(os.path.join(gen, 'progdata.h'), 'w') as f:
         f.write('\n'.join(h) + '\n')
     with open(os.path.join(gen, 'progdata.c'), 'w') as f:

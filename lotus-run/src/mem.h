@@ -17,6 +17,12 @@
 #define DMA_LIST_SIZE 0x1800u
 _Static_assert(0x0800 + DMA_LIST_SIZE <= 0x2000, "the DMA list reaches the program");
 
+// The course (TRACKnn from the disk): in the RAM under the KERNAL, which
+// irq_init switches out - so it is loaded (by DMA) and read only after that
+#define TRACK_BUF      ((uint8_t *)0xE000)
+#define TRACK_BUF_SIZE 0x1FF0u
+_Static_assert(0xE000 + TRACK_BUF_SIZE <= 0xFFFA, "the course reaches the interrupt vectors");
+
 // ---------------------------------------------------------------- bank 1
 
 // The screen: 40 x 25 characters of 2 bytes, each pointing to its own
@@ -61,7 +67,15 @@ _Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1F800, "the road pattern index reache
 #define ROADPIX_SIZE 0x24000ul
 #define BACKDROP     (ROADPIX + ROADPIX_SIZE)
 #define BACKDROP_SIZE 0x7800ul
-#define BANKS_ATTIC  (BACKDROP + BACKDROP_SIZE)
+// the panel (banks.c, panel.c): as shown, then as on the disk (its picture
+// without values, then the values' pictures)
+#define PANEL_LIVE   (BACKDROP + BACKDROP_SIZE)
+#define PANEL_DATA   (PANEL_LIVE + 0x1200ul)
+#define PANEL_SIZE   0x9000ul
+// the lap bar's pictures (banks.c, panel.c)
+#define LAPBAR_DATA  (PANEL_DATA + PANEL_SIZE)
+#define LAPBAR_SIZE  0x3800ul
+#define BANKS_ATTIC  (LAPBAR_DATA + LAPBAR_SIZE)
 
 // ---------------------------------------------------------------- colour RAM
 

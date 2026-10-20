@@ -99,6 +99,60 @@ uint32_t backdrop_pixels(void) {
     return BACKDROP;
 }
 
+PanelField panel_fields[PANEL_FIELDS];
+
+_Static_assert(PANEL_W * PANEL_H <= 0x1200, "the panel does not fit into PANEL_LIVE");
+
+bool panel_load(void) {
+    if (!disk_load("PANEL", LOAD))
+        return false;
+    win_at = ~0ul;
+    if (rd(0) != PANEL_W || rd(1) != PANEL_H || rd(2) != PANEL_FIELDS)
+        return false;
+    uint32_t at = PANEL_DATA + PANEL_W * PANEL_H;
+    for (uint8_t f = 0; f < PANEL_FIELDS; f++) {
+        PanelField *p = &panel_fields[f];
+        p->x = rd(3 + 5u * f);
+        p->y = rd(4 + 5u * f);
+        p->w = rd(5 + 5u * f);
+        p->h = rd(6 + 5u * f);
+        p->states = rd(7 + 5u * f);
+        p->pixels = at;
+        at += (uint32_t)p->w * p->h * p->states;
+    }
+    if (at > PANEL_DATA + PANEL_SIZE)
+        return false;
+    unpack(3 + 5u * PANEL_FIELDS, PANEL_DATA, at);
+    return true;
+}
+
+uint32_t panel_base(void) {
+    return PANEL_DATA;
+}
+
+uint32_t panel_live(void) {
+    return PANEL_LIVE;
+}
+
+#define LAPBAR_BYTES ((uint32_t)LAPBAR_W * LAPBAR_H * LAPBAR_LAPS + 16 * 16)
+_Static_assert(LAPBAR_BYTES <= LAPBAR_SIZE, "the lap bar does not fit into LAPBAR_DATA");
+
+bool lapbar_load(void) {
+    if (!disk_load("LAPBAR", LOAD))
+        return false;
+    win_at = ~0ul;
+    unpack(0, LAPBAR_DATA, LAPBAR_DATA + LAPBAR_BYTES);
+    return true;
+}
+
+uint32_t lapbar_pixels(void) {
+    return LAPBAR_DATA;
+}
+
+void attic_copy(uint32_t src, uint32_t dst, uint16_t len) {
+    dma_copy(src, dst, len);
+}
+
 bool banks_load(const Track *t) {
     for (uint8_t b = 0; b < SPR_BANKS; b++)
         banks_dir[b] = 0;

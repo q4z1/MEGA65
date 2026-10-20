@@ -24,6 +24,13 @@ Writes into GENDIR:
                   SPR_CARS, SPR_HUD
     backN.bin     backdrop N (on the disk as BACKN): 960 x 32 colours, row
                   after row, run-length coded as the banks' pixels
+    lapbar.bin    the lap bar (on the disk as LAPBAR): overlay 23 as drawn
+                  for 1-8 laps, then a box's row filled with each of 16
+                  masks (16 pixels), run-length coded as the banks' pixels
+    panel.bin     the panel of the race view (on the disk as PANEL): u8
+                  width, height, field count; per field u8 x, y, w, h and
+                  state count; then run-length coded as the banks' pixels:
+                  the panel, then every field's states, w x h each
 """
 import os
 import struct
@@ -102,6 +109,175 @@ def backdrop(d):
     return bytes(out)
 
 
+# ---------------------------------------------------------------- the panel
+
+# The panel at the right of the race view: hardware sprites whose data is
+# the start of file $50 (at $36E1C when the game runs; addresses below are
+# those): three 16-pixel columns of labels and values, three more for the
+# bars beneath them. The values are written into the sprite data, one per
+# picture; here every value they can show is drawn out.
+P50 = 0x36E1C
+PANEL_SPRITES = [0x36E1C, 0x37108, 0x373F4, 0x376E0, 0x37724, 0x37768]
+# their colours: sprites 0-2 colours 17-19, 4-6 colours 25-27 (the game's
+# 21-23 and 29-31 are the same)
+PANEL_COLOURS = [(17, 18, 19)] * 3 + [(25, 26, 27)] * 3
+PANEL_X, PANEL_Y, PANEL_W, PANEL_H = 406, 46, 48, 92  # sprite positions: player 1's panel
+COL0, COL1, COL2 = 0x36E20, 0x3710C, 0x373F8  # the columns' data (player 1)
+
+
+def panel_render(m):
+    """The panel's colours, PANEL_W x PANEL_H; the lower sprites first, so
+    the higher ones cover them"""
+    px = bytearray([SPR_CLEAR]) * (PANEL_W * PANEL_H)
+    for k in reversed(range(len(PANEL_SPRITES))):
+        a = PANEL_SPRITES[k]
+        while True:
+            c0, c1 = struct.unpack_from('>HH', m, a - P50)
+            if c0 == 0 and c1 == 0:
+                break
+            vs = c0 >> 8 | (c1 & 4) << 6
+            ve = c1 >> 8 | (c1 & 2) << 7
+            hs = (c0 & 0xFF) << 1 | (c1 & 1)
+            for i in range(ve - vs):
+                da, db = struct.unpack_from('>HH', m, a - P50 + 4 + 4 * i)
+                y = vs + i - PANEL_Y
+                for b in range(16):
+                    v = (da >> (15 - b) & 1) | (db >> (15 - b) & 1) << 1
+                    x = hs + b - PANEL_X
+                    if v and 0 <= x < PANEL_W and 0 <= y < PANEL_H:
+                        px[y * PANEL_W + x] = PANEL_COLOURS[k][v - 1]
+            a += 4 + 4 * (ve - vs)
+    return px
+
+
+def panel_digit(m, digit, at):
+    g = 0x37B62 + 7 * digit - P50
+    for i in range(7):
+        m[at - P50 + 4 * i] = m[g + i]
+        m[at - P50 + 4 * i + 2] = m[g + 7 + 0x3F + i]
+
+
+def panel_gear(m, gear):
+    g = 0x37A90 + 0x15 * gear - P50
+    for k, at in enumerate((COL0 + 0x21, COL1 + 0x20, COL1 + 0x21)):
+        for i in range(7):
+            m[at - P50 + 4 * i] = m[g + k + 3 * i]
+            m[at - P50 + 4 * i + 2] = m[g + k + 0x69 + 3 * i]
+
+
+def panel_place(m, place):
+    g = 0x37BEE + 0x6E * (place - 1) - P50
+    a0, a1, a2 = (c + 0x118 - P50 for c in (COL0, COL1, COL2))
+    for i in range(22):
+        for at, src in ((a0, 0), (a0 + 1, 1), (a1, 2), (a1 + 1, 3), (a2, 4)):
+            m[at + 4 * i] = m[g + src + 5 * i]
+            m[at + 4 * i + 2] = m[g + 0x898 + src + 5 * i]
+
+
+def panel_bar(m, value, row, pattern):
+    """Bar sprites 4-6, three rows from data offset row: rpm 4, fuel $14"""
+    g = 0x377AC + 5 * value + pattern - P50
+    cols = [0x376E0, 0x376E0 + 1, 0x37724, 0x37724 + 1, 0x37768]
+    for k, base in enumerate(cols):
+        at = base + row - P50
+        for r in range(3):
+            m[at + 4 * r] = m[g + k]
+            m[at + 4 * r + 2] = m[g + k + 0x172]
+
+
+# The values: name, number of states, how a state is written
+PANEL_FIELDS = [
+    ('hundreds', 10, lambda m, v: panel_digit(m, v, COL0 + 0x61)),
+    ('tens', 10, lambda m, v: panel_digit(m, v, COL1 + 0x60)),
+    ('units', 10, lambda m, v: panel_digit(m, v, COL1 + 0x61)),
+    ('gear', 5, panel_gear),
+    ('rpm', 37, lambda m, v: panel_bar(m, v, 4, 0)),
+    ('fuel', 37, lambda m, v: panel_bar(m, v, 0x14, 0xB9)),
+    ('place', 20, lambda m, v: panel_place(m, v + 1)),
+]
+
+
+def panel_file(d50):
+    m = bytearray(d50[:0x1F02])
+    base = panel_render(m)
+    head = bytearray([PANEL_W, PANEL_H, len(PANEL_FIELDS)])
+    states = []
+    for name, n, write in PANEL_FIELDS:
+        pics = []
+        for v in range(n):
+            mm = bytearray(m)
+            write(mm, v)
+            pics.append(panel_render(mm))
+        changed = [i for i in range(PANEL_W * PANEL_H) if any(p[i] != base[i] for p in pics)]
+        x0 = min(i % PANEL_W for i in changed)
+        x1 = max(i % PANEL_W for i in changed) + 1
+        y0 = min(i // PANEL_W for i in changed)
+        y1 = max(i // PANEL_W for i in changed) + 1
+        head += bytes([x0, y0, x1 - x0, y1 - y0, n])
+        for p in pics:
+            states += [p[y * PANEL_W + x] for y in range(y0, y1) for x in range(x0, x1)]
+    return bytes(head) + rle(bytes(base) + bytes(states))
+
+
+# ---------------------------------------------------------------- the lap bar
+
+# Overlay 23 (194 x 9, three planes and a mask) is the lap bar at the top
+# left; the game draws it at the start of a race - a box of 16 pixels per
+# lap - and fills a lap's box as the car goes round (its mask, rows 2 and
+# 3, one of 16 masks per box).
+LAPBAR_W, LAPBAR_H, LAPBAR_LAPS = 194, 9, 8
+LAP_MASKS = [0xC000, 0xC000, 0xE000, 0xF000, 0xF800, 0xFC00, 0xFE00, 0xFF00,
+             0xFF80, 0xFFC0, 0xFFE0, 0xFFF0, 0xFFF8, 0xFFFC, 0xFFFE, 0xFFFF]
+
+
+def lapbar_decode(m):
+    bpr, plane = 26, 234
+    out = bytearray()
+    for y in range(LAPBAR_H):
+        for x in range(LAPBAR_W):
+            def bit(p):
+                return m[p * plane + y * bpr + x // 8] >> (7 - x % 8) & 1
+            out.append(sum(bit(k) << k for k in range(3)) if bit(3) else SPR_CLEAR)
+    return out
+
+
+def lapbar_drawn(laps):
+    """The bar of a race of that many laps, as the game draws it"""
+    m = bytearray(936)
+
+    def put(off, word, w):
+        struct.pack_into('>H', m, off + 2 * word, w)
+    for w in range(laps):
+        put(0x11E, w, 0x3FFF)
+        put(0x138, w, 0x3FFF)
+        put(0x2BE, w, 0x7FFF if w == 0 else 0xFFFF)
+        put(0x2D8, w, 0xFFFF)
+        put(0x2F2, w, 0xC000)
+        put(0x30C, w, 0xC000)
+        put(0x326, w, 0xFFFF)
+        put(0x340, w, 0x7FFF if w == 0 else 0xFFFF)
+    for off, v in ((0x2BE, 0x8000), (0x2D8, 0xC000), (0x2F2, 0xC000), (0x30C, 0xC000), (0x326, 0xC000),
+                   (0x340, 0x8000)):
+        put(off, laps, v)
+    return m
+
+
+def lapbar_file():
+    out = bytearray()
+    for laps in range(1, LAPBAR_LAPS + 1):
+        out += lapbar_decode(lapbar_drawn(laps))
+    # a lap's box filled with each mask: row 2 of the box (row 3 is the same)
+    m = lapbar_drawn(1)
+    for mask in LAP_MASKS:
+        struct.pack_into('>H', m, 0x2F2, mask)
+        struct.pack_into('>H', m, 0x30C, mask)
+        px = lapbar_decode(m)
+        if px[2 * LAPBAR_W:2 * LAPBAR_W + 16] != px[3 * LAPBAR_W:3 * LAPBAR_W + 16]:
+            sys.exit('lap bar: rows 2 and 3 of a box differ')
+        out += px[2 * LAPBAR_W:2 * LAPBAR_W + 16]
+    return rle(bytes(out))
+
+
 def bank_file(ims):
     head = bytearray([len(ims)])
     for w, h, _ in ims:
@@ -131,6 +307,11 @@ def main():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
             f.write(bank_file(ims))
 
+    with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:
+        f.write(lapbar_file())
+    with open(os.path.join(gen, 'panel.bin'), 'wb') as f:
+        f.write(panel_file(unpack(0x50)))
+
     for n in range(BACKDROPS):
         with open(os.path.join(gen, f'back{n}.bin'), 'wb') as f:
             f.write(rle(backdrop(unpack(0x60 + n))))
@@ -147,6 +328,12 @@ def main():
                 f'#define SPR_LARGEST {largest}  // pixels of the largest bank\n'
                 f'#define BACK_W {BACK_W}  // a backdrop (BACKN): colours, row after row\n'
                 f'#define BACK_H {BACK_H}\n'
+                f'#define PANEL_W {PANEL_W}  // the panel (PANEL)\n'
+                f'#define PANEL_H {PANEL_H}\n'
+                f'#define PANEL_FIELDS {len(PANEL_FIELDS)}\n'
+                f'#define LAPBAR_W {LAPBAR_W}  // the lap bar (LAPBAR): overlay 23 for 1-LAPBAR_LAPS laps,\n'
+                f'#define LAPBAR_H {LAPBAR_H}  // then a box\'s row for each of 16 masks\n'
+                f'#define LAPBAR_LAPS {LAPBAR_LAPS}\n'
                 '// The bank of scenery object type $80 + i ($FF: none, no course has it)\n'
                 'extern const uint8_t spr_bank_of_type[44];\n')
     with open(os.path.join(gen, 'sprbanks.c'), 'w') as f:

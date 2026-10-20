@@ -26,6 +26,27 @@ uint32_t sprite_pixels(uint8_t bank, uint8_t image);
 bool backdrop_load(uint8_t n);
 uint32_t backdrop_pixels(void);
 
+// The panel of the race view (PANEL): its picture without values
+// (PANEL_W x PANEL_H), where it is shown from, and per value field its place
+// in it and the pictures of its states (w x h each, one after the other)
+typedef struct {
+    uint8_t x, y, w, h, states;
+    uint32_t pixels;
+} PanelField;
+extern PanelField panel_fields[PANEL_FIELDS];
+bool panel_load(void);
+uint32_t panel_base(void);
+uint32_t panel_live(void);
+
+// The lap bar's pictures (LAPBAR): overlay 23 as drawn for 1-LAPBAR_LAPS
+// laps (LAPBAR_W x LAPBAR_H each), then a box's row (16 pixels) filled with
+// each of 16 masks
+bool lapbar_load(void);
+uint32_t lapbar_pixels(void);
+
+// Copies len bytes from src to dst (both from these addresses)
+void attic_copy(uint32_t src, uint32_t dst, uint16_t len);
+
 // The directories (for render.s): per bank its image count, then per image
 // width, height and the 24-bit offset of its pixels in ATTIC; banks_dir[b]
 // is 1 + where bank b's is in banks_pool (0: not loaded), so the entry of
