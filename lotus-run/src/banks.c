@@ -34,6 +34,24 @@ static uint8_t rd(uint32_t off) {
     return win[(uint8_t)off];
 }
 
+// The run-length coded pixels from offset off of the loaded file to out ..
+// end - 1
+static void unpack(uint32_t off, uint32_t out, uint32_t end) {
+    while (out < end) {
+        uint8_t c = rd(off++), len;
+        if (c < 0x80) {
+            len = c + 1;
+            dma_copy(LOAD + off, out, len);
+            off += len;
+        } else {
+            len = c - 0x7E;
+            dma_fill(out, rd(off++), len);
+        }
+        out += len;
+    }
+    dma_flush();
+}
+
 static bool load_bank(uint8_t b) {
     if (banks_dir[b])
         return true;
@@ -60,22 +78,25 @@ static bool load_bank(uint8_t b) {
         *e++ = (uint8_t)(end >> 16);
         end += (uint16_t)(w * h);
     }
-    uint32_t off = 1 + 2u * n, out = attic_used;
-    while (out < end) {
-        uint8_t c = rd(off++), len;
-        if (c < 0x80) {
-            len = c + 1;
-            dma_copy(LOAD + off, ATTIC + out, len);
-            off += len;
-        } else {
-            len = c - 0x7E;
-            dma_fill(ATTIC + out, rd(off++), len);
-        }
-        out += len;
-    }
-    dma_flush();
+    unpack(1 + 2u * n, ATTIC + attic_used, ATTIC + end);
     attic_used = end;
     return true;
+}
+
+_Static_assert((uint32_t)BACK_W * BACK_H <= BACKDROP_SIZE, "a backdrop does not fit into BACKDROP");
+
+bool backdrop_load(uint8_t n) {
+    char name[] = "BACK0";
+    name[4] = (char)('0' + n);
+    if (!disk_load(name, LOAD))
+        return false;
+    win_at = ~0ul;
+    unpack(0, BACKDROP, BACKDROP + (uint32_t)BACK_W * BACK_H);
+    return true;
+}
+
+uint32_t backdrop_pixels(void) {
+    return BACKDROP;
 }
 
 bool banks_load(const Track *t) {

@@ -73,7 +73,7 @@ int main(void) {
         halt(2);
     road_pixels_init();
     Track *t = (Track *)track_buf;
-    if (!banks_load(t))
+    if (!banks_load(t) || !backdrop_load(t->header[1]))
         halt(7);
     view_colours();
     race_track = t;
@@ -95,7 +95,7 @@ int main(void) {
         last_picture = frame_done;
         race_picture();
         const Player *p = &race.p[0];
-        View v = {t, p->pos_view, (int16_t)(p->x_view >> 16)};
+        View v = {t, p->pos_view, (int16_t)(p->x_view >> 16), p->slope_view, (uint16_t)p->u16_view};
         render_view(&v);
         video_show();
         for (uint8_t i = 0; i < 4; i++)

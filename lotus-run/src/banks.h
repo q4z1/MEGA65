@@ -1,5 +1,5 @@
-// Lotus Run: the sprite banks a course needs (tools/mksprites.py),
-// in attic RAM.
+// Lotus Run: the sprite banks a course needs and its backdrop
+// (tools/mksprites.py), in attic RAM.
 //
 // Each bank is a file SPRnn on the disk; banks_load loads those of a
 // course: the scenery it has, the scenery every course has, the cars, the
@@ -20,6 +20,11 @@ bool banks_load(const Track *t);
 
 // Where the pixels of an image lie, row after row (28-bit address)
 uint32_t sprite_pixels(uint8_t bank, uint8_t image);
+
+// Backdrop n (BACKn, 0-9) into attic RAM; false if it cannot be loaded.
+// backdrop_pixels: where its BACK_W x BACK_H colours lie, row after row
+bool backdrop_load(uint8_t n);
+uint32_t backdrop_pixels(void);
 
 // The directories (for render.s): per bank its image count, then per image
 // width, height and the 24-bit offset of its pixels in ATTIC; banks_dir[b]

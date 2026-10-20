@@ -55,11 +55,13 @@ _Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1F800, "the road pattern index reache
 
 #define ATTIC 0x8000000ul
 
-// The road line patterns as pixels (road_pixels.c), then the sprite banks
-// of the course (banks.c), one byte per pixel
+// The road line patterns as pixels (road_pixels.c), the course's backdrop
+// (960 x 32), then its sprite banks (banks.c), one byte per pixel
 #define ROADPIX      ATTIC
 #define ROADPIX_SIZE 0x24000ul
-#define BANKS_ATTIC  (ROADPIX + ROADPIX_SIZE)
+#define BACKDROP     (ROADPIX + ROADPIX_SIZE)
+#define BACKDROP_SIZE 0x7800ul
+#define BANKS_ATTIC  (BACKDROP + BACKDROP_SIZE)
 
 // ---------------------------------------------------------------- colour RAM
 

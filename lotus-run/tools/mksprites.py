@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
-"""Converts the game's scenery objects, cars and race view overlays
-into the port's sprite banks.
+"""Converts the game's images - scenery objects, cars, race view overlays,
+the backdrops - into what Lotus Run loads.
 
     mksprites.py ORIGDIR GENDIR
 
-The data files keep them as Amiga blitter objects:
-per image width, height, planes, plane size, then the planes and a mask
-(bit set: the image, clear: the picture behind). Each bank becomes a file the game loads into
-attic RAM (sprites.c), images one byte per pixel, row after row: the
-colour (0-15), or SPR_CLEAR where the picture behind shows.
+The data files keep the objects as Amiga blitter objects: per image width,
+height, planes, plane size, then the planes and a mask (bit set: the image,
+clear: the picture behind). Each bank becomes a file the game loads into
+attic RAM (banks.c), images one byte per pixel, row after row: the colour
+(0-15), or SPR_CLEAR where the picture behind shows.
+
+A backdrop (files $60-$69) is three bitplanes of 320 x 96 pixels: three
+strips of 320 x 32, side by side a panorama of 960 x 32. Its values 0-6 are
+colours 4-7 and 12-14, 7 the sky (colour 15).
 
 Writes into GENDIR:
     sprNN.bin     bank NN (on the disk as SPRNN): u8 image count, per image
@@ -18,6 +22,8 @@ Writes into GENDIR:
     sprbanks.h/.c the banks: 00-2B the scenery objects $80-$AB (the types
                   without a file of their own share another's bank),
                   SPR_CARS, SPR_HUD
+    backN.bin     backdrop N (on the disk as BACKN): 960 x 32 colours, row
+                  after row, run-length coded as the banks' pixels
 """
 import os
 import struct
@@ -78,6 +84,24 @@ def rle(d):
     return out
 
 
+BACKDROPS = 10
+BACK_W, BACK_H = 960, 32
+
+
+def backdrop(d):
+    """The panorama's colours, row after row"""
+    out = bytearray()
+    for y in range(BACK_H):
+        for x in range(BACK_W):
+            strip, sx = divmod(x, 320)
+            row = y + BACK_H * strip
+            v = 0
+            for p in range(3):
+                v |= (d[p * 3840 + row * 40 + sx // 8] >> (7 - sx % 8) & 1) << p
+            out.append(4 + (v & 3) + ((v & 4) << 1))
+    return bytes(out)
+
+
 def bank_file(ims):
     head = bytearray([len(ims)])
     for w, h, _ in ims:
@@ -107,6 +131,10 @@ def main():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
             f.write(bank_file(ims))
 
+    for n in range(BACKDROPS):
+        with open(os.path.join(gen, f'back{n}.bin'), 'wb') as f:
+            f.write(rle(backdrop(unpack(0x60 + n))))
+
     of_type = [ALIASES.get(t, t) - 0x80 for t in range(0x80, 0xAC)]
     of_type = [b if b in banks else 0xFF for b in of_type]
     largest = max(sum(w * h for w, h, _ in ims) for ims in banks.values())
@@ -117,6 +145,8 @@ def main():
                 f'#define SPR_HUD   0x{SPR_HUD:02X}  // messages, countdown, places, brake lights\n'
                 f'#define SPR_BANKS 0x{SPR_HUD + 1:02X}\n'
                 f'#define SPR_LARGEST {largest}  // pixels of the largest bank\n'
+                f'#define BACK_W {BACK_W}  // a backdrop (BACKN): colours, row after row\n'
+                f'#define BACK_H {BACK_H}\n'
                 '// The bank of scenery object type $80 + i ($FF: none, no course has it)\n'
                 'extern const uint8_t spr_bank_of_type[44];\n')
     with open(os.path.join(gen, 'sprbanks.c'), 'w') as f:

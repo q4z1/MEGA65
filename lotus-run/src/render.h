@@ -23,6 +23,8 @@ typedef struct {
     const Track *track;
     uint32_t pos;     // the camera's position on the track
     int16_t lateral;  // the camera's sideways position (player +$4C)
+    int16_t slope;    // the course's slope there: tilts the backdrop
+    uint16_t angle;   // the direction (low 12 bits): scrolls the backdrop
 } View;
 
 

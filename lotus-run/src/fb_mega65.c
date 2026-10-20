@@ -21,6 +21,10 @@ void fb_sprite_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len) {
     dma_copy_transparent(src, PICTURE + (uint16_t)(y * FB_W + x), len, SPR_CLEAR);
 }
 
+void fb_image_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len) {
+    dma_copy(src, PICTURE + (uint16_t)(y * FB_W + x), len);
+}
+
 void fb_roadpat(uint16_t offset, uint8_t *buf) {
     dma_copy(ROADPAT + offset, (uint16_t)buf, ROADPAT_MAX);
     dma_flush();
