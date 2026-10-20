@@ -19,14 +19,30 @@
 // The DMA list being collected (dma.c): below the program, where BASIC had
 // its screen; the game never goes back to BASIC.
 #define DMA_LIST      ((uint8_t *)0x0800)
-#define DMA_LIST_SIZE 0x1800u
-_Static_assert(0x0800 + DMA_LIST_SIZE <= 0x2000, "the DMA list reaches the program");
+#define DMA_LIST_SIZE 0x0C00u
+
+// Variables that need no clearing, beside the program (link.ld): WORK_RAM
+// in the KERNAL's work area $0200-$03FF, LOW_RAM behind the DMA list up to
+// the program, HIGH_RAM behind the course under the KERNAL (WORK_RAM and
+// HIGH_RAM only once irq_init has switched that out). Not on the host.
+#define LOW_RAM_AT    0x1400
+#define HIGH_RAM_AT   0xF100
+_Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_RAM_AT, "the DMA list reaches LOW_RAM");
+#ifdef __mos__
+#define WORK_RAM __attribute__((section(".workram")))
+#define LOW_RAM  __attribute__((section(".lowram")))
+#define HIGH_RAM __attribute__((section(".highram")))
+#else
+#define WORK_RAM
+#define LOW_RAM
+#define HIGH_RAM
+#endif
 
 // The course (TRACKnn from the disk): in the RAM under the KERNAL, which
 // irq_init switches out - so it is loaded (by DMA) and read only after that
 #define TRACK_BUF      ((uint8_t *)0xE000)
-#define TRACK_BUF_SIZE 0x1FF0u
-_Static_assert(0xE000 + TRACK_BUF_SIZE <= 0xFFFA, "the course reaches the interrupt vectors");
+#define TRACK_BUF_SIZE 0x1100u
+_Static_assert(0xE000 + TRACK_BUF_SIZE <= HIGH_RAM_AT, "the course reaches HIGH_RAM");
 
 // ---------------------------------------------------------------- bank 1
 
@@ -85,6 +101,10 @@ _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen rea
 // a page as loaded from the disk, the text font (pages.c), from 1M on
 #define PAGE_LOAD    (ATTIC + 0x100000ul)
 #define GLYPHS_ATTIC (ATTIC + 0x120000ul)
+// a page's screen or colour RAM as in the file, before it is put together
+#define PAGE_PLANES  (ATTIC + 0x130000ul)
+// the names (season.c, TEXTS)
+#define TEXTS_ATTIC  (ATTIC + 0x140000ul)
 // The road line patterns as pixels (road_pixels.c), from 2M on: in the
 // colours of stripe set A, from ROADPIX + ROADPIX_B on in those of set B
 #define ROADPIX      (ATTIC + 0x200000ul)

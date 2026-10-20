@@ -19,10 +19,11 @@ Writes into GENDIR:
                   colours, R G B), the number of characters (2 bytes), then,
                   each run-length coded on its own as
                   tools/mksprites.py does it: screen RAM (2 bytes a
-                  character), colour RAM (2 bytes a character), the
+                  character), colour RAM (2 bytes a character) - each
+                  as all the low bytes, then all the high ones - and the
                   characters (64 bytes each)
-    pages/glyphs.bin the text font (on the disk as GLYPHS): 2 characters per
-                  glyph (16 x 16 pixels, the ramp's levels), run-length coded
+    pages/glyphs.bin the text font (on the disk as GLYPHS): 8 x 16 pixels a
+                  glyph (the ramp's levels), run-length coded
     pages_gen.h/.c the glyphs' order, the pages' character base and limits
 """
 import os
@@ -40,12 +41,11 @@ W, H = 640, 400
 COLS, ROWS = 40, 50
 CW, CH = 16, 8
 
-# Memory (src/mem.h): the characters from $40000 (character $1000 on), the
-# text font's at the end of the 128K
+# Memory (src/mem.h): the characters from $40000 (character $1000 on); the
+# text the game puts in gets characters of its own behind the page's
+# (pages.c), 2 x PAGE_COLS per text row
 CHAR_BASE = 0x40000 // 64
-GLYPH_CHARS = 160
-PAGE_CHARS = 2000 - GLYPH_CHARS
-GLYPH_BASE = CHAR_BASE + PAGE_CHARS
+PAGE_CHARS = 2000
 
 BG = (16, 18, 24)
 WHITE = (245, 245, 245)
@@ -55,7 +55,7 @@ RED = (214, 32, 38)
 RAMPS = {12: WHITE, 13: AMBER, 14: GREY, 15: RED}
 PAGE_BANKS = 12
 
-GLYPH_SET = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;/-+\'!?()#%&*'
+GLYPH_SET = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;/-+\'!?()#%&*>'
 
 
 def font(name, size, weight=None):
@@ -225,23 +225,37 @@ def page_file(img):
         sys.exit(f'page: {len(chars)} characters, at most {PAGE_CHARS}')
     pal = bytes(v for bank in palette for col in bank for v in col)
     count = bytes([len(chars) & 0xFF, len(chars) >> 8])
-    return pal + count + rle(bytes(screen)) + rle(bytes(colour)) + rle(b''.join(chars)), len(chars)
+    # screen and colour RAM each as their low bytes, then their high ones:
+    # that way they have runs to code
+    return (pal + count + rle(bytes(screen[0::2] + screen[1::2])) + rle(bytes(colour[0::2] + colour[1::2])) +
+            rle(b''.join(chars)), len(chars))
 
 
 # ---------------------------------------------------------------- the font
 
 def glyph_font():
-    f = font('Rajdhani-Bold.ttf', 17)
+    """The text font: per glyph 8 x 16 pixels, the ramp's levels, 4 bytes a
+    row (left pixel low nibble) - two glyphs make a character's rows. Drawn
+    large, scaled to caps 11 pixels high, the wide ones narrowed to 7."""
+    big = 64
+    f = font('Rajdhani-Bold.ttf', big)
+    hb = f.getbbox('H')
+    scale = 11 / (hb[3] - hb[1])
     out = bytearray()
     for ch in GLYPH_SET:
-        im = Image.new('L', (16, 16), 0)
-        d = ImageDraw.Draw(im)
-        w = d.textlength(ch, font=f)
-        d.text(((16 - w) / 2, -2), ch, font=f, fill=255)
-        px = [round(im.getpixel((x, y)) * 15 / 255) for y in range(16) for x in range(16)]
-        out += char_bytes(px[:128]) + char_bytes(px[128:])
-    if len(GLYPH_SET) * 2 > GLYPH_CHARS:
-        sys.exit('glyphs: too many')
+        im = Image.new('L', (big * 3, big * 3), 0)
+        ImageDraw.Draw(im).text((big // 2, big // 2), ch, font=f, fill=255)
+        g = Image.new('L', (8, 16), 0)
+        bb = im.getbbox()
+        if bb:
+            w = bb[2] - bb[0]
+            sx = min(scale, 7 / w)
+            top = big // 2 + hb[1] - round(3 / scale)  # 3 pixels above the caps
+            crop = im.crop((bb[0], top, bb[2], top + round(16 / scale)))
+            nw = max(1, round(w * sx))
+            g.paste(crop.resize((nw, 16), Image.LANCZOS), ((8 - nw) // 2, 0))
+        px = [round(v * 15 / 255) for v in g.tobytes()]
+        out += bytes(px[i] | px[i + 1] << 4 for i in range(0, 128, 2))
     return rle(bytes(out))
 
 
@@ -379,7 +393,75 @@ def page_spec1():
     return img
 
 
-PAGES = {'TITLE': page_title, 'SPEC1': page_spec1}
+# The pages around the races: what is fixed drawn here, what changes the
+# game puts in at run time (src/screens.c) - text rows are 8 pixels, a
+# glyph 16 x 16; ROW(r) is where text of row r starts
+def ROW(r):
+    return r * CH
+
+
+def label(img, row, s, x=16, fg=AMBER):
+    text(img, (x, ROW(row) - 3), s, font('Rajdhani-Bold.ttf', 20), fg)
+
+
+def page_level():
+    img, _ = canvas()
+    header(img, 'NEW SEASON', 'CHOOSE THE LEVEL')
+    for row, name, info in ((12, 'EASY', 'seven races'), (18, 'MEDIUM', 'ten races'), (24, 'HARD', 'fifteen races')):
+        text(img, (64, ROW(row) - 6), name, font('Exo2.ttf', 26, 800), WHITE)
+        text(img, (240, ROW(row) - 1), info, font('TitilliumWeb-Regular.ttf', 18), GREY)
+    centred(img, ROW(32), 'The first ten of each race score points; finish outside them', font('TitilliumWeb-Regular.ttf', 17), GREY)
+    centred(img, ROW(35), 'and the season is over.', font('TitilliumWeb-Regular.ttf', 17), GREY)
+    footer(img, 'UP / DOWN: CHOOSE    FIRE: START')
+    return img
+
+
+def page_controls():
+    img, _ = canvas()
+    header(img, 'CONTROLS', 'JOYSTICK IN PORT 2 OR KEYS')
+    label(img, 12, 'GEARS')
+    label(img, 18, 'ACCELERATE')
+    label(img, 30, 'IN THE RACE', fg=GREY)
+    footer(img, 'UP / DOWN: CHOOSE    LEFT / RIGHT: CHANGE    FIRE: GO ON')
+    return img
+
+
+def page_course():
+    img, _ = canvas()
+    header(img, 'NEXT RACE')
+    for row, s in ((16, 'LOCATION'), (20, 'LAPS'), (24, 'THE TRACK'), (30, 'HAZARDS'), (36, 'COURSE RECORD')):
+        label(img, row, s)
+    footer(img, 'FIRE: RACE')
+    return img
+
+
+def page_result():
+    img, _ = canvas()
+    header(img, 'RACE RESULT')
+    for x, s in ((16, 'PLACE'), (96, 'DRIVER'), (432, 'TIME'), (544, 'POINTS')):
+        label(img, 7, s, x, GREY)
+    footer(img, 'FIRE: GO ON')
+    return img
+
+
+def page_standing():
+    img, _ = canvas()
+    header(img, 'CHAMPIONSHIP')
+    for x, s in ((16, 'PLACE'), (96, 'DRIVER'), (544, 'POINTS')):
+        label(img, 7, s, x, GREY)
+    footer(img, 'FIRE: GO ON')
+    return img
+
+
+def page_season():
+    img, _ = canvas()
+    header(img, 'SEASON OVER')
+    footer(img, 'FIRE: GO ON')
+    return img
+
+
+PAGES = {'TITLE': page_title, 'SPEC1': page_spec1, 'LEVEL': page_level, 'CONTROLS': page_controls,
+         'COURSE': page_course, 'RESULT': page_result, 'STANDING': page_standing, 'SEASON': page_season}
 
 
 def main():
@@ -396,8 +478,8 @@ def main():
         f.write('// Generated by tools/mkpages.py - do not edit\n#pragma once\n#include <stdint.h>\n'
                 f'#define PAGE_COLS {COLS}\n#define PAGE_ROWS {ROWS}\n'
                 f'#define PAGE_CHAR_BASE 0x{CHAR_BASE:04X}  // the pages\' first character\n'
-                f'#define GLYPH_BASE 0x{GLYPH_BASE:04X}  // the font\'s: 2 per glyph (top, bottom)\n'
-                f'#define GLYPHS {len(GLYPH_SET)}\n'
+                f'#define PAGE_CHAR_END 0x{CHAR_BASE + PAGE_CHARS:04X}  // behind the last\n'
+                f'#define GLYPHS {len(GLYPH_SET)}  // of 8 x 16 pixels, 64 bytes each\n'
                 '// The text banks (ramps from the background to a colour)\n'
                 '#define TEXT_WHITE 12\n#define TEXT_AMBER 13\n#define TEXT_GREY 14\n#define TEXT_RED 15\n'
                 '// The glyph of a character (its index), 0 (space) for others\n'

@@ -15,7 +15,7 @@ mkdir -p $OUT
 REF="-Drace_frame=ref_race_frame -Drace_picture=ref_race_picture -Drace_random=ref_race_random -Drace_seg_lookup=ref_race_seg_lookup"
 # shellcheck disable=SC2086
 "$CC" -O2 -Wall -Isrc -Ibuild/gen $REF -c -o $OUT/ref_race.o src/ref/race.c
-"$CC" -Os -g -Wall -Isrc -Ibuild/gen -o $OUT/check.prg tests/check_race.c src/race.s \
+"$CC" -Os -g -Wall -Isrc -Ibuild/gen -T link.ld -o $OUT/check.prg tests/check_race.c src/race.s \
     src/race_setup.c src/race_data.c src/disk.c src/dma.c src/irq.s build/gen/progdata.c $OUT/ref_race.o
 set --
 for f in build/disk/TRACK*; do

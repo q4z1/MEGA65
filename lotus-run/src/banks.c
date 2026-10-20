@@ -15,14 +15,14 @@
 
 #define LOAD PICTURE
 
-uint8_t banks_pool[BANKS_POOL];
-uint16_t banks_dir[SPR_BANKS];
-uint8_t banks_offset[SPR_BANKS][3];
+HIGH_RAM uint8_t banks_pool[BANKS_POOL];
+LOW_RAM uint16_t banks_dir[SPR_BANKS];
+LOW_RAM uint8_t banks_offset[SPR_BANKS][3];
 static uint16_t pool_used;
 static uint32_t attic_used;
 
 // The loaded file, through a window of 256 bytes
-static uint8_t win[256];
+LOW_RAM static uint8_t win[256];
 static uint32_t win_at;
 static uint32_t file_at;
 
@@ -167,7 +167,7 @@ void attic_copy(uint32_t src, uint32_t dst, uint16_t len) {
 // colouring k (OPP_PAINT + 2k, + 2k + 1); banks SPR_OPP + k - 1 are these,
 // with the cars' directory and an offset to its addresses
 static void opponent_colours(void) {
-    static uint8_t buf[256];
+    LOW_RAM static uint8_t buf[256];
     uint32_t from = sprite_pixels(SPR_CARS, 63);
     uint32_t len = sprite_pixels(SPR_CARS, 125) + sprite_width(SPR_CARS, 125) * sprite_height(SPR_CARS, 125) - from;
     for (uint8_t k = 1; k < OPP_COLOURS; k++) {

@@ -22,7 +22,7 @@ void pages_off(void);
 // Shows page `name` (the disk's file P + name, e.g. "PTITLE")
 bool page_show(const char *name);
 
-// Text at a cell (col 0-39, row 0-48: each glyph is one column wide and two
+// Text at a cell (col 0-39, row 0-48: two glyphs to a column, each two
 // rows high) in one of the TEXT_* colours
 void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour);
 

@@ -55,10 +55,11 @@ static uint16_t header_word(const Track *t, uint8_t i) {
 }
 
 // 4-bit channels a and b mixed, q quarters of b: as light (about the
-// square of the value), back to 8 bits
-static uint8_t mix(uint8_t a, uint8_t b, uint8_t q) {
-    uint16_t la = (uint16_t)(a * 17) * (uint16_t)(a * 17), lb = (uint16_t)(b * 17) * (uint16_t)(b * 17);
-    uint16_t m = (uint16_t)(((uint32_t)la * (4 - q) + (uint32_t)lb * q) >> 2);
+// square of the value, in quarters so that it stays in 16 bits), back to
+// 8 bits
+__attribute__((noinline)) static uint8_t mix(uint8_t a, uint8_t b, uint8_t q) {
+    uint8_t a8 = (uint8_t)(a * 17), b8 = (uint8_t)(b * 17);
+    uint16_t m = (uint16_t)(((uint16_t)a8 * a8 >> 2) * (uint8_t)(4 - q) + ((uint16_t)b8 * b8 >> 2) * q);
     uint8_t r = 0;
     for (uint8_t bit = 128; bit; bit >>= 1)
         if ((uint16_t)(r | bit) * (uint16_t)(r | bit) <= m)
@@ -69,12 +70,17 @@ static uint8_t mix(uint8_t a, uint8_t b, uint8_t q) {
 // A stripe set's colours (header words from `word` on) mixed in pairs, in
 // road_rows.h's order, into palette entries from `to` on
 static void mixes(const Track *t, uint8_t word, uint8_t to) {
+    uint8_t rgb[3];
     for (uint8_t i = 0; i < 4; i++)
         for (uint8_t j = i + 1; j < 4; j++) {
             uint16_t a = header_word(t, (uint8_t)(word + i)), b = header_word(t, (uint8_t)(word + j));
-            for (uint8_t q = 1; q < 4; q++)
-                video_rgb(to++, mix(a >> 8 & 15, b >> 8 & 15, q), mix(a >> 4 & 15, b >> 4 & 15, q),
-                          mix(a & 15, b & 15, q));
+            for (uint8_t q = 1; q < 4; q++) {
+                for (uint8_t c = 0; c < 3; c++) {
+                    uint8_t shift = (uint8_t)(8 - 4 * c);
+                    rgb[c] = mix(a >> shift & 15, b >> shift & 15, q);
+                }
+                video_rgb(to++, rgb[0], rgb[1], rgb[2]);
+            }
         }
 }
 

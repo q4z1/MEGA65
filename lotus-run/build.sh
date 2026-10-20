@@ -34,11 +34,11 @@ build/offsets > build/gen/offsets.inc
 # (tests/)
 # shellcheck disable=SC2086
 "$CC" -Os -g -Wall $LOTUS_CFLAGS -Isrc -Ibuild/gen -o build/lotus-run.prg \
-    -Wl,-Map=build/lotus-run.map src/*.c src/*.s build/gen/*.c
+    -T link.ld -Wl,-Map=build/lotus-run.map src/*.c src/*.s build/gen/*.c
 
 # The data files, each behind two bytes of (unused) load address
 set --
-for f in build/gen/track*.bin build/gen/spr*.bin build/gen/back*.bin build/gen/panel.bin build/gen/lapbar.bin build/gen/pages/*.bin; do
+for f in build/gen/texts.bin build/gen/track*.bin build/gen/spr*.bin build/gen/back*.bin build/gen/panel.bin build/gen/lapbar.bin build/gen/pages/*.bin; do
     name=$(basename "$f" .bin | tr a-z A-Z)
     { printf '\000\000'; cat "$f"; } > "build/disk/$name"
     set -- "$@" "build/disk/$name=$name"

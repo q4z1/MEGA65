@@ -3,9 +3,9 @@
 
 # Bank 0
 ram  $0400+1024      the projection's depth steps (render.c)
-ram  $0800+6144      DMA list being collected (dma.c)
+ram  $0800+3072      DMA list being collected (dma.c)
 
-ram  $E000+8176      the course, under the KERNAL (main.c, TRACK_BUF)
+ram  $E000+4352      the course, under the KERNAL (main.c, TRACK_BUF)
 
 # Bank 1
 ram  $10000+2000     screen: 40x25 characters of 2 bytes (video.c)
@@ -23,6 +23,10 @@ ram  $8007800+4416   the panel as shown (panel.c)
 ram  $8008A00+36864  the panel and its values' pictures (PANEL, banks.c)
 ram  $8011A00+14336  the lap bar's pictures (LAPBAR, banks.c)
 ram  $8015200+262144 sprite banks (the course's, about 200K; banks.c)
+ram  $8100000+131072 a page as loaded from the disk (pages.c)
+ram  $8120000+3456   the text font, 8 x 16 pixels a glyph (GLYPHS, pages.c)
+ram  $8130000+4000   a page's screen or colour RAM before it is put together (pages.c)
+ram  $8140000+1000   names: opponents, course record holders (TEXTS, season.c)
 ram  $8200000+1245184 road line patterns drawn out, stripe set A (ROADPIX, road_pixels.c)
 ram  $8330000+1245184 the same in the colours of stripe set B (ROADPIX_B)
 
@@ -35,3 +39,4 @@ file SPR??           @$40000     a sprite bank, unpacked to attic RAM (tools/mks
 file BACK?           @$40000     a backdrop, unpacked to attic RAM (tools/mksprites.py)
 file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprites.py)
 file LAPBAR          @$40000     the lap bar, unpacked to attic RAM (tools/mksprites.py)
+file TEXTS           @$8140000   names from the game program (tools/mkdata.py)

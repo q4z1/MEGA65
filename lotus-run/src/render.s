@@ -35,7 +35,7 @@ row  = __rc12                   ; the screen row's offset in PICTURE: y * 320
 x0   = __rc14                   ; the first column drawn
 lp   = __rc18                   ; pointer
 
-.section .bss.render_s,"aw",@nobits
+.section .lowram.render_s,"aw",@nobits   ; set before use: LOW_RAM (mem.h)
 rd_l:       .fill 1             ; the line
 rd_y:       .fill 1             ; its screen row
 rd_shown:   .fill 1             ; the line's stripe set (0, 4)

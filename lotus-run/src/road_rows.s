@@ -25,7 +25,7 @@ jp   = __rc10                   ; where the next job goes
 
 FILL_JOB = 16                   ; bytes of a fill job
 
-.section .bss.road_rows_s,"aw",@nobits
+.section .lowram.road_rows_s,"aw",@nobits   ; set before use: LOW_RAM (mem.h)
 rr_w2:      .fill 2             ; in: the width (scale >> 3)
 rr_v:       .fill 1             ; the variant
 rr_p:       .fill 1             ; the phase

@@ -17,7 +17,7 @@ mkdir -p $OUT
 "$CC" -O2 -Wall -fno-lto -Isrc -Ibuild/gen -Droad_draw=ref_road_draw -c -o $OUT/ref_road_draw.o src/ref/road_draw.c
 "$CC" -O2 -Wall -fno-lto -Isrc -Ibuild/gen -Dsprites_draw=ref_sprites_draw -c -o $OUT/ref_sprites_draw.o \
     src/ref/sprites_draw.c
-"$CC" -Os -g -Wall -fno-lto -Isrc -Ibuild/gen -o $OUT/check_render.prg tests/check_render.c src/render.s \
+"$CC" -Os -g -Wall -fno-lto -Isrc -Ibuild/gen -T link.ld -o $OUT/check_render.prg tests/check_render.c src/render.s \
     src/road.c src/road_draw.c src/road_pixels.c src/road_rows.c src/road_rows.s src/irq.s src/banks.c src/fb_mega65.c src/disk.c src/dma.c build/gen/tables.c \
     build/gen/roadpat.c build/gen/sprbanks.c $OUT/ref_road_draw.o $OUT/ref_sprites_draw.o
 set --

@@ -5,6 +5,7 @@
 #include "road.h"
 
 #include "math.h"
+#include "mem.h"
 #include "tables.h"
 
 uint16_t view_lines = 96;
@@ -13,8 +14,8 @@ int16_t view_y0 = 0;
 
 // The line of depth step i: vbase[i] + (y * vscale[i]) >> 16, the tables
 // scaled by view_scale (road_view)
-static int16_t vbase[ROAD_STEPS];
-static int16_t vscale[ROAD_STEPS];
+LOW_RAM static int16_t vbase[ROAD_STEPS];
+LOW_RAM static int16_t vscale[ROAD_STEPS];
 
 void road_view(void) {
     for (uint8_t i = 0; i < ROAD_STEPS; i++) {

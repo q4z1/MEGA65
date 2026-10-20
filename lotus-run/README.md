@@ -3,8 +3,11 @@
 A racing game for the MEGA65 after **Lotus Esprit Turbo Challenge** (Amiga,
 1990), with the race on the whole screen.
 
-Work in progress: the first race of the season can be driven - road,
-scenery, opponents and the own car, at 25 pictures per second.
+Work in progress: a season can be driven - choose the level (7, 10 or 15
+races) and the controls, then course after course, with the result and the
+championship after each race; finish outside the first ten and the season
+is over for you. Road, scenery, opponents and the own car at 25 pictures per
+second.
 
 ## Building
 
@@ -20,17 +23,22 @@ makes `build/lotus-run.d81`.
 ## Playing
 
 Mount `build/lotus-run.d81` and run `LOTUS RUN` (in Xemu: `-8` with the
-image and `-autoload`). Joystick in port 2, or the cursor keys and space:
+image and `-autoload`). Joystick in port 2, or the cursor keys and space.
+The controls page sets the gears (automatic or manual) and what
+accelerates (the fire button or the joystick forward) and shows what each
+direction does; Run/Stop gives up a race.
 
-* forward accelerates, back brakes, left and right steer
-* fire with forward / back shifts up / down
+`LOTUS_CFLAGS=-DLOTUS_AUTOTEST ./build.sh` makes a build that goes through
+the pages by itself and drives with a held joystick, for recordings.
 
 ## Inside
 
 * [src/](src/): the game in C and 45GS02 assembly - the race
   ([race.s](src/race.s)), the road ([road.c](src/road.c),
   [render.s](src/render.s); its lines drawn out with smooth edges at the
-  start, [road_rows.s](src/road_rows.s)), scenery and cars ([sprites.c](src/sprites.c)),
+  start, [road_rows.s](src/road_rows.s)), the season
+  ([season.c](src/season.c)) and its pages ([screens.c](src/screens.c)),
+  scenery and cars ([sprites.c](src/sprites.c)),
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.

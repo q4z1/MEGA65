@@ -1,9 +1,11 @@
 // Lotus Run: a racing game for the MEGA65, after Lotus Esprit Turbo
 // Challenge.
 //
-// For now: the first race of the season on the whole screen, the road, the
-// scenery and the cars, driven with the joystick in port 2 (or the cursor
-// keys and space).
+// The title, the level and the controls, then the season: before each
+// race its course, after it the result and the championship, until the
+// season is over or the player is out of it. The race on the whole screen,
+// driven with the joystick in port 2 (or the cursor keys and space);
+// Run/Stop gives up.
 
 #include <stdint.h>
 
@@ -19,6 +21,8 @@
 #include "sprbanks.h"
 #include "render.h"
 #include "road_pixels.h"
+#include "screens.h"
+#include "season.h"
 #include "track.h"
 #include "tracks.h"
 
@@ -77,42 +81,40 @@ static uint8_t frame_done;
 static void catch_up(void) {
     while (frame_done != video_frame()) {
         race_joy[0] = joystick();
+#ifdef LOTUS_AUTOTEST
+        // the joystick held by a simple driver: fire, steering back to the
+        // middle (screens.c goes on by itself)
+        int16_t x = (int16_t)(race.p[0].x >> 16);
+        race_joy[0] = (uint8_t)(JOY_FIRE | (x >= 0x20 ? JOY_LEFT : 0) | (x < -0x60 ? JOY_RIGHT : 0));
+#endif
         race_frame();
         frame_done++;
     }
 }
 
-int main(void) {
-    video_init();
-    race.course = 0;
+// Loads course n and what it needs; false if something cannot be loaded
+static bool load_course(uint8_t n) {
     char name[] = "TRACK00";
-    name[5] = "0123456789ABCDEF"[race.course >> 4];
-    name[6] = "0123456789ABCDEF"[race.course & 15];
-    if (!disk_load(name, (uint16_t)TRACK_BUF))
-        halt(2);
-    Track *t = (Track *)TRACK_BUF;
-    if (!banks_load(t) || !backdrop_load(t->header[1]) || !panel_load() || !lapbar_load() ||
-        !pages_load())
-        halt(7);
+    name[5] = "0123456789ABCDEF"[n >> 4];
+    name[6] = "0123456789ABCDEF"[n & 15];
+    const Track *t = (const Track *)TRACK_BUF;
+    return disk_load(name, (uint16_t)TRACK_BUF) && banks_load(t) && backdrop_load(t->header[1]);
+}
 
-    // the title until fire, or 8 seconds
-    pages_on();
-    if (!page_show("PTITLE"))
-        halt(8);
-    // the road's lines drawn out while the title is shown
-    road_pixels_init();
-    uint8_t f = video_frame();
-    for (uint16_t frames = 0; frames < 400 && !(joystick() & JOY_FIRE);)
-        if (video_frame() != f) {
-            f = video_frame();
-            frames++;
-        }
+// The race on course n until it is over; false if the player gave up
+// (Run/Stop)
+static bool race_run(uint8_t n, const Controls *c) {
+    Track *t = (Track *)TRACK_BUF;
     pages_off();
     view_colours();
     render_palette(t);
     race_track = t;
+    race.course = n;
+    race.race_no = season.race;
+    race.difficulty = season.level;
     race.segments = t->segments;
-    race.random[0] = 0x12345678;
+    race.p[0].automatic = c->automatic;
+    race.p[0].fire_accel = c->fire_accel;
     race_init();
     panel_reset();
 
@@ -122,7 +124,9 @@ int main(void) {
     road_view();
     frame_done = video_frame();
     uint8_t last_picture = frame_done;
-    for (;;) {
+    while (race.over_timer != 150) {
+        if (input_read() & IN_RESTART)
+            return false;
         // a picture every second frame at most
         do
             catch_up();
@@ -137,5 +141,56 @@ int main(void) {
         video_show();
         for (uint8_t i = 0; i < 4; i++)
             video_colour(8 + i, p->colours[i]);
+    }
+    return true;
+}
+
+int main(void) {
+    video_init();
+    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load())
+        halt(7);
+    pages_on();
+    if (!page_show("PTITLE"))
+        halt(8);
+    // the road's lines drawn out while the title is shown
+    road_pixels_init();
+    race.random[0] = 0x12345678;
+    Controls controls = {true, true};
+    uint8_t level = 0;
+    for (;;) {
+        screen_wait_fire();
+        level = screen_level(level);
+        screen_controls(&controls);
+        season_start(level);
+        bool out = false, gave_up = false;
+        do {
+            uint8_t n = season_course();
+            pages_on();  // dark while the course comes in
+            if (!load_course(n))
+                halt(2);
+            screen_course((const Track *)TRACK_BUF, n);
+            if (!race_run(n, &controls)) {
+                gave_up = true;
+                break;
+            }
+            pages_on();
+#ifdef LOTUS_AUTOTEST
+            race.p[0].place = 1;  // the simple driver is no racer: on to the next race
+#endif
+            season_classify();
+            screen_result();
+            if (season.place >= SCORING) {
+                out = true;
+                break;
+            }
+            // the championship from the second race on
+            if (season.race)
+                screen_standing();
+        } while (season_next());
+        if (!gave_up)
+            screen_season_over(out);
+        else
+            pages_on();
+        page_show("PTITLE");
     }
 }

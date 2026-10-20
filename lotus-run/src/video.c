@@ -54,7 +54,7 @@ uint8_t video_frame(void) {
 
 // The screen: character (c, r) is character number CHARS / 64 + r * 40 + c
 static void build_screen(void) {
-    static uint8_t row[LINESTEP];
+    LOW_RAM static uint8_t row[LINESTEP];
     for (uint8_t r = 0; r < ROWS; r++) {
         uint16_t ch = (uint16_t)(CHARS / 64) + r * COLS;
         for (uint8_t c = 0; c < COLS; c++, ch++) {
@@ -69,7 +69,7 @@ static void build_screen(void) {
 // The conversion list: per pixel row y and position k in a character,
 // 40 bytes from PICTURE + y * 320 + k (every 8th) to the characters
 static void build_conversion(void) {
-    static uint8_t jobs[8 * CONV_JOB];
+    LOW_RAM static uint8_t jobs[8 * CONV_JOB];
     for (uint8_t y = 0; y < 200; y++) {
         uint8_t *q = jobs;
         for (uint8_t k = 0; k < 8; k++) {

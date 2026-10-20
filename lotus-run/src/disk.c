@@ -26,6 +26,7 @@
 
 #include "dma.h"
 #include "hw.h"
+#include "mem.h"
 
 #define FDC_CONTROL 0xD080  // drive, side, motor, LED
 #define FDC_COMMAND 0xD081
@@ -42,7 +43,7 @@
 
 void (*disk_busy)(void);
 
-static uint8_t blk[256];               // the logical sector last read
+LOW_RAM static uint8_t blk[256];               // the logical sector last read
 static uint8_t in_buf_track = 0xFF;    // physical sector in the controller's buffer
 static uint8_t in_buf_sector, in_buf_side;
 

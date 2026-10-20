@@ -8,11 +8,12 @@
 
 #include "sprites.h"
 
+#include "mem.h"
 #include "progdata.h"
 #include "race.h"
 #include "tables.h"
 
-Sprite sprite_list[SPRITES_MAX];
+LOW_RAM Sprite sprite_list[SPRITES_MAX];
 uint8_t sprite_count;
 SpriteState sprite_state;
 
