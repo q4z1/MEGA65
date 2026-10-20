@@ -44,6 +44,13 @@ uint32_t panel_live(void);
 bool lapbar_load(void);
 uint32_t lapbar_pixels(void);
 
+// A file of the disk, loaded to at (28-bit), read byte by byte, and
+// run-length coded parts of it (as tools/mksprites.py codes them) unpacked
+// from offset off to out .. end - 1 (returns where they end in the file)
+bool file_open(const char *name, uint32_t at);
+uint8_t file_byte(uint32_t off);
+uint32_t file_unpack(uint32_t off, uint32_t out, uint32_t end);
+
 // Copies len bytes from src to dst (both from these addresses)
 void attic_copy(uint32_t src, uint32_t dst, uint16_t len);
 

@@ -7,6 +7,7 @@
 #   xemu/build/bin/      Xemu, built from the git checkout
 #   rom/MEGA65.ROM       the ROM (rom/build-rom.sh)
 #   vscode/              editor extensions (vscode/install-extensions.sh)
+#   fonts/               free fonts (SIL Open Font License) for game screens
 #
 # Usage: toolchain/setup.sh
 
@@ -26,6 +27,24 @@ if [ ! -x "$TC/llvm-mos/bin/mos-mega65-clang" ]; then
     fi
     tar xf "$DL/llvm-mos-linux.tar.xz" -C "$TC"
 fi
+
+# Fonts for screens rendered at build time (Lotus Run's tools/mkpages.py):
+# Exo 2, Rajdhani and Titillium Web from google/fonts, at a fixed commit
+FONTS_COMMIT=47d54ca1ebb14fd864695f1d39dc734f39017c33
+mkdir -p "$TC/fonts"
+for f in "exo2/Exo2%5Bwght%5D.ttf:Exo2.ttf" "exo2/OFL.txt:Exo2-OFL.txt" \
+         "rajdhani/Rajdhani-SemiBold.ttf:Rajdhani-SemiBold.ttf" "rajdhani/Rajdhani-Bold.ttf:Rajdhani-Bold.ttf" \
+         "rajdhani/OFL.txt:Rajdhani-OFL.txt" \
+         "titilliumweb/TitilliumWeb-Regular.ttf:TitilliumWeb-Regular.ttf" \
+         "titilliumweb/TitilliumWeb-SemiBold.ttf:TitilliumWeb-SemiBold.ttf" \
+         "titilliumweb/TitilliumWeb-Bold.ttf:TitilliumWeb-Bold.ttf" "titilliumweb/OFL.txt:TitilliumWeb-OFL.txt"; do
+    src=${f%%:*} dst=${f#*:}
+    if [ ! -f "$TC/fonts/$dst" ]; then
+        echo "== font $dst"
+        curl -L --fail -o "$TC/fonts/$dst" \
+            "https://raw.githubusercontent.com/google/fonts/$FONTS_COMMIT/ofl/$src"
+    fi
+done
 
 echo "== Helper tools"
 "$TC/tools/build-tools.sh"

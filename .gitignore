@@ -13,6 +13,7 @@ build/
 # toolchain: third-party files - downloads, disks, SDKs and the ROM
 # (Commodore copyright, may not be redistributed) - all restorable by script
 toolchain/downloads/
+toolchain/fonts/
 toolchain/disks/
 toolchain/mega65go/
 toolchain/llvm-mos/

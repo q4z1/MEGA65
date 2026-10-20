@@ -13,6 +13,10 @@
 
 void video_init(void);
 
+// Back to the race's screen (after pages.h's 640 x 400): black until there
+// is a picture
+void video_on(void);
+
 // Palette entry i from a 12-bit colour ($0RGB)
 void video_colour(uint8_t i, uint16_t rgb4);
 

@@ -47,15 +47,22 @@ _Static_assert(ROADPAT + 9600 <= 0x1D000, "the road patterns reach their index")
 // 512 entries of 8 bytes
 #define ROADIDX      0x1D000ul
 #define ROADIDX_SIZE (512 * 8u)
-_Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1F800, "the road pattern index reaches the colour RAM at $1F800");
+_Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1E000, "the road pattern index reaches the pages' screen");
+
+// The screen of the 640 x 400 pages (pages.c): 40 x 50 characters of 2 bytes
+#define PAGE_SCREEN      0x1E000ul
+#define PAGE_SCREEN_SIZE (40 * 50 * 2u)
+_Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen reaches the colour RAM at $1F800");
 
 // ---------------------------------------------------------------- banks 4 and 5
 
 // The picture is drawn into PICTURE, 320 x 200 pixels, one byte each, row
 // after row; CHARS holds what the VIC-IV shows: 1000 characters of 8 x 8
-// pixels, row after row (video.c).
+// pixels, row after row (video.c). The pages (pages.c) take both banks for
+// their 16-colour characters, from PAGE_CHARS on.
 #define PICTURE 0x40000ul
 #define CHARS   0x50000ul
+#define PAGE_CHARS 0x40000ul
 
 // ---------------------------------------------------------------- attic RAM
 
@@ -76,6 +83,9 @@ _Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1F800, "the road pattern index reache
 #define LAPBAR_DATA  (PANEL_DATA + PANEL_SIZE)
 #define LAPBAR_SIZE  0x3800ul
 #define BANKS_ATTIC  (LAPBAR_DATA + LAPBAR_SIZE)
+// a page as loaded from the disk, the text font (pages.c), from 1M on
+#define PAGE_LOAD    (ATTIC + 0x100000ul)
+#define GLYPHS_ATTIC (ATTIC + 0x120000ul)
 
 // ---------------------------------------------------------------- colour RAM
 

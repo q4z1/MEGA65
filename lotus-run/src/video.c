@@ -94,9 +94,10 @@ static void build_conversion(void) {
     }
 }
 
-void video_init(void) {
+void video_on(void) {
     // 40x25 characters at the standard position: let the "hot" VIC-II
     // registers set up the VIC-IV, then take over.
+    POKE(0xD05D, PEEK(0xD05D) | 0x80);
     POKE(0xD031, (PEEK(0xD031) & ~0xA8) | 0x40);  // no H640/V400/attributes; fast
     POKE(0xD016, 0xC8);
     POKE(0xD011, 0x1B);
@@ -126,8 +127,6 @@ void video_init(void) {
     dma_fill(PICTURE, 0, 0);  // 0: 64K
     dma_fill(CHARS, 0, 0);
     dma_flush();
-    build_screen();
-    build_conversion();
     POKE(0xD060, (uint8_t)SCREEN);
     POKE(0xD061, (uint8_t)(SCREEN >> 8));
     POKE(0xD062, (uint8_t)(SCREEN >> 16));
@@ -139,7 +138,21 @@ void video_init(void) {
     irq_line_hi[0] = 0;
     for (uint8_t k = 0; k < 12; k++)
         irq_colours[k * IRQ_ENTRIES] = 0;
+    __asm__ volatile("sei");
+    irq_restart();
+    POKE(0xD019, 0xFF);
+    POKE(0xD01A, 0x01);
+    __asm__ volatile("cli");
+}
+
+void video_init(void) {
+    build_screen();
+    build_conversion();
+    irq_count = 1;
+    irq_line_lo[0] = RASTER_TOP;
+    irq_line_hi[0] = 0;
     irq_init();
+    video_on();
 }
 
 // The picture's colour changes (render_colours) into the interrupt's table

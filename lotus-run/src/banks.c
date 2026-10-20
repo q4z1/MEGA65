@@ -23,25 +23,34 @@ static uint32_t attic_used;
 // The loaded file, through a window of 256 bytes
 static uint8_t win[256];
 static uint32_t win_at;
+static uint32_t file_at;
 
-static uint8_t rd(uint32_t off) {
+bool file_open(const char *name, uint32_t at) {
+    if (!disk_load(name, at))
+        return false;
+    file_at = at;
+    win_at = ~0ul;
+    return true;
+}
+
+uint8_t file_byte(uint32_t off) {
     uint32_t base = off & ~0xFFul;
     if (base != win_at) {
-        dma_copy(LOAD + base, (uint16_t)win, sizeof win);
+        dma_copy(file_at + base, (uint16_t)win, sizeof win);
         dma_flush();
         win_at = base;
     }
     return win[(uint8_t)off];
 }
 
-// The run-length coded pixels from offset off of the loaded file to out ..
-// end - 1
-static void unpack(uint32_t off, uint32_t out, uint32_t end) {
+#define rd file_byte
+
+uint32_t file_unpack(uint32_t off, uint32_t out, uint32_t end) {
     while (out < end) {
         uint8_t c = rd(off++), len;
         if (c < 0x80) {
             len = c + 1;
-            dma_copy(LOAD + off, out, len);
+            dma_copy(file_at + off, out, len);
             off += len;
         } else {
             len = c - 0x7E;
@@ -50,7 +59,10 @@ static void unpack(uint32_t off, uint32_t out, uint32_t end) {
         out += len;
     }
     dma_flush();
+    return off;
 }
+
+#define unpack file_unpack
 
 static bool load_bank(uint8_t b) {
     if (banks_dir[b])
@@ -58,9 +70,8 @@ static bool load_bank(uint8_t b) {
     char name[] = "SPR00";
     name[3] = "0123456789ABCDEF"[b >> 4];
     name[4] = "0123456789ABCDEF"[b & 15];
-    if (!disk_load(name, LOAD))
+    if (!file_open(name, LOAD))
         return false;
-    win_at = ~0ul;
     uint8_t n = rd(0);
     if (pool_used + 1 + 5u * n > BANKS_POOL)
         return false;
@@ -88,9 +99,8 @@ _Static_assert((uint32_t)BACK_W * BACK_H <= BACKDROP_SIZE, "a backdrop does not 
 bool backdrop_load(uint8_t n) {
     char name[] = "BACK0";
     name[4] = (char)('0' + n);
-    if (!disk_load(name, LOAD))
+    if (!file_open(name, LOAD))
         return false;
-    win_at = ~0ul;
     unpack(0, BACKDROP, BACKDROP + (uint32_t)BACK_W * BACK_H);
     return true;
 }
@@ -104,9 +114,8 @@ PanelField panel_fields[PANEL_FIELDS];
 _Static_assert(PANEL_W * PANEL_H <= 0x1200, "the panel does not fit into PANEL_LIVE");
 
 bool panel_load(void) {
-    if (!disk_load("PANEL", LOAD))
+    if (!file_open("PANEL", LOAD))
         return false;
-    win_at = ~0ul;
     if (rd(0) != PANEL_W || rd(1) != PANEL_H || rd(2) != PANEL_FIELDS)
         return false;
     uint32_t at = PANEL_DATA + PANEL_W * PANEL_H;
@@ -138,9 +147,8 @@ uint32_t panel_live(void) {
 _Static_assert(LAPBAR_BYTES <= LAPBAR_SIZE, "the lap bar does not fit into LAPBAR_DATA");
 
 bool lapbar_load(void) {
-    if (!disk_load("LAPBAR", LOAD))
+    if (!file_open("LAPBAR", LOAD))
         return false;
-    win_at = ~0ul;
     unpack(0, LAPBAR_DATA, LAPBAR_DATA + LAPBAR_BYTES);
     return true;
 }

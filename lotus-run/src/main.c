@@ -12,6 +12,7 @@
 #include "hw.h"
 #include "input.h"
 #include "mem.h"
+#include "pages.h"
 #include "panel.h"
 #include "progdata.h"
 #include "race.h"
@@ -78,8 +79,21 @@ int main(void) {
         halt(2);
     road_pixels_init();
     Track *t = (Track *)TRACK_BUF;
-    if (!banks_load(t) || !backdrop_load(t->header[1]) || !panel_load() || !lapbar_load())
+    if (!banks_load(t) || !backdrop_load(t->header[1]) || !panel_load() || !lapbar_load() ||
+        !pages_load())
         halt(7);
+
+    // the title until fire, or 8 seconds
+    pages_on();
+    if (!page_show("PTITLE"))
+        halt(8);
+    uint8_t f = video_frame();
+    for (uint16_t frames = 0; frames < 400 && !(joystick() & JOY_FIRE);)
+        if (video_frame() != f) {
+            f = video_frame();
+            frames++;
+        }
+    pages_off();
     view_colours();
     race_track = t;
     race.segments = t->segments;
