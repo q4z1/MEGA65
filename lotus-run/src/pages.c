@@ -19,7 +19,7 @@
 #define COLOUR_RAM 0xFF80000ul
 #define CELLS      (PAGE_COLS * PAGE_ROWS)
 
-bool pages_load(void) {
+MENU bool pages_load(void) {
     if (!file_open("GLYPHS", PAGE_LOAD))
         return false;
     file_unpack(0, GLYPHS_ATTIC, GLYPHS_ATTIC + GLYPHS * 64ul);
@@ -52,7 +52,7 @@ void pages_off(void) {
 
 // Screen or colour RAM from the file at off: the cells' low bytes, then
 // their high ones, put together (returns where they end in the file)
-static uint32_t planes(uint32_t off, uint32_t to) {
+MENU static uint32_t planes(uint32_t off, uint32_t to) {
     off = file_unpack(off, PAGE_PLANES, PAGE_PLANES + CELLS * 2);
     dma_copy_step(PAGE_PLANES, 0x0100, to, 0x0200, CELLS);
     dma_copy_step(PAGE_PLANES + CELLS, 0x0100, to + 1, 0x0200, CELLS);
@@ -66,7 +66,7 @@ static uint32_t planes(uint32_t off, uint32_t to) {
 static uint16_t text_base;
 static uint8_t row_slot[PAGE_ROWS], slots;
 
-bool page_show(const char *name) {
+MENU bool page_show(const char *name) {
     if (!file_open(name, PAGE_LOAD))
         return false;
     POKE(0xD011, 0x0B);  // blank while the page comes in
@@ -84,7 +84,7 @@ bool page_show(const char *name) {
     return true;
 }
 
-void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour) {
+MENU void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour) {
     WORK_RAM static uint8_t glyph[2][64], pair[128];
     WORK_RAM static uint8_t top[PAGE_COLS * 2], bottom[PAGE_COLS * 2], attr[PAGE_COLS * 2];
     if (!row_slot[row]) {

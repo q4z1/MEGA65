@@ -15,7 +15,8 @@ typedef struct {
     bool fire_accel;
 } Controls;
 
-// The pages need the 640 x 400 mode (pages_on)
+// The pages need the 640 x 400 mode (pages_on), and their code where it
+// runs (main.c: the MENU overlay, mem.h)
 
 // The level of a new season (0-2), starting from `level`
 uint8_t screen_level(uint8_t level);
@@ -23,8 +24,9 @@ uint8_t screen_level(uint8_t level);
 // The controls, changed on their page
 void screen_controls(Controls *c);
 
-// Before a race: the course, and which race of the season it is
-void screen_course(const Track *t, uint8_t course);
+// Before a race: the course (as loaded to TRACK_ATTIC), and which race of
+// the season it is
+void screen_course(uint8_t course);
 
 // After a race: its classification; then the championship
 void screen_result(void);

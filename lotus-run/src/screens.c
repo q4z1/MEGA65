@@ -4,7 +4,9 @@
 
 #include "screens.h"
 
+#include "dma.h"
 #include "input.h"
+#include "mem.h"
 #include "pages.h"
 #include "progdata.h"
 #include "season.h"
@@ -15,7 +17,7 @@
 
 // The next new press (a bit that was not set the frame before); built
 // with LOTUS_AUTOTEST, fire every second on its own
-static uint8_t key(void) {
+MENU static uint8_t key(void) {
     static uint8_t last = 0xFF;
 #ifdef LOTUS_AUTOTEST
     for (uint8_t f = 0; f < 50; f++) {
@@ -37,7 +39,7 @@ static uint8_t key(void) {
     }
 }
 
-void screen_wait_fire(void) {
+MENU void screen_wait_fire(void) {
     while (!(key() & IN_BUTTON))
         ;
 }
@@ -47,7 +49,7 @@ void screen_wait_fire(void) {
 static char line[PAGE_COLS + 1];
 
 // s at col, row, padded with spaces to width
-static void put(uint8_t col, uint8_t row, const char *s, uint8_t width, uint8_t colour) {
+MENU static void put(uint8_t col, uint8_t row, const char *s, uint8_t width, uint8_t colour) {
     uint8_t n = 0;
     for (; *s && n < width; n++)
         line[n] = *s++;
@@ -58,7 +60,7 @@ static void put(uint8_t col, uint8_t row, const char *s, uint8_t width, uint8_t 
 }
 
 // A number into buf, at least `digits` digits; returns the end
-static char *number(char *buf, uint16_t n, uint8_t digits) {
+MENU static char *number(char *buf, uint16_t n, uint8_t digits) {
     char d[5];
     uint8_t k = 0;
     do {
@@ -72,7 +74,7 @@ static char *number(char *buf, uint16_t n, uint8_t digits) {
 }
 
 // A time in frames (1/50 s) as M:SS.T
-static void time_text(char *buf, uint16_t frames) {
+MENU static void time_text(char *buf, uint16_t frames) {
     uint16_t tenths = frames / 5;
     buf = number(buf, tenths / 600, 1);
     *buf++ = ':';
@@ -82,7 +84,7 @@ static void time_text(char *buf, uint16_t frames) {
 }
 
 // A place (0: first) as 1ST, 2ND, ...
-static void place_text(char *buf, uint8_t place) {
+MENU static void place_text(char *buf, uint8_t place) {
     static const char suffix[] = "STNDRDTH";
     uint8_t n = (uint8_t)(place + 1), s = n % 10 < 4 && (n < 10 || n > 20) && n % 10 ? n % 10 - 1 : 3;
     buf = number(buf, n, 1);
@@ -94,12 +96,12 @@ static void place_text(char *buf, uint8_t place) {
 // ---------------------------------------------------------------- choosing
 
 // The marker before row `rows[i]`, at col
-static void marks(const uint8_t *rows, uint8_t n, uint8_t at, uint8_t col) {
+MENU static void marks(const uint8_t *rows, uint8_t n, uint8_t at, uint8_t col) {
     for (uint8_t i = 0; i < n; i++)
         page_text(col, rows[i], i == at ? ">" : " ", TEXT_AMBER);
 }
 
-uint8_t screen_level(uint8_t level) {
+MENU uint8_t screen_level(uint8_t level) {
     static const uint8_t rows[LEVELS] = {12, 18, 24};
     page_show("PLEVEL");
     for (;;) {
@@ -115,7 +117,7 @@ uint8_t screen_level(uint8_t level) {
 }
 
 // What the controls do in the race, as text rows
-static void controls_help(const Controls *c) {
+MENU static void controls_help(const Controls *c) {
     static const char *const help[4][3] = {
         {"FIRE + FORWARD: GEAR UP", "FIRE + BACK: GEAR DOWN", "FORWARD: GAS  BACK: BRAKE"},
         {"FORWARD: GEAR UP", "BACK: BRAKE, GEAR DOWN", "FIRE: GAS"},
@@ -128,7 +130,7 @@ static void controls_help(const Controls *c) {
     put(2, 43, "LEFT / RIGHT: STEER", 36, TEXT_WHITE);
 }
 
-void screen_controls(Controls *c) {
+MENU void screen_controls(Controls *c) {
     static const uint8_t rows[3] = {12, 18, 24};
     uint8_t at = 2;
     page_show("PCONTROLS");
@@ -157,12 +159,15 @@ void screen_controls(Controls *c) {
 // ---------------------------------------------------------------- the season
 
 // Text of the course header (track.h: name, location, description,
-// hazards after the colours), the padding cut
-static void header_text(const Track *t, uint8_t at, uint8_t len, uint8_t col, uint8_t row, uint8_t colour) {
+// hazards after the colours; from the course as loaded, TRACK_ATTIC), the
+// padding cut
+MENU static void header_text(uint8_t at, uint8_t len, uint8_t col, uint8_t row, uint8_t colour) {
     char buf[33];
+    dma_copy(TRACK_ATTIC + 2 + at, (uint16_t)buf, len);
+    dma_flush();
     uint8_t n = 0;
     for (uint8_t i = 0; i < len; i++) {
-        char ch = (char)t->header[at + i];
+        char ch = buf[i];
         buf[i] = ch == '/' ? ' ' : ch;
         if (ch != '/')
             n = (uint8_t)(i + 1);
@@ -171,7 +176,7 @@ static void header_text(const Track *t, uint8_t at, uint8_t len, uint8_t col, ui
     put(col, row, buf, 32, colour);
 }
 
-void screen_course(const Track *t, uint8_t course) {
+MENU void screen_course(uint8_t course) {
     char buf[TEXT_LEN + 1];
     page_show("PCOURSE");
     // RACE n OF m, the course's name
@@ -181,12 +186,12 @@ void screen_course(const Track *t, uint8_t course) {
     *b++ = ' ', *b++ = 'O', *b++ = 'F', *b++ = ' ';
     number(b, season.races, 1);
     page_text(30, 1, line, TEXT_GREY);
-    header_text(t, 56, 10, 2, 9, TEXT_WHITE);
-    header_text(t, 66, 32, 13, 16, TEXT_WHITE);
+    header_text(56, 10, 2, 9, TEXT_WHITE);
+    header_text(66, 32, 13, 16, TEXT_WHITE);
     number(buf, tab_laps[course], 1);
     put(13, 20, buf, 4, TEXT_WHITE);
-    header_text(t, 98, 32, 13, 24, TEXT_WHITE);
-    header_text(t, 130, 32, 13, 30, TEXT_WHITE);
+    header_text(98, 32, 13, 24, TEXT_WHITE);
+    header_text(130, 32, 13, 30, TEXT_WHITE);
     uint16_t record = season_record(course, buf);
     put(13, 36, buf, 20, TEXT_WHITE);
     time_text(buf, record);
@@ -196,7 +201,7 @@ void screen_course(const Track *t, uint8_t course) {
 
 // A row of the result or the championship: place, driver, a text (time),
 // points; the player's in amber
-static void row(uint8_t r, uint8_t place, uint8_t driver, const char *time, uint16_t points) {
+MENU static void row(uint8_t r, uint8_t place, uint8_t driver, const char *time, uint16_t points) {
     char buf[TEXT_LEN + 1];
     uint8_t colour = driver == DRIVER_P1 ? TEXT_AMBER : TEXT_WHITE;
     place_text(buf, place);
@@ -208,7 +213,7 @@ static void row(uint8_t r, uint8_t place, uint8_t driver, const char *time, uint
     put(35, r, buf, 4, colour);
 }
 
-void screen_result(void) {
+MENU void screen_result(void) {
     char buf[12];
     page_show("PRESULT");
     uint8_t r = 10;
@@ -226,7 +231,7 @@ void screen_result(void) {
     screen_wait_fire();
 }
 
-void screen_standing(void) {
+MENU void screen_standing(void) {
     page_show("PSTANDING");
     uint8_t r = 10;
     for (uint8_t i = 0; i < DRIVERS; i++) {
@@ -239,7 +244,7 @@ void screen_standing(void) {
     screen_wait_fire();
 }
 
-void screen_season_over(bool out) {
+MENU void screen_season_over(bool out) {
     static const char *const level[LEVELS] = {"EASY", "MEDIUM", "HARD"};
     page_show("PSEASON");
     if (out) {

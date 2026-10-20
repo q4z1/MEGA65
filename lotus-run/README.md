@@ -7,7 +7,7 @@ Work in progress: a season can be driven - choose the level (7, 10 or 15
 races) and the controls, then course after course, with the result and the
 championship after each race; finish outside the first ten and the season
 is over for you. Road, scenery, opponents and the own car at 25 pictures per
-second.
+second, with the engines and the sound effects of the race.
 
 ## Building
 
@@ -37,7 +37,9 @@ the pages by itself and drives with a held joystick, for recordings.
   ([race.s](src/race.s)), the road ([road.c](src/road.c),
   [render.s](src/render.s); its lines drawn out with smooth edges at the
   start, [road_rows.s](src/road_rows.s)), the season
-  ([season.c](src/season.c)) and its pages ([screens.c](src/screens.c)),
+  ([season.c](src/season.c)) and its pages ([screens.c](src/screens.c), an
+  overlay loaded between the races: [link.ld](link.ld)), the sounds
+  ([sound.c](src/sound.c)),
   scenery and cars ([sprites.c](src/sprites.c)),
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the

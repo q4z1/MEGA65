@@ -460,7 +460,8 @@ def page_season():
     return img
 
 
-PAGES = {'TITLE': page_title, 'SPEC1': page_spec1, 'LEVEL': page_level, 'CONTROLS': page_controls,
+# page_spec1: not shown yet, so not on the disk
+PAGES = {'TITLE': page_title, 'LEVEL': page_level, 'CONTROLS': page_controls,
          'COURSE': page_course, 'RESULT': page_result, 'STANDING': page_standing, 'SEASON': page_season}
 
 

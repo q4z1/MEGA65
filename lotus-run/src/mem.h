@@ -28,6 +28,16 @@
 #define LOW_RAM_AT    0x1400
 #define HIGH_RAM_AT   0xF100
 _Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_RAM_AT, "the DMA list reaches LOW_RAM");
+// The code of the pages between the races (link.ld's .menu, built with
+// LOTUS_MENU_OVERLAY): copied to MENU_AT from MENU_ATTIC before it runs, in
+// place of the course and HIGH_RAM, which the race fills again
+#define MENU_AT   0xE000
+#define MENU_SIZE 0x1FFAu
+#if defined(__mos__) && defined(LOTUS_MENU_OVERLAY)
+#define MENU __attribute__((section(".menu")))
+#else
+#define MENU
+#endif
 #ifdef __mos__
 #define WORK_RAM __attribute__((section(".workram")))
 #define LOW_RAM  __attribute__((section(".lowram")))
@@ -59,17 +69,19 @@ _Static_assert(0xE000 + TRACK_BUF_SIZE <= HIGH_RAM_AT, "the course reaches HIGH_
 _Static_assert(SCREEN + SCREEN_SIZE <= CONV_LIST, "the screen reaches the conversion list");
 _Static_assert(CONV_LIST + CONV_LIST_SIZE <= 0x1F800, "the conversion list reaches the colour RAM at $1F800");
 
-// Where every road line pattern lies as pixels in ROADPIX (road_pixels.c):
-// per width scale >> 3 (512) and variant (2) an entry of 8 bytes
-#define ROADIDX      0x1A800ul
-#define ROADIDX_SIZE (1024 * 8u)
-_Static_assert(CONV_LIST + CONV_LIST_SIZE <= ROADIDX, "the conversion list reaches the road pattern index");
-_Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1E000, "the road pattern index reaches the pages' screen");
+// The race's sound samples (sound.c, from SOUNDS in attic RAM): the audio
+// DMA reads chip RAM only. They share the room with the pages' screen, so
+// they are copied here at the start of every race.
+#define SOUND_CHIP      0x1A500ul
+#define SOUND_CHIP_SIZE 0x5300u
+_Static_assert(CONV_LIST + CONV_LIST_SIZE <= SOUND_CHIP, "the conversion list reaches the sound samples");
+_Static_assert(SOUND_CHIP + SOUND_CHIP_SIZE <= 0x1F800, "the sound samples reach the colour RAM at $1F800");
 
 // The screen of the 640 x 400 pages (pages.c): 40 x 50 characters of 2 bytes
 #define PAGE_SCREEN      0x1E000ul
 #define PAGE_SCREEN_SIZE (40 * 50 * 2u)
 _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen reaches the colour RAM at $1F800");
+_Static_assert(PAGE_SCREEN >= SOUND_CHIP, "the pages' screen is part of the sound samples' room");
 
 // ---------------------------------------------------------------- banks 4 and 5
 
@@ -105,6 +117,17 @@ _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen rea
 #define PAGE_PLANES  (ATTIC + 0x130000ul)
 // the names (season.c, TEXTS)
 #define TEXTS_ATTIC  (ATTIC + 0x140000ul)
+// the race's sound samples (sound.c, SOUNDS), copied to SOUND_CHIP
+#define SOUNDS_ATTIC (ATTIC + 0x148000ul)
+// where every road line pattern lies as pixels in ROADPIX (road_pixels.c):
+// per width scale >> 3 (512) and variant (2) an entry of 8 bytes, read by
+// road_draw through a 32-bit pointer
+#define ROADIDX      (ATTIC + 0x150000ul)
+#define ROADIDX_SIZE (1024 * 8u)
+// the code of the pages (MENU), and the course coming next as on the disk
+// (its header for the pages; to TRACK_BUF for the race)
+#define MENU_ATTIC   (ATTIC + 0x154000ul)
+#define TRACK_ATTIC  (ATTIC + 0x158000ul)
 // The road line patterns as pixels (road_pixels.c), from 2M on: in the
 // colours of stripe set A, from ROADPIX + ROADPIX_B on in those of set B
 #define ROADPIX      (ATTIC + 0x200000ul)

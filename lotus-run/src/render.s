@@ -5,7 +5,7 @@
 ; road_draw (road_draw.h): every road line is a fill with its grass, then
 ; one DMA copy of its pattern, drawn out in attic RAM (ROADPIX, road_pixels.c;
 ; for stripe set B from ROADPIX_B on) in the phase of the quarter pixel it
-; lands at, cut to the picture. The patterns' index (ROADIDX, bank 1) is
+; lands at, cut to the picture. The patterns' index (ROADIDX, attic RAM) is
 ; read through a 32-bit pointer.
 ;
 ; sprites_draw (sprites.h): every visible row of a sprite becomes a DMA copy
@@ -271,7 +271,7 @@ road_draw:
     lda #((ROADIDX >> 16) & $FF)
     adc #0
     sta pat + 2
-    lda #0
+    lda #((ROADIDX >> 24) & $FF)
     sta pat + 3
 
     ; where it lands: 159 - (scale * 2 * (x + lateral8)) / 65536 + its

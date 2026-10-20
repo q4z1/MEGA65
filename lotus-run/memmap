@@ -10,7 +10,7 @@ ram  $E000+4352      the course, under the KERNAL (main.c, TRACK_BUF)
 # Bank 1
 ram  $10000+2000     screen: 40x25 characters of 2 bytes (video.c)
 ram  $10800+40000    conversion list: picture to characters, 1600 jobs (video.c)
-ram  $1A800+8192     road line pattern index: where each is in ROADPIX (road_pixels.c)
+ram  $1A500+21248    the race's sound samples, copied from SOUNDS before each race (sound.c)
 
 # Banks 4 and 5
 ram  $40000+64000    the picture being drawn: 320x200 bytes (fb_mega65.c)
@@ -27,6 +27,10 @@ ram  $8100000+131072 a page as loaded from the disk (pages.c)
 ram  $8120000+3456   the text font, 8 x 16 pixels a glyph (GLYPHS, pages.c)
 ram  $8130000+4000   a page's screen or colour RAM before it is put together (pages.c)
 ram  $8140000+1000   names: opponents, course record holders (TEXTS, season.c)
+ram  $8148000+20426  the race's sound samples (SOUNDS, sound.c)
+ram  $8150000+8192   road line pattern index: where each is in ROADPIX (road_pixels.c)
+ram  $8154000+8186   the pages' code (MENU, main.c), copied to $E000 between the races
+ram  $8158000+4352   the course coming next, as on the disk (main.c)
 ram  $8200000+1245184 road line patterns drawn out, stripe set A (ROADPIX, road_pixels.c)
 ram  $8330000+1245184 the same in the colours of stripe set B (ROADPIX_B)
 
@@ -40,3 +44,6 @@ file BACK?           @$40000     a backdrop, unpacked to attic RAM (tools/mkspri
 file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprites.py)
 file LAPBAR          @$40000     the lap bar, unpacked to attic RAM (tools/mksprites.py)
 file TEXTS           @$8140000   names from the game program (tools/mkdata.py)
+file SOUNDS          @$8148000   the race's sound samples (tools/mkdata.py)
+file MENU            @$8154000   the pages' code: link.ld's .menu (build.sh)
+file TRACK??         @$8158000   the course coming next (main.c)

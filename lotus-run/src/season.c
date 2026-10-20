@@ -17,7 +17,7 @@ LOW_RAM Season season;
 LOW_RAM static uint16_t record_time[32];
 LOW_RAM static uint8_t record_by[32];
 
-bool season_load(void) {
+MENU bool season_load(void) {
     for (uint8_t c = 0; c < 32; c++) {
         record_time[c] = tab_course_time[c];
         record_by[c] = HOLDER_FIRST;
@@ -25,7 +25,7 @@ bool season_load(void) {
     return disk_load("TEXTS", TEXTS_ATTIC);
 }
 
-void season_start(uint8_t level) {
+MENU void season_start(uint8_t level) {
     season.level = level;
     season.race = 0;
     season.races = (uint8_t)(tab_course_base[level + 1] - tab_course_base[level]);
@@ -33,16 +33,16 @@ void season_start(uint8_t level) {
         season.points[d] = 0;
 }
 
-uint8_t season_course(void) {
+MENU uint8_t season_course(void) {
     return (uint8_t)(tab_course_base[season.level] + season.race);
 }
 
 // A random number 0 .. n - 1 (as the original scales them)
-static uint8_t random_below(uint8_t n) {
+MENU static uint8_t random_below(uint8_t n) {
     return (uint8_t)(((uint32_t)race_random() * n) >> 16);
 }
 
-void season_classify(void) {
+MENU void season_classify(void) {
     Player *p = &race.p[0];
     if (!p->fuel)
         p->place = 20;  // out of fuel: last
@@ -102,12 +102,12 @@ void season_classify(void) {
     }
 }
 
-bool season_next(void) {
+MENU bool season_next(void) {
     return ++season.race < season.races;
 }
 
 // TEXT_LEN characters from TEXTS record n into buf, the padding cut
-static void text(uint8_t n, char *buf) {
+MENU static void text(uint8_t n, char *buf) {
     dma_copy(TEXTS_ATTIC + (uint16_t)n * TEXT_LEN, (uint16_t)buf, TEXT_LEN);
     dma_flush();
     uint8_t len = TEXT_LEN;
@@ -116,12 +116,12 @@ static void text(uint8_t n, char *buf) {
     buf[len] = 0;
 }
 
-static void copy(char *buf, const char *s) {
+MENU static void copy(char *buf, const char *s) {
     while ((*buf++ = *s++))
         ;
 }
 
-void season_name(uint8_t driver, char *buf) {
+MENU void season_name(uint8_t driver, char *buf) {
     if (driver == DRIVER_P1)
         copy(buf, "PLAYER ONE");
     else if (driver == DRIVER_P2)
@@ -130,7 +130,7 @@ void season_name(uint8_t driver, char *buf) {
         text((uint8_t)(TEXT_DRIVERS + driver), buf);
 }
 
-uint16_t season_record(uint8_t course, char *buf) {
+MENU uint16_t season_record(uint8_t course, char *buf) {
     if (record_by[course] == HOLDER_FIRST)
         text((uint8_t)(TEXT_RECORDS + course), buf);
     else

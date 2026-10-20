@@ -11,6 +11,7 @@
 
 #include "banks.h"
 #include "disk.h"
+#include "dma.h"
 #include "hw.h"
 #include "input.h"
 #include "mem.h"
@@ -23,6 +24,7 @@
 #include "road_pixels.h"
 #include "screens.h"
 #include "season.h"
+#include "sound.h"
 #include "track.h"
 #include "tracks.h"
 
@@ -80,6 +82,7 @@ static uint8_t frame_done;
 
 static void catch_up(void) {
     while (frame_done != video_frame()) {
+        sound_frame();  // as the original: before the logic, from the last frame
         race_joy[0] = joystick();
 #ifdef LOTUS_AUTOTEST
         // the joystick held by a simple driver: fire, steering back to the
@@ -92,13 +95,28 @@ static void catch_up(void) {
     }
 }
 
-// Loads course n and what it needs; false if something cannot be loaded
+// The pages' code (the MENU overlay, mem.h) where it runs: before any of
+// it is called, again after every race
+static void menu_in(void) {
+    dma_copy(MENU_ATTIC, MENU_AT, MENU_SIZE);
+    dma_flush();
+}
+
+// Course n from the disk to TRACK_ATTIC, for its page
 static bool load_course(uint8_t n) {
     char name[] = "TRACK00";
     name[5] = "0123456789ABCDEF"[n >> 4];
     name[6] = "0123456789ABCDEF"[n & 15];
+    return disk_load(name, TRACK_ATTIC);
+}
+
+// The course to TRACK_BUF, in place of the pages' code, and what the race
+// needs of it; false if something cannot be loaded
+static bool course_in(void) {
     const Track *t = (const Track *)TRACK_BUF;
-    return disk_load(name, (uint16_t)TRACK_BUF) && banks_load(t) && backdrop_load(t->header[1]);
+    dma_copy(TRACK_ATTIC, (uint16_t)TRACK_BUF, TRACK_SIZE);
+    dma_flush();
+    return banks_load(t) && backdrop_load(t->header[1]);
 }
 
 // The race on course n until it is over; false if the player gave up
@@ -117,6 +135,7 @@ static bool race_run(uint8_t n, const Controls *c) {
     race.p[0].fire_accel = c->fire_accel;
     race_init();
     panel_reset();
+    sound_race_start();
 
     view_scale = 512;
     view_lines = 192;
@@ -125,8 +144,10 @@ static bool race_run(uint8_t n, const Controls *c) {
     frame_done = video_frame();
     uint8_t last_picture = frame_done;
     while (race.over_timer != 150) {
-        if (input_read() & IN_RESTART)
+        if (input_read() & IN_RESTART) {
+            sound_off();
             return false;
+        }
         // a picture every second frame at most
         do
             catch_up();
@@ -142,12 +163,16 @@ static bool race_run(uint8_t n, const Controls *c) {
         for (uint8_t i = 0; i < 4; i++)
             video_colour(8 + i, p->colours[i]);
     }
+    sound_off();
     return true;
 }
 
 int main(void) {
     video_init();
-    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load())
+    if (!disk_load("MENU", MENU_ATTIC))
+        halt(7);
+    menu_in();
+    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load() || !sound_load())
         halt(7);
     pages_on();
     if (!page_show("PTITLE"))
@@ -168,8 +193,13 @@ int main(void) {
             pages_on();  // dark while the course comes in
             if (!load_course(n))
                 halt(2);
-            screen_course((const Track *)TRACK_BUF, n);
-            if (!race_run(n, &controls)) {
+            screen_course(n);
+            pages_on();
+            if (!course_in())
+                halt(2);
+            bool done = race_run(n, &controls);
+            menu_in();
+            if (!done) {
                 gave_up = true;
                 break;
             }

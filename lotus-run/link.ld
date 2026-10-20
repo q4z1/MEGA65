@@ -3,7 +3,8 @@
  * (WORK_RAM, LOW_RAM, HIGH_RAM in src/mem.h): .workram in the KERNAL's
  * work area, .lowram behind the DMA list, .highram behind the course under
  * the KERNAL (.workram and .highram usable once irq_init has switched it
- * out). The numbers are src/mem.h's. */
+ * out). The numbers are src/mem.h's. Besides, .menu: an overlay at
+ * $E000 (see below). */
 
 __basic_zp_start = 0x0002;
 __basic_zp_end = 0x0090;
@@ -13,12 +14,17 @@ MEMORY {
     workram (rw) : ORIGIN = 0x0200, LENGTH = 0x0200
     lowram (rw) : ORIGIN = 0x1400, LENGTH = 0x0c00
     highram (rw) : ORIGIN = 0xf100, LENGTH = 0x0efa
+    menu (rx) : ORIGIN = 0xe000, LENGTH = 0x1ffa
 }
 
 SECTIONS {
     .workram (NOLOAD) : { *(.workram .workram.*) } >workram
     .lowram (NOLOAD) : { *(.lowram .lowram.*) } >lowram
     .highram (NOLOAD) : { *(.highram .highram.*) } >highram
+    /* the code of the pages between the races (MENU in src/mem.h): not part
+       of the program file - build.sh writes it to the disk as MENU, main.c
+       copies it here; the race's course and .highram take its place then */
+    .menu : { *(.menu .menu.*) } >menu
 }
 
 INCLUDE commodore.ld
