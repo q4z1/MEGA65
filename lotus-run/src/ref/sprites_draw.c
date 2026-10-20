@@ -11,6 +11,8 @@ void sprites_draw(void) {
     for (uint8_t i = 0; i < sprite_count; i++) {
         const Sprite *s = &sprite_list[i];
         uint8_t w = sprite_width(s->bank, s->image), h = sprite_height(s->bank, s->image);
+        if (s->y < 0)
+            continue;  // its bottom row above the picture
         int16_t top = (int16_t)(s->y - h + 1), bottom = s->y;
         if ((uint16_t)bottom > (uint16_t)s->clip)
             bottom = (int16_t)(s->clip - 1);

@@ -14,7 +14,8 @@
 #include "sprbanks.h"
 
 // One image to draw: rows y - height + 1 .. y; if y > clip only those above
-// clip (the road's top line where the object stands: hills hide the rest)
+// clip (the road's top line where the object stands: hills hide the rest);
+// nothing if y < 0
 typedef struct {
     uint8_t bank, image;
     int16_t x, y;  // left column, bottom row

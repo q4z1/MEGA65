@@ -664,6 +664,11 @@ sprites_draw:
     lda #(ATTIC >> 24)
     sta sd_src + 3
 
+    ; nothing if its bottom row is above the picture (y < 0)
+    lda sd_y + 1
+    bpl 2f
+    jmp .Lnext_sprite
+2:
     ; rows top = y - h + 1 .. bottom = y, or clip - 1 if y > clip
     ; (unsigned); from max(top, 0)
     sec
