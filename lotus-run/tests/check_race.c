@@ -103,6 +103,7 @@ static const Config configs[] = {
 #define FRAMES  2500
 
 int main(void) {
+    check_init();
     POKE(0xD020, 6);
     for (uint8_t c = 0; c < CONFIGS; c++) {
         const Config *k = &configs[c];

@@ -50,20 +50,12 @@ void pages_off(void) {
     video_on();
 }
 
-// A palette entry from 8-bit R, G, B (the VIC-IV keeps their nibbles swapped)
-static uint8_t swap(uint8_t v) {
-    return (uint8_t)(v << 4 | v >> 4);
-}
-
 bool page_show(const char *name) {
     if (!file_open(name, PAGE_LOAD))
         return false;
     POKE(0xD011, 0x0B);  // blank while the page comes in
-    for (uint16_t i = 0; i < 256; i++) {
-        POKE(0xD100 + i, swap(file_byte(3 * i)));
-        POKE(0xD200 + i, swap(file_byte(3 * i + 1)));
-        POKE(0xD300 + i, swap(file_byte(3 * i + 2)));
-    }
+    for (uint16_t i = 0; i < 256; i++)
+        video_rgb((uint8_t)i, file_byte(3 * i), file_byte(3 * i + 1), file_byte(3 * i + 2));
     uint16_t chars = file_byte(768) | (uint16_t)file_byte(769) << 8;
     uint32_t off = file_unpack(770, PAGE_SCREEN, PAGE_SCREEN + CELLS * 2);
     off = file_unpack(off, COLOUR_RAM, COLOUR_RAM + CELLS * 2);

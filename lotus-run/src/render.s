@@ -4,8 +4,9 @@
 ;
 ; road_draw (road_draw.h): every road line is a fill with its grass, then
 ; one DMA copy of its pattern, drawn out in attic RAM (ROADPIX, road_pixels.c;
-; for stripe set B from ROADPIX_B on), cut to the picture. The patterns'
-; index (ROADIDX, bank 1) is read through a 32-bit pointer.
+; for stripe set B from ROADPIX_B on) in the phase of the quarter pixel it
+; lands at, cut to the picture. The patterns' index (ROADIDX, bank 1) is
+; read through a 32-bit pointer.
 ;
 ; sprites_draw (sprites.h): every visible row of a sprite becomes a DMA copy
 ; from attic RAM that leaves out SPR_CLEAR.
@@ -39,6 +40,7 @@ rd_l:       .fill 1             ; the line
 rd_y:       .fill 1             ; its screen row
 rd_shown:   .fill 1             ; the line's stripe set (0, 4)
 rd_col:     .fill 1             ; its grass colour
+rd_phase:   .fill 1             ; bits 6-7: where it lands, the quarter pixel
 rd_lp:      .fill 2             ; &render_lines[rd_l]
 ln_x:       .fill 2             ; the line's RoadLine
 ln_scale:   .fill 2
@@ -244,11 +246,16 @@ road_draw:
     ldx #FILL_JOB
     jsr job_done
 
-    ; the index entry of the pattern of width scale >> 4 and the line's
-    ; variant: ROADIDX + 8 * (2 * w + (x & 1)) = ROADIDX + 16 * w + 8 * v
+    ; the index entry of the pattern of width scale >> 3 and the line's
+    ; variant: ROADIDX + 8 * (2 * w2 + (x & 1)) = ROADIDX + 2 * (scale & ~7)
+    ; + 8 * v
     lda ln_scale
-    and #$F0
+    and #$F8
+    asl
     sta pat
+    lda ln_scale + 1
+    rol
+    sta pat + 1
     lda ln_x
     and #1
     asl
@@ -258,7 +265,7 @@ road_draw:
     clc
     adc #<ROADIDX
     sta pat
-    lda ln_scale + 1
+    lda pat + 1
     adc #>ROADIDX
     sta pat + 1
     lda #((ROADIDX >> 16) & $FF)
@@ -267,7 +274,9 @@ road_draw:
     lda #0
     sta pat + 3
 
-    ; where it lands: 159 - (scale * 2 * (x + lateral8)) >> 16 + its start
+    ; where it lands: 159 - (scale * 2 * (x + lateral8)) / 65536 + its
+    ; start, to a quarter pixel: the product + $2000, whose bits 14-15 are
+    ; the phase
     lda ln_scale
     asl
     sta MULTINA
@@ -291,12 +300,22 @@ road_draw:
 3:
     stx MULTINB + 2
     stx MULTINB + 3
+    clc
+    lda MULTOUT + 1
+    adc #$20
+    sta rd_phase
+    lda MULTOUT + 2
+    adc #0
+    sta endx
+    lda MULTOUT + 3
+    adc #0
+    sta endx + 1
     sec
     lda #159
-    sbc MULTOUT + 2
+    sbc endx
     sta xx
     lda #0
-    sbc MULTOUT + 3
+    sbc endx + 1
     sta xx + 1
     ldz #0
     clc
@@ -308,15 +327,11 @@ road_draw:
     adc [pat], z
     sta xx + 1
     inz
-    ; its end: + length
-    clc
-    lda xx
-    adc [pat], z
-    sta endx
+    lda [pat], z
+    sta rd_len
     inz
-    lda xx + 1
-    adc [pat], z
-    sta endx + 1
+    lda [pat], z
+    sta rd_len + 1
     inz
     lda [pat], z
     sta rd_src
@@ -327,6 +342,38 @@ road_draw:
     lda [pat], z
     sta rd_src + 2
     ldz #0
+    ; its end: + length
+    clc
+    lda xx
+    adc rd_len
+    sta endx
+    lda xx + 1
+    adc rd_len + 1
+    sta endx + 1
+    ; the phase's pixels: phase * length on
+    lda rd_phase
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    lsr
+    tax
+    beq 11f
+10:
+    clc
+    lda rd_src
+    adc rd_len
+    sta rd_src
+    lda rd_src + 1
+    adc rd_len + 1
+    sta rd_src + 1
+    lda rd_src + 2
+    adc #0
+    sta rd_src + 2
+    dex
+    bne 10b
+11:
     ; set B: the patterns in its colours
     lda rd_shown
     beq 9f

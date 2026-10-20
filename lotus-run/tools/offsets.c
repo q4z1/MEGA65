@@ -15,6 +15,8 @@
 #include "race.h"
 #include "render.h"
 #include "road.h"
+#include "road_rows.h"
+#include "roadpat.h"
 #include "sprites.h"
 
 #define P(f) printf("P_%-14s = $%02zX\n", #f, offsetof(Player, f))
@@ -47,8 +49,9 @@ int main(void) {
     printf("COL_GRASS        = %d\nCOL_SET_B        = %d\nFB_W             = %d\n", COL_GRASS, COL_SET_B, FB_W);
     printf("DMA_LIST         = $%04lX\nDMA_LIST_END     = $%04lX\n", (unsigned long)(uintptr_t)DMA_LIST,
            (unsigned long)(uintptr_t)DMA_LIST + DMA_LIST_SIZE);
-    printf("PICTURE          = $%05lX\nROADPAT          = $%05lX\nATTIC            = $%07lX\n", PICTURE,
-           ROADPAT, ATTIC);
+    printf("PICTURE          = $%05lX\nATTIC            = $%07lX\n", PICTURE, ATTIC);
+    printf("ROAD_RUNS_MAX    = %d\nROAD_EDGE_BASE   = $%04X\nROAD_MIX         = %d\n", ROAD_RUNS_MAX,
+           (uint16_t)ROAD_EDGE_BASE, ROAD_MIX);
     printf("ROADIDX          = $%05lX\nROADPIX          = $%07lX\nROADPIX_B        = $%05lX\n", ROADIDX, ROADPIX,
            ROADPIX_B);
     printf("SP_bank          = %zu\nSP_image         = %zu\nSP_x             = %zu\nSP_y             = %zu\n"

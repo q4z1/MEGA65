@@ -1,8 +1,8 @@
 // Lotus Run: drawing the race view (see render.h).
 //
 // The road is drawn line by line from pre-drawn road lines: the pattern
-// for the line's width, shifted by the road's position, in the colours of
-// its stripe set (road_draw.h). Above the horizon the sky's bands, the
+// for the line's width, shifted by the road's position to a quarter pixel,
+// in the colours of its stripe set (road_draw.h). Above the horizon the sky's bands, the
 // backdrop over them.
 
 #include "render.h"
@@ -11,6 +11,7 @@
 #include "fb.h"
 #include "mem.h"
 #include "road_draw.h"
+#include "road_rows.h"
 #include "sprites.h"
 #include "video.h"
 
@@ -53,11 +54,37 @@ static uint16_t header_word(const Track *t, uint8_t i) {
     return (uint16_t)(t->header[2 * i] << 8 | t->header[2 * i + 1]);
 }
 
+// 4-bit channels a and b mixed, q quarters of b: as light (about the
+// square of the value), back to 8 bits
+static uint8_t mix(uint8_t a, uint8_t b, uint8_t q) {
+    uint16_t la = (uint16_t)(a * 17) * (uint16_t)(a * 17), lb = (uint16_t)(b * 17) * (uint16_t)(b * 17);
+    uint16_t m = (uint16_t)(((uint32_t)la * (4 - q) + (uint32_t)lb * q) >> 2);
+    uint8_t r = 0;
+    for (uint8_t bit = 128; bit; bit >>= 1)
+        if ((uint16_t)(r | bit) * (uint16_t)(r | bit) <= m)
+            r |= bit;
+    return r;
+}
+
+// A stripe set's colours (header words from `word` on) mixed in pairs, in
+// road_rows.h's order, into palette entries from `to` on
+static void mixes(const Track *t, uint8_t word, uint8_t to) {
+    for (uint8_t i = 0; i < 4; i++)
+        for (uint8_t j = i + 1; j < 4; j++) {
+            uint16_t a = header_word(t, (uint8_t)(word + i)), b = header_word(t, (uint8_t)(word + j));
+            for (uint8_t q = 1; q < 4; q++)
+                video_rgb(to++, mix(a >> 8 & 15, b >> 8 & 15, q), mix(a >> 4 & 15, b >> 4 & 15, q),
+                          mix(a & 15, b & 15, q));
+        }
+}
+
 void render_palette(const Track *t) {
     for (uint8_t k = 0; k < 4; k++) {
         video_colour(COL_GRASS + k, header_word(t, (uint8_t)(4 + k)));
         video_colour(COL_SET_B + k, header_word(t, (uint8_t)(8 + k)));
     }
+    mixes(t, 4, COL_MIX);
+    mixes(t, 8, COL_MIX + ROAD_MIXES);
     for (uint8_t k = 0; k < 3; k++)
         video_colour(COL_BACKDROP + k, header_word(t, (uint8_t)(1 + k)));
     for (uint8_t k = 0; k < 16; k++)

@@ -29,7 +29,8 @@ image and `-autoload`). Joystick in port 2, or the cursor keys and space:
 
 * [src/](src/): the game in C and 45GS02 assembly - the race
   ([race.s](src/race.s)), the road ([road.c](src/road.c),
-  [render.s](src/render.s)), scenery and cars ([sprites.c](src/sprites.c)),
+  [render.s](src/render.s); its lines drawn out with smooth edges at the
+  start, [road_rows.s](src/road_rows.s)), scenery and cars ([sprites.c](src/sprites.c)),
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.

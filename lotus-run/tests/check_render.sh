@@ -12,14 +12,16 @@ TC=../toolchain
 CC=${MEGA65_CC:-$TC/llvm-mos/bin/mos-mega65-clang}
 OUT=build/check
 mkdir -p $OUT
-"$CC" -O2 -Wall -Isrc -Ibuild/gen -Droad_draw=ref_road_draw -c -o $OUT/ref_road_draw.o src/ref/road_draw.c
-"$CC" -O2 -Wall -Isrc -Ibuild/gen -Dsprites_draw=ref_sprites_draw -c -o $OUT/ref_sprites_draw.o \
+# Without link-time optimization: with it, llvm-mos got this program wrong
+# (road_lines read garbage once the pattern check was inlined into main).
+"$CC" -O2 -Wall -fno-lto -Isrc -Ibuild/gen -Droad_draw=ref_road_draw -c -o $OUT/ref_road_draw.o src/ref/road_draw.c
+"$CC" -O2 -Wall -fno-lto -Isrc -Ibuild/gen -Dsprites_draw=ref_sprites_draw -c -o $OUT/ref_sprites_draw.o \
     src/ref/sprites_draw.c
-"$CC" -Os -g -Wall -Isrc -Ibuild/gen -o $OUT/check_render.prg tests/check_render.c src/render.s \
-    src/road.c src/road_draw.c src/road_pixels.c src/banks.c src/fb_mega65.c src/disk.c src/dma.c build/gen/tables.c \
+"$CC" -Os -g -Wall -fno-lto -Isrc -Ibuild/gen -o $OUT/check_render.prg tests/check_render.c src/render.s \
+    src/road.c src/road_draw.c src/road_pixels.c src/road_rows.c src/road_rows.s src/irq.s src/banks.c src/fb_mega65.c src/disk.c src/dma.c build/gen/tables.c \
     build/gen/roadpat.c build/gen/sprbanks.c $OUT/ref_road_draw.o $OUT/ref_sprites_draw.o
 set --
-for f in build/disk/TRACK* build/disk/ROADPAT build/disk/SPR*; do
+for f in build/disk/TRACK* build/disk/SPR*; do
     set -- "$@" "$f=$(basename "$f")"
 done
 $TC/tools/bin/mkd81.py $OUT/check_render.d81 "CHECK RENDER" "$OUT/check_render.prg=CHECK" "$@" > /dev/null
@@ -36,12 +38,13 @@ m = open(out + '/mem.bin', 'rb').read()
 get = lambda n, f: struct.unpack_from(f, m, sym[n])[0]
 views, done, failed = get('check_views', '<I'), get('check_done', '<B'), get('check_failed', '<B')
 if failed:
-    what = ['', 'picture', '', 'loading', 'sprites'][failed]
+    what = ['', 'picture', '', 'loading', 'sprites', 'road line pattern'][failed]
     print(f"DIFFERENT: {what}, course {get('check_fail_course', '<B')}, "
           f"position ${get('check_fail_pos', '<I'):08X}, lateral {get('check_fail_lateral', '<h')}, "
           f"picture byte {get('check_fail_offset', '<H')} ({views} views the same before)")
     sys.exit(1)
-sets = get('check_sprite_sets', '<I')
-print(f"{sets} sprite lists and {views} views the same" + ("" if done else " (not finished: give it more time)"))
+sets, rows = get('check_sprite_sets', '<I'), get('check_rows', '<H')
+print(f"{rows} road line patterns, {sets} sprite lists and {views} views the same" +
+      ("" if done else " (not finished: give it more time)"))
 sys.exit(0 if done else 1)
 EOS

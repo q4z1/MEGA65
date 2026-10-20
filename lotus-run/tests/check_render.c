@@ -2,6 +2,7 @@
 // references in C (src/ref/) - a MEGA65 program, run in Xemu by
 // tests/check_render.sh.
 //
+// Every road line pattern is drawn out by both (road_rows.s, road_rows.c).
 // Views of every course - positions along it, the camera to the sides, in
 // two scales - are drawn by both, and made-up lists of sprites (any image
 // of the first course's banks or of the opponents' colourings, partly off
@@ -23,6 +24,8 @@
 #include "road.h"
 #include "road_draw.h"
 #include "road_pixels.h"
+#include "road_rows.h"
+#include "roadpat.h"
 #include "sprites.h"
 #include "tracks.h"
 
@@ -38,10 +41,13 @@ uint8_t sprite_count;
 static uint8_t track_buf[TRACK_SIZE];
 static RoadStep steps[ROAD_STEPS];
 
+volatile uint16_t check_rows;        // road line patterns compared
 volatile uint32_t check_views;       // views compared
 volatile uint32_t check_sprite_sets; // sprite lists compared
 volatile uint8_t check_failed;       // 0, or what differed: 1 picture, 3 loading,
-                                     // 4 sprites (course: the list, position: the scale)
+                                     // 4 sprites (course: the list, position: the scale),
+                                     // 5 a road line pattern (course: the variant,
+                                     // position: the width, lateral: the phase)
 volatile uint8_t check_fail_course;
 volatile uint32_t check_fail_pos;
 volatile int16_t check_fail_lateral;
@@ -107,6 +113,40 @@ static void check_view(uint8_t course, uint32_t pos, int16_t lateral) {
     check_views++;
 }
 
+// Every road line pattern by road_row_draw against road_row, the shades
+// as colours (drawn to SAVED, then read back)
+static void check_patterns(void) {
+    static uint8_t shades[ROAD_SHADES], got[ROAD_LEN_MAX];
+    static RoadRow row;
+    for (uint8_t s = 0; s < ROAD_SHADES; s++)
+        shades[s] = s;
+    rr_colours = rr_colours_b = shades;
+    for (uint16_t w2 = 0; w2 < ROAD_WIDTHS; w2++)
+        for (uint8_t v = 0; v < 2; v++)
+            for (uint8_t p = 0; p < 4; p++) {
+                rr_w2 = w2;
+                rr_v = v;
+                rr_p = p;
+                rr_dst = SAVED;
+                rr_dst_b = SAVED + 0x1000;
+                road_row_draw();
+                dma_flush();
+                road_row(w2, v, p, &row);
+                if (rr_start != row.start || rr_len != row.len || rr_dst != SAVED + row.len)
+                    fail(5, v, w2, p, 0xFFFF);
+                for (uint8_t set = 0; set < 2; set++) {
+                    dma_copy(SAVED + (set ? 0x1000 : 0), (uint16_t)got, row.len);
+                    dma_flush();
+                    uint16_t off = 0;
+                    for (uint8_t k = 0; k < row.n; k++)
+                        for (uint16_t i = 0; i < row.run[k].len; i++, off++)
+                            if (got[off] != row.run[k].shade)
+                                fail(5, v, w2, p, off);
+                }
+                check_rows++;
+            }
+}
+
 // Made-up sprites
 static uint32_t seed = 4711;
 
@@ -143,7 +183,9 @@ static void check_sprites(uint8_t set) {
 }
 
 int main(void) {
+    check_init();
     POKE(0xD020, 6);
+    check_patterns();
     if (!disk_load("TRACK00", (uint16_t)track_buf) || !banks_load((const Track *)track_buf))
         fail(3, 0, 0, 0, 0);
     for (uint8_t scale = 0; scale < 2; scale++) {
@@ -152,8 +194,6 @@ int main(void) {
         for (uint8_t set = 0; set < 120; set++)
             check_sprites(set);
     }
-    if (!disk_load("ROADPAT", ROADPAT))
-        fail(3, 0, 0, 0, 0);
     road_pixels_init();
     for (uint8_t course = 0; course < 32; course++) {
         char name[] = "TRACK00";

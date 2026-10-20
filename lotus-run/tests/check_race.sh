@@ -16,7 +16,7 @@ REF="-Drace_frame=ref_race_frame -Drace_picture=ref_race_picture -Drace_random=r
 # shellcheck disable=SC2086
 "$CC" -O2 -Wall -Isrc -Ibuild/gen $REF -c -o $OUT/ref_race.o src/ref/race.c
 "$CC" -Os -g -Wall -Isrc -Ibuild/gen -o $OUT/check.prg tests/check_race.c src/race.s \
-    src/race_setup.c src/race_data.c src/disk.c src/dma.c build/gen/progdata.c $OUT/ref_race.o
+    src/race_setup.c src/race_data.c src/disk.c src/dma.c src/irq.s build/gen/progdata.c $OUT/ref_race.o
 set --
 for f in build/disk/TRACK*; do
     set -- "$@" "$f=$(basename "$f")"

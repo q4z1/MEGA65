@@ -88,9 +88,8 @@ int main(void) {
     char name[] = "TRACK00";
     name[5] = "0123456789ABCDEF"[race.course >> 4];
     name[6] = "0123456789ABCDEF"[race.course & 15];
-    if (!disk_load(name, (uint16_t)TRACK_BUF) || !disk_load("ROADPAT", ROADPAT))
+    if (!disk_load(name, (uint16_t)TRACK_BUF))
         halt(2);
-    road_pixels_init();
     Track *t = (Track *)TRACK_BUF;
     if (!banks_load(t) || !backdrop_load(t->header[1]) || !panel_load() || !lapbar_load() ||
         !pages_load())
@@ -100,6 +99,8 @@ int main(void) {
     pages_on();
     if (!page_show("PTITLE"))
         halt(8);
+    // the road's lines drawn out while the title is shown
+    road_pixels_init();
     uint8_t f = video_frame();
     for (uint16_t frames = 0; frames < 400 && !(joystick() & JOY_FIRE);)
         if (video_frame() != f) {

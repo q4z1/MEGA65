@@ -19,6 +19,8 @@ void video_on(void);
 
 // Palette entry i from a 12-bit colour ($0RGB)
 void video_colour(uint8_t i, uint16_t rgb4);
+// ... and from 8-bit channels
+void video_rgb(uint8_t i, uint8_t r, uint8_t g, uint8_t b);
 
 // Waits for the lower border and shows what was drawn
 void video_show(void);

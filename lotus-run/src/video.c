@@ -37,6 +37,17 @@ void video_colour(uint8_t i, uint16_t rgb4) {
     POKE(0xD300 + i, (rgb4 & 15) * 17);
 }
 
+// The VIC-IV keeps the nybbles of a channel swapped
+static uint8_t swap(uint8_t v) {
+    return (uint8_t)(v << 4 | v >> 4);
+}
+
+void video_rgb(uint8_t i, uint8_t r, uint8_t g, uint8_t b) {
+    POKE(0xD100 + i, swap(r));
+    POKE(0xD200 + i, swap(g));
+    POKE(0xD300 + i, swap(b));
+}
+
 uint8_t video_frame(void) {
     return PEEK(0xD7FA);
 }

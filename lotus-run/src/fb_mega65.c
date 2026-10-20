@@ -5,7 +5,6 @@
 
 #include "dma.h"
 #include "mem.h"
-#include "roadpat.h"
 #include "sprbanks.h"
 
 void fb_span(uint8_t y, uint16_t x0, uint16_t x1, uint8_t c) {
@@ -23,9 +22,4 @@ void fb_sprite_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len) {
 
 void fb_key_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len, uint8_t key) {
     dma_copy_transparent(src, PICTURE + (uint16_t)(y * FB_W + x), len, key);
-}
-
-void fb_roadpat(uint16_t offset, uint8_t *buf) {
-    dma_copy(ROADPAT + offset, (uint16_t)buf, ROADPAT_MAX);
-    dma_flush();
 }

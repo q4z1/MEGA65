@@ -4,8 +4,9 @@
 // host tests implement. The race view's colours are palette entries: 1-7 the
 // cars, 8-11 the scenery's (set per picture); the course's colours for the
 // rest, set by render_palette: the road's stripes in two sets of grass,
-// kerb, road and lane (COL_GRASS, COL_SET_B), the backdrop's three, the
-// sky's 16 bands down to the horizon. The stripes and the bands are drawn
+// kerb, road and lane (COL_GRASS, COL_SET_B) and those mixed for smooth
+// edges (COL_MIX), the backdrop's three, the sky's 16 bands down to the
+// horizon. The stripes and the bands are drawn
 // in their own colours - nothing changes while a picture is shown.
 
 #ifndef RENDER_H
@@ -20,6 +21,7 @@
 #define COL_BACKDROP 20  // the backdrop: three colours
 #define COL_SKY      64  // the sky: 16 bands
 #define COL_SKY_KEY  15  // in the backdrop's pictures: the sky shows
+#define COL_MIX      80  // the stripes' colours mixed (road_rows.h): set A's 18, then set B's
 
 // What a picture of the race needs
 typedef struct {

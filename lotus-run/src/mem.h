@@ -43,15 +43,11 @@ _Static_assert(0xE000 + TRACK_BUF_SIZE <= 0xFFFA, "the course reaches the interr
 _Static_assert(SCREEN + SCREEN_SIZE <= CONV_LIST, "the screen reaches the conversion list");
 _Static_assert(CONV_LIST + CONV_LIST_SIZE <= 0x1F800, "the conversion list reaches the colour RAM at $1F800");
 
-// The road line patterns (ROADPAT from the disk, tools/mkdata.py)
-#define ROADPAT 0x1A800ul
-_Static_assert(CONV_LIST + CONV_LIST_SIZE <= ROADPAT, "the conversion list reaches the road patterns");
-_Static_assert(ROADPAT + 9600 <= 0x1D000, "the road patterns reach their index");
-
 // Where every road line pattern lies as pixels in ROADPIX (road_pixels.c):
-// 512 entries of 8 bytes
-#define ROADIDX      0x1D000ul
-#define ROADIDX_SIZE (512 * 8u)
+// per width scale >> 3 (512) and variant (2) an entry of 8 bytes
+#define ROADIDX      0x1A800ul
+#define ROADIDX_SIZE (1024 * 8u)
+_Static_assert(CONV_LIST + CONV_LIST_SIZE <= ROADIDX, "the conversion list reaches the road pattern index");
 _Static_assert(ROADIDX + ROADIDX_SIZE <= 0x1E000, "the road pattern index reaches the pages' screen");
 
 // The screen of the 640 x 400 pages (pages.c): 40 x 50 characters of 2 bytes
@@ -73,12 +69,9 @@ _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen rea
 
 #define ATTIC 0x8000000ul
 
-// The road line patterns as pixels (road_pixels.c), the course's backdrop
-// (960 x 32), then its sprite banks (banks.c), one byte per pixel
-#define ROADPIX      ATTIC
-#define ROADPIX_SIZE 0x48000ul
-#define ROADPIX_B    0x24000ul  // the patterns in the colours of stripe set B, from ROADPIX + this
-#define BACKDROP     (ROADPIX + ROADPIX_SIZE)
+// The course's backdrop (960 x 32), then its sprite banks (banks.c), one
+// byte per pixel
+#define BACKDROP     ATTIC
 #define BACKDROP_SIZE 0x7800ul
 // the panel (banks.c, panel.c): as shown, then as on the disk (its picture
 // without values, then the values' pictures)
@@ -92,6 +85,11 @@ _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen rea
 // a page as loaded from the disk, the text font (pages.c), from 1M on
 #define PAGE_LOAD    (ATTIC + 0x100000ul)
 #define GLYPHS_ATTIC (ATTIC + 0x120000ul)
+// The road line patterns as pixels (road_pixels.c), from 2M on: in the
+// colours of stripe set A, from ROADPIX + ROADPIX_B on in those of set B
+#define ROADPIX      (ATTIC + 0x200000ul)
+#define ROADPIX_B    0x130000ul
+#define ROADPIX_SIZE (2 * ROADPIX_B)
 
 // ---------------------------------------------------------------- colour RAM
 
