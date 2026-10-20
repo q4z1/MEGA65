@@ -61,5 +61,8 @@ void attic_copy(uint32_t src, uint32_t dst, uint16_t len);
 #define BANKS_POOL 2560
 extern uint8_t banks_pool[BANKS_POOL];
 extern uint16_t banks_dir[SPR_BANKS];
+// per bank a 24-bit offset added to its images' addresses (the opponents'
+// colourings share the cars' directory)
+extern uint8_t banks_offset[SPR_BANKS][3];
 
 #endif

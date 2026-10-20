@@ -187,6 +187,7 @@ static uint8_t opp_found;
 static int16_t opp_depth;   // -1: no more
 static uint16_t opp_frac;
 static int16_t opp_x;
+static uint8_t opp_colour;  // which of the opponents' colourings
 
 // the next in the opponents' ring that is in sight; after the
 // first one in sight the first one out of it ends them
@@ -198,6 +199,7 @@ static void next_opponent(void) {
         }
         uint32_t pos = race.opp_pic[opp_i];
         opp_x = race.opp_pic_x[opp_i];
+        opp_colour = opp_i % OPP_COLOURS;
         opp_i++;
         uint32_t d = pos - opp_prev;
         opp_prev += d;
@@ -223,7 +225,8 @@ static void next_opponent(void) {
 static void opponent(void) {
     int16_t size = tab_car_size[opp_depth];
     if (size >= 0)
-        place(SPR_CARS, KIND_OPPONENT, 0, (uint16_t)opp_depth, opp_x, opp_frac, size);
+        place(opp_colour ? SPR_OPP + opp_colour - 1 : SPR_CARS, KIND_OPPONENT, 0, (uint16_t)opp_depth, opp_x,
+              opp_frac, size);
 }
 
 // ---------------------------------------------------------------- the cars

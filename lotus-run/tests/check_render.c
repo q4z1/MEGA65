@@ -4,8 +4,8 @@
 //
 // Views of every course - positions along it, the camera to the sides, in
 // two scales - are drawn by both, and made-up lists of sprites (any image
-// of the first course's banks, partly off the picture, cut by their clip
-// row); the pictures must be the same byte for byte, and so must what they
+// of the first course's banks or of the opponents' colourings, partly off
+// the picture, cut by their clip row); the pictures must be the same byte for byte, and so must what they
 // note besides. The result is left in memory (check_views, check_failed,
 // ...) and shown in the border: green when all is the same, red at the
 // first difference; then Xemu exits (check.h).
@@ -123,12 +123,14 @@ static uint16_t rnd(void) {
 }
 
 static void check_sprites(uint8_t set) {
-    static const uint8_t banks[] = {SPR_CARS, SPR_HUD, 0, 1, 2, 3};
+    static const uint8_t banks[] = {SPR_CARS, SPR_HUD, 0, 1, 2, 3, SPR_OPP, SPR_OPP + 2, SPR_OPP + 4};
     sprite_count = (uint8_t)(1 + rnd() % 24);
     for (uint8_t i = 0; i < sprite_count; i++) {
         Sprite *s = &sprite_list[i];
         s->bank = banks[rnd() % sizeof banks];
         s->image = (uint8_t)(rnd() % banks_pool[banks_dir[s->bank] - 1]);
+        if (s->bank >= SPR_OPP)
+            s->image = (uint8_t)(63 + s->image % 63);  // the opponents' images in another colouring
         s->x = (int16_t)(rnd() % 520) - 120;
         s->y = (int16_t)(rnd() % (view_lines + 60)) - 20;
         s->clip = (int16_t)(rnd() % view_lines);

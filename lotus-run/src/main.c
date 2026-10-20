@@ -16,6 +16,7 @@
 #include "panel.h"
 #include "progdata.h"
 #include "race.h"
+#include "sprbanks.h"
 #include "render.h"
 #include "road_pixels.h"
 #include "track.h"
@@ -25,11 +26,23 @@ _Static_assert(TRACK_SIZE <= TRACK_BUF_SIZE, "the largest course does not fit in
 #include "video.h"
 
 
+// The player's car's paint (CAR_PAINT): green, light to dark; the
+// opponents' (OPP_PAINT): white, blue, yellow, anthracite, orange, violet,
+// each light and dark
+static const uint16_t car_paint[3] = {0x4D1, 0x091, 0x040};
+static const uint16_t opp_paint[2 * OPP_COLOURS] = {0xCCC, 0x666, 0x59E, 0x236, 0xED3, 0x870,
+                                                    0x555, 0x222, 0xF94, 0x942, 0xB7D, 0x535};
+
 // The race view's colours 1-7 (those of 12-15 change down the screen,
-// render.c; 8-11 are the scenery's, per picture), the panel's 17-19, 25-27
+// render.c; 8-11 are the scenery's, per picture), the player's car's paint,
+// the panel's 17-19, 25-27
 static void view_colours(void) {
     for (uint8_t i = 0; i < 7; i++)
         video_colour(1 + i, tab_view_colours[i]);
+    for (uint8_t i = 0; i < 3; i++)
+        video_colour(CAR_PAINT + i, car_paint[i]);
+    for (uint8_t i = 0; i < 2 * OPP_COLOURS; i++)
+        video_colour(OPP_PAINT + i, opp_paint[i]);
     for (uint8_t i = 0; i < 3; i++) {
         video_colour(17 + i, tab_panel_colours[i]);
         video_colour(25 + i, tab_panel_colours[3 + i]);

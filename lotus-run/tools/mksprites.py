@@ -42,6 +42,10 @@ import packers  # noqa: E402
 SPR_CLEAR = 0xFF
 SPR_CARS = 0x40
 SPR_HUD = 0x41
+CAR_PAINT = 40
+OPP_PAINT = 48     # the opponents' paints: colours OPP_PAINT + 2k (light), + 2k + 1 (dark)
+OPP_COLOURS = 6
+SPR_OPP = 0x42     # banks SPR_OPP .. SPR_OPP + 4: the opponents in colourings 1-5
 
 # object types without a file use these
 ALIASES = {0x92: 0x8F, 0x93: 0x90, 0x88: 0x87, 0xA6: 0xA5, 0xA8: 0xA7}
@@ -278,6 +282,27 @@ def lapbar_file():
     return rle(bytes(out))
 
 
+def repaint(cars):
+    """The cars' paint into colours of their own: the player's car (images
+    0-62: red 1-3) to CAR_PAINT + 0-2, the opponents (63-125: white 6, grey 5)
+    to OPP_PAINT, OPP_PAINT + 1 - the game makes their other colourings from
+    these (banks.c). Both are drawn alike, so image i and i + 63 tell paint
+    from lights: where the opponent is red, a light, which stays red; where
+    both have the same grey, the number plate and the like, which stay."""
+    out = list(cars)
+    for i in range(63):
+        (w, h, own), (w2, h2, opp) = cars[i], cars[i + 63]
+        if (w, h) != (w2, h2):
+            sys.exit(f'cars: images {i} and {i + 63} differ in size')
+        a, b = bytearray(own), bytearray(opp)
+        for k in range(w * h):
+            if own[k] in (1, 2, 3) and opp[k] in (5, 6):
+                a[k] = CAR_PAINT + own[k] - 1
+                b[k] = OPP_PAINT + (opp[k] == 5)
+        out[i], out[i + 63] = (w, h, bytes(a)), (w, h, bytes(b))
+    return out
+
+
 def bank_file(ims):
     head = bytearray([len(ims)])
     for w, h, _ in ims:
@@ -301,7 +326,7 @@ def main():
             banks[t - 0x80] = list(images(f51, FILE51[t]))
         elif os.path.exists(os.path.join(orig, f'{t:02X}.bin')):
             banks[t - 0x80] = list(images(unpack(t)))
-    banks[SPR_CARS] = list(images(unpack(0xC0)))
+    banks[SPR_CARS] = repaint(list(images(unpack(0xC0))))
     banks[SPR_HUD] = list(images(unpack(0x50), FILE50_HUD))
     for b, ims in banks.items():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
@@ -324,7 +349,11 @@ def main():
                 f'#define SPR_CLEAR 0x{SPR_CLEAR:02X}  // a pixel that is not drawn\n'
                 f'#define SPR_CARS  0x{SPR_CARS:02X}  // the cars: 9 angles per size, the opponents from 63\n'
                 f'#define SPR_HUD   0x{SPR_HUD:02X}  // messages, countdown, places, brake lights\n'
-                f'#define SPR_BANKS 0x{SPR_HUD + 1:02X}\n'
+                f'#define CAR_PAINT {CAR_PAINT}  // the player\'s car\'s paint: colours CAR_PAINT + 0-2 (light, middle, dark)\n'
+                f'#define OPP_PAINT {OPP_PAINT}  // opponents: colouring k in colours OPP_PAINT + 2k (light), + 1 (dark)\n'
+                f'#define OPP_COLOURS {OPP_COLOURS}\n'
+                f'#define SPR_OPP   0x{SPR_OPP:02X}  // the opponents in colourings 1-5: the cars\' images 63-125\n'
+                f'#define SPR_BANKS 0x{SPR_OPP + OPP_COLOURS - 1:02X}\n'
                 f'#define SPR_LARGEST {largest}  // pixels of the largest bank\n'
                 f'#define BACK_W {BACK_W}  // a backdrop (BACKN): colours, row after row\n'
                 f'#define BACK_H {BACK_H}\n'

@@ -9,12 +9,19 @@
 
 #include "banks.h"
 #include "fb.h"
+#include "mem.h"
 #include "road_draw.h"
 #include "sprites.h"
 
 ColourTable render_colours;
 
+// the depth steps: on the MEGA65 at a fixed place (mem.h)
+#ifdef __mos__
+#define steps ((RoadStep *)ROAD_STEPS_AT)
+_Static_assert(ROAD_STEPS * sizeof(RoadStep) <= ROAD_STEPS_AT_SIZE, "the depth steps do not fit");
+#else
 static RoadStep steps[ROAD_STEPS];
+#endif
 
 // The backdrop above the horizon (row top of the picture): 32 rows, its
 // bottom at (16 - slope) / 2 + 32 in a 96-line view (scaled), no lower

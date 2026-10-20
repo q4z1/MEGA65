@@ -17,6 +17,7 @@
 
 uint8_t banks_pool[BANKS_POOL];
 uint16_t banks_dir[SPR_BANKS];
+uint8_t banks_offset[SPR_BANKS][3];
 static uint16_t pool_used;
 static uint32_t attic_used;
 
@@ -161,13 +162,45 @@ void attic_copy(uint32_t src, uint32_t dst, uint16_t len) {
     dma_copy(src, dst, len);
 }
 
+// The opponents in their other colourings: their images (the cars' 63-125,
+// one after the other) copied with the paint's colours moved to those of
+// colouring k (OPP_PAINT + 2k, + 2k + 1); banks SPR_OPP + k - 1 are these,
+// with the cars' directory and an offset to its addresses
+static void opponent_colours(void) {
+    static uint8_t buf[256];
+    uint32_t from = sprite_pixels(SPR_CARS, 63);
+    uint32_t len = sprite_pixels(SPR_CARS, 125) + sprite_width(SPR_CARS, 125) * sprite_height(SPR_CARS, 125) - from;
+    for (uint8_t k = 1; k < OPP_COLOURS; k++) {
+        uint32_t to = ATTIC + attic_used, offset = to - from;
+        for (uint32_t off = 0; off < len; off += sizeof buf) {
+            uint16_t n = len - off < sizeof buf ? (uint16_t)(len - off) : (uint16_t)sizeof buf;
+            dma_copy(from + off, (uint16_t)buf, n);
+            dma_flush();
+            for (uint16_t i = 0; i < n; i++)
+                if ((uint8_t)(buf[i] - OPP_PAINT) < 2)
+                    buf[i] += 2 * k;
+            dma_copy((uint16_t)buf, to + off, n);
+            dma_flush();
+        }
+        attic_used += len;
+        uint8_t b = SPR_OPP + k - 1;
+        banks_dir[b] = banks_dir[SPR_CARS];
+        banks_offset[b][0] = (uint8_t)offset;
+        banks_offset[b][1] = (uint8_t)(offset >> 8);
+        banks_offset[b][2] = (uint8_t)(offset >> 16);
+    }
+}
+
 bool banks_load(const Track *t) {
-    for (uint8_t b = 0; b < SPR_BANKS; b++)
+    for (uint8_t b = 0; b < SPR_BANKS; b++) {
         banks_dir[b] = 0;
+        banks_offset[b][0] = banks_offset[b][1] = banks_offset[b][2] = 0;
+    }
     pool_used = 0;
     attic_used = BANKS_ATTIC - ATTIC;
     if (!load_bank(SPR_CARS) || !load_bank(SPR_HUD))
         return false;
+    opponent_colours();
     // the scenery every course has ($80-$83), then the course's
     for (uint8_t i = 0; i < 4; i++)
         if (!load_bank(spr_bank_of_type[i]))
@@ -198,5 +231,7 @@ uint8_t sprite_height(uint8_t bank, uint8_t image) {
 
 uint32_t sprite_pixels(uint8_t bank, uint8_t image) {
     const uint8_t *e = entry(bank, image);
-    return ATTIC + (e[2] | (uint32_t)e[3] << 8 | (uint32_t)e[4] << 16);
+    const uint8_t *o = banks_offset[bank];
+    return ATTIC + (e[2] | (uint32_t)e[3] << 8 | (uint32_t)e[4] << 16) +
+           (o[0] | (uint32_t)o[1] << 8 | (uint32_t)o[2] << 16);
 }

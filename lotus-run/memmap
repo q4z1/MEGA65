@@ -2,6 +2,7 @@
 # the disk - for toolchain/tools/bin/mega65-mem. The numbers are src/mem.h's.
 
 # Bank 0
+ram  $0400+1024      the projection's depth steps (render.c)
 ram  $0800+6144      DMA list being collected (dma.c)
 
 ram  $E000+8176      the course, under the KERNAL (main.c, TRACK_BUF)

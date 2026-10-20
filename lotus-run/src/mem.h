@@ -11,6 +11,11 @@
 
 // ---------------------------------------------------------------- bank 0
 
+// The projection's depth steps (render.c): in what was the KERNAL's and
+// BASIC's work area; the KERNAL is switched out from video_init on
+#define ROAD_STEPS_AT      0x0400
+#define ROAD_STEPS_AT_SIZE 0x0400u
+
 // The DMA list being collected (dma.c): below the program, where BASIC had
 // its screen; the game never goes back to BASIC.
 #define DMA_LIST      ((uint8_t *)0x0800)

@@ -604,6 +604,22 @@ sprites_draw:
     iny
     lda (lp), y
     sta sd_src + 2
+    ; plus the bank's offset (the opponents' colourings)
+    lda sd_bank
+    asl
+    clc
+    adc sd_bank
+    tax
+    clc
+    lda sd_src
+    adc banks_offset, x
+    sta sd_src
+    lda sd_src + 1
+    adc banks_offset + 1, x
+    sta sd_src + 1
+    lda sd_src + 2
+    adc banks_offset + 2, x
+    sta sd_src + 2
     lda #(ATTIC >> 24)
     sta sd_src + 3
 
