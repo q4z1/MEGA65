@@ -29,7 +29,8 @@ accelerates (the fire button or the joystick forward) and shows what each
 direction does; Run/Stop gives up a race.
 
 `LOTUS_CFLAGS=-DLOTUS_AUTOTEST ./build.sh` makes a build that goes through
-the pages by itself and drives with a held joystick, for recordings.
+the pages by itself and drives on its own (full gas, holding a line,
+round slower cars), for recordings.
 
 ## Inside
 

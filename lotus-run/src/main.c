@@ -77,6 +77,46 @@ static uint8_t joystick(void) {
     return j;
 }
 
+#ifdef LOTUS_AUTOTEST
+// A driver for recordings: full gas (fire), and the steering it takes to
+// hold a line - against the bend's drift, back to the line, round slower
+// cars just ahead
+static uint8_t driver(void) {
+    const Player *p = &race.p[0];
+    int16_t x = (int16_t)(p->x >> 16), target = 0;
+    for (uint8_t i = 0; i < race.opponents; i++) {
+        const Opponent *o = &race.opp[i];
+        int32_t d = (int32_t)(o->pos - p->pos);
+        if (d > 0 && d < 0x30000 && o->speed < p->speed && o->x - target < 0x60 && target - o->x < 0x60)
+            target = o->x < 0 ? (int16_t)(o->x + 0x70) : (int16_t)(o->x - 0x70);
+    }
+    if (target > 0x80)
+        target = 0x80;
+    if (target < -0x80)
+        target = -0x80;
+    // the speed sideways steering gives (as race.c's move)
+    int32_t s = p->speed;
+    if (s < 0x0A00)
+        s = (s + 0x0A00) >> 1;
+    if (s < 0x100)
+        return JOY_FIRE;
+    // the steering that holds the bend, and that brings the car back to the
+    // line in about half a second
+    int32_t want = -((int32_t)p->curve * 12 * (int16_t)p->speed) / (5 * s);
+    want -= ((int32_t)(x - target) << 16) / 25 / (5 * s);
+    if (want > 0x20)
+        want = 0x20;
+    if (want < -0x20)
+        want = -0x20;
+    uint8_t j = JOY_FIRE;
+    if (p->steer > want + 1)
+        j |= JOY_LEFT;
+    else if (p->steer < want - 1)
+        j |= JOY_RIGHT;
+    return j;
+}
+#endif
+
 // The logic of every frame that has passed since the last call
 static uint8_t frame_done;
 
@@ -85,10 +125,7 @@ static void catch_up(void) {
         sound_frame();  // as the original: before the logic, from the last frame
         race_joy[0] = joystick();
 #ifdef LOTUS_AUTOTEST
-        // the joystick held by a simple driver: fire, steering back to the
-        // middle (screens.c goes on by itself)
-        int16_t x = (int16_t)(race.p[0].x >> 16);
-        race_joy[0] = (uint8_t)(JOY_FIRE | (x >= 0x20 ? JOY_LEFT : 0) | (x < -0x60 ? JOY_RIGHT : 0));
+        race_joy[0] = driver();  // (screens.c goes on by itself)
 #endif
         race_frame();
         frame_done++;
@@ -204,9 +241,6 @@ int main(void) {
                 break;
             }
             pages_on();
-#ifdef LOTUS_AUTOTEST
-            race.p[0].place = 1;  // the simple driver is no racer: on to the next race
-#endif
             season_classify();
             screen_result();
             if (season.place >= SCORING) {
