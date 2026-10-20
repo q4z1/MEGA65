@@ -1,0 +1,28 @@
+# Lotus Run: the memory the linker does not place, and the files on
+# the disk - for toolchain/tools/bin/mega65-mem. The numbers are src/mem.h's.
+
+# Bank 0
+ram  $0800+6144      DMA list being collected (dma.c)
+
+# Bank 1
+ram  $10000+2000     screen: 40x25 characters of 2 bytes (video.c)
+ram  $10800+40000    conversion list: picture to characters, 1600 jobs (video.c)
+ram  $1A800+9473     road line patterns (ROADPAT)
+ram  $1D000+4096     road line pattern index: where each is in ROADPIX (road_pixels.c)
+
+# Banks 4 and 5
+ram  $40000+64000    the picture being drawn: 320x200 bytes (fb_mega65.c)
+ram  $50000+64000    the characters on screen: 1000 x 64 bytes (video.c)
+
+# Attic RAM: the road line patterns as pixels, then the sprite banks of the
+# course, one byte per pixel
+ram  $8000000+147456 road line patterns drawn out (ROADPIX, road_pixels.c)
+ram  $8024000+262144 sprite banks (the course's, about 200K; banks.c)
+
+# Colour RAM, cleared to 0: no attributes (video.c)
+ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
+
+# The disk (build.sh). The program itself is found by its contents.
+file TRACK??         @track_buf  a course (tools/mkdata.py)
+file ROADPAT         @$1A800     road line patterns (tools/mkdata.py)
+file SPR??           @$40000     a sprite bank, unpacked to attic RAM (tools/mksprites.py)

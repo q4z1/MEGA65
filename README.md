@@ -9,6 +9,7 @@ Each subfolder is a self-contained program.
 | Folder | What it is |
 | --- | --- |
 | [main/](main/) | Hello world: C with one routine in assembly. A template, and a check that everything works together. |
+| [lotus-run/](lotus-run/README.md) | Lotus Run: a racing game after the Amiga's Lotus Esprit Turbo Challenge, with the race on the whole screen. Work in progress. |
 | [smaragd-dash/](smaragd-dash/README.md) | Smaragd Dash: a Boulder Dash style game in 256 colours with smooth scrolling, title logo and stereo music, on a D81. 25 caves in four levels each (100), loaded from the disk. |
 
 ## How this was made
