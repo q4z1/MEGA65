@@ -36,7 +36,7 @@ m = open(out + '/mem.bin', 'rb').read()
 get = lambda n, f: struct.unpack_from(f, m, sym[n])[0]
 views, done, failed = get('check_views', '<I'), get('check_done', '<B'), get('check_failed', '<B')
 if failed:
-    what = ['', 'picture', 'stripe changes', 'loading', 'sprites'][failed]
+    what = ['', 'picture', '', 'loading', 'sprites'][failed]
     print(f"DIFFERENT: {what}, course {get('check_fail_course', '<B')}, "
           f"position ${get('check_fail_pos', '<I'):08X}, lateral {get('check_fail_lateral', '<h')}, "
           f"picture byte {get('check_fail_offset', '<H')} ({views} views the same before)")

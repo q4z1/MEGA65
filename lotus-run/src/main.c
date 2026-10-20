@@ -108,6 +108,7 @@ int main(void) {
         }
     pages_off();
     view_colours();
+    render_palette(t);
     race_track = t;
     race.segments = t->segments;
     race.random[0] = 0x12345678;

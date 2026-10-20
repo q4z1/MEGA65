@@ -13,17 +13,12 @@
 #include "hw.h"
 #include "irq.h"
 #include "mem.h"
-#include "render.h"
 
 #define COLS     40
 #define ROWS     25
 #define LINESTEP (COLS * 2)
 
 static uint16_t bottom;  // first raster line of the bottom border
-
-// The raster line (VIC-II numbering, as $D012 compares) of the picture's
-// first row
-#define RASTER_TOP 51
 
 static uint16_t raster(void) {
     uint8_t lo, hi;
@@ -132,49 +127,13 @@ void video_on(void) {
     POKE(0xD062, (uint8_t)(SCREEN >> 16));
     POKE(0xD063, 0);
 
-    // colours 12-15 all black until there is a picture
-    irq_count = 1;
-    irq_line_lo[0] = RASTER_TOP;
-    irq_line_hi[0] = 0;
-    for (uint8_t k = 0; k < 12; k++)
-        irq_colours[k * IRQ_ENTRIES] = 0;
-    __asm__ volatile("sei");
-    irq_restart();
-    POKE(0xD019, 0xFF);
-    POKE(0xD01A, 0x01);
-    __asm__ volatile("cli");
 }
 
 void video_init(void) {
     build_screen();
     build_conversion();
-    irq_count = 1;
-    irq_line_lo[0] = RASTER_TOP;
-    irq_line_hi[0] = 0;
     irq_init();
     video_on();
-}
-
-// The picture's colour changes (render_colours) into the interrupt's table
-static void show_colours(void) {
-    const ColourTable *c = &render_colours;
-    if (!c->count)
-        return;
-    __asm__ volatile("sei");
-    for (uint8_t i = 0; i < c->count; i++) {
-        uint16_t line = RASTER_TOP + c->line[i];
-        irq_line_lo[i] = (uint8_t)line;
-        irq_line_hi[i] = (uint8_t)(line >> 1) & 0x80;
-        for (uint8_t k = 0; k < 4; k++) {
-            uint16_t rgb = c->colours[i][k];
-            irq_colours[(k * 3) * IRQ_ENTRIES + i] = (rgb >> 8 & 15) * 17;
-            irq_colours[(k * 3 + 1) * IRQ_ENTRIES + i] = (rgb >> 4 & 15) * 17;
-            irq_colours[(k * 3 + 2) * IRQ_ENTRIES + i] = (rgb & 15) * 17;
-        }
-    }
-    irq_count = c->count;
-    irq_restart();
-    __asm__ volatile("cli");
 }
 
 void video_show(void) {
@@ -184,5 +143,4 @@ void video_show(void) {
         r = raster();
     while (r < bottom || r >= bottom + 40);
     dma_run_list(CONV_LIST);
-    show_colours();
 }

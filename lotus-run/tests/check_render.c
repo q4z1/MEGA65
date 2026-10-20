@@ -40,7 +40,7 @@ static RoadStep steps[ROAD_STEPS];
 
 volatile uint32_t check_views;       // views compared
 volatile uint32_t check_sprite_sets; // sprite lists compared
-volatile uint8_t check_failed;       // 0, or what differed: 1 picture, 2 stripe changes, 3 loading,
+volatile uint8_t check_failed;       // 0, or what differed: 1 picture, 3 loading,
                                      // 4 sprites (course: the list, position: the scale)
 volatile uint8_t check_fail_course;
 volatile uint32_t check_fail_pos;
@@ -82,7 +82,6 @@ static void clear_picture(void) {
     dma_flush();
 }
 
-static uint8_t changes, change_row[RENDER_COLOURS], change_set[RENDER_COLOURS];
 
 static void check_view(uint8_t course, uint32_t pos, int16_t lateral) {
     const Track *t = (const Track *)track_buf;
@@ -98,9 +97,6 @@ static void check_view(uint8_t course, uint32_t pos, int16_t lateral) {
     dma_flush();
     dma_copy(PICTURE, SAVED, 64000u);
     dma_flush();
-    changes = road_changes;
-    memcpy(change_row, road_change_row, sizeof change_row);
-    memcpy(change_set, road_change_set, sizeof change_set);
 
     clear_picture();
     road_draw();
@@ -108,9 +104,6 @@ static void check_view(uint8_t course, uint32_t pos, int16_t lateral) {
     uint16_t off = compare_pictures();
     if (off != 0xFFFF)
         fail(1, course, pos, lateral, off);
-    if (changes != road_changes || memcmp(change_row, road_change_row, changes) ||
-        memcmp(change_set, road_change_set, changes))
-        fail(2, course, pos, lateral, 0);
     check_views++;
 }
 

@@ -12,7 +12,8 @@ attic RAM (banks.c), images one byte per pixel, row after row: the colour
 
 A backdrop (files $60-$69) is three bitplanes of 320 x 96 pixels: three
 strips of 320 x 32, side by side a panorama of 960 x 32. Its values 0-6 are
-colours 4-7 and 12-14, 7 the sky (colour 15).
+colours 4-7 and 12-14 - those three become BACK_COLOURS on - and 7 the sky
+(colour 15).
 
 Writes into GENDIR:
     sprNN.bin     bank NN (on the disk as SPRNN): u8 image count, per image
@@ -96,6 +97,7 @@ def rle(d):
 
 
 BACKDROPS = 10
+BACK_COLOURS = 20  # the backdrop's colours 12-14 (render.h: COL_BACKDROP); 15 is the sky
 BACK_W, BACK_H = 960, 32
 
 
@@ -109,7 +111,8 @@ def backdrop(d):
             v = 0
             for p in range(3):
                 v |= (d[p * 3840 + row * 40 + sx // 8] >> (7 - sx % 8) & 1) << p
-            out.append(4 + (v & 3) + ((v & 4) << 1))
+            c = 4 + (v & 3) + ((v & 4) << 1)
+            out.append(c if c < 12 or c == 15 else BACK_COLOURS + c - 12)
     return bytes(out)
 
 

@@ -2,7 +2,8 @@
 // road_draw: the road lines pre-drawn.
 //
 // ROADPAT (from the disk) has every pattern as runs of colour; here they
-// are drawn out once, one after the other, into ROADPIX in attic RAM, and
+// are drawn out once, one after the other, into ROADPIX in attic RAM - in
+// the colours of stripe set A, and from ROADPIX_B on in those of set B - and
 // ROADIDX gets per pattern: its start relative to its reference point
 // (as ROADPAT's), its length and where its pixels are (24 bits from ATTIC).
 
@@ -16,7 +17,7 @@
 #include "render.h"
 #include "roadpat.h"
 
-_Static_assert(ROADPAT_PIXELS <= ROADPIX_SIZE, "the road patterns do not fit into ROADPIX");
+_Static_assert(ROADPAT_PIXELS <= ROADPIX_B, "the road patterns do not fit into ROADPIX");
 
 void road_pixels_init(void) {
     uint32_t at = ROADPIX - ATTIC;
@@ -28,6 +29,7 @@ void road_pixels_init(void) {
         for (uint8_t k = 0; k < pat[2]; k++) {
             uint8_t code = pat[3 + k];
             dma_fill(ATTIC + at, (uint8_t)(COL_GRASS + (code >> 6)), code & 63);
+            dma_fill(ATTIC + at + ROADPIX_B, (uint8_t)(COL_SET_B + (code >> 6)), code & 63);
             at += code & 63;
         }
         entry[0] = pat[0];

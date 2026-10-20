@@ -2,10 +2,10 @@
 ; as their references in C (src/ref/); tests/check_render.c checks these
 ; against them on the MEGA65.
 ;
-; road_draw (road_draw.h): every road line is one DMA copy of its pattern, drawn out in attic RAM
-; (ROADPIX, road_pixels.c), cut to the picture; one fill job before them
-; lays the grass under all of them. The patterns' index (ROADIDX, bank 1) is
-; read through a 32-bit pointer.
+; road_draw (road_draw.h): every road line is a fill with its grass, then
+; one DMA copy of its pattern, drawn out in attic RAM (ROADPIX, road_pixels.c;
+; for stripe set B from ROADPIX_B on), cut to the picture. The patterns'
+; index (ROADIDX, bank 1) is read through a 32-bit pointer.
 ;
 ; sprites_draw (sprites.h): every visible row of a sprite becomes a DMA copy
 ; from attic RAM that leaves out SPR_CLEAR.
@@ -37,7 +37,8 @@ lp   = __rc18                   ; pointer
 .section .bss.render_s,"aw",@nobits
 rd_l:       .fill 1             ; the line
 rd_y:       .fill 1             ; its screen row
-rd_shown:   .fill 1             ; the stripe set of the line before
+rd_shown:   .fill 1             ; the line's stripe set (0, 4)
+rd_col:     .fill 1             ; its grass colour
 rd_lp:      .fill 2             ; &render_lines[rd_l]
 ln_x:       .fill 2             ; the line's RoadLine
 ln_scale:   .fill 2
@@ -112,10 +113,6 @@ room:
     rts
 
 road_draw:
-    lda #$FF
-    sta rd_shown
-    lda #0
-    sta road_changes
     lda road_top
     sta rd_l
     clc
@@ -145,71 +142,6 @@ road_draw:
     lda rd_lp + 1
     adc #>render_lines
     sta rd_lp + 1
-
-    ; the grass: one fill from row y over (view_lines - top) * 320 bytes
-    lda view_lines
-    sec
-    sbc road_top
-    bcc 1f
-    beq 1f
-    jsr times320
-    sta rd_len
-    stx rd_len + 1
-    lda rd_y
-    jsr times320
-    sta row
-    stx row + 1
-    lda #FILL_JOB
-    jsr room
-    ldy #0
-    lda #$0A                    ; F018A jobs
-    sta (jp), y
-    iny
-    lda #$06                    ; no transparency
-    sta (jp), y
-    iny
-    lda #$81                    ; target megabyte 0
-    sta (jp), y
-    iny
-    lda #0
-    sta (jp), y
-    iny
-    sta (jp), y                 ; end of options
-    iny
-    lda #$07                    ; fill, chained
-    sta (jp), y
-    iny
-    lda rd_len
-    sta (jp), y
-    iny
-    lda rd_len + 1
-    sta (jp), y
-    iny
-    lda #COL_GRASS
-    sta (jp), y
-    iny
-    lda #0
-    sta (jp), y
-    iny
-    sta (jp), y
-    iny
-    lda row
-    sta (jp), y
-    iny
-    lda row + 1
-    sta (jp), y
-    iny
-    lda #((PICTURE >> 16) & $0F)
-    sta (jp), y
-    iny
-    lda #0
-    sta (jp), y
-    iny
-    sta (jp), y
-    lda #5
-    ldx #FILL_JOB
-    jsr job_done
-1:
 
 .Lline:
     lda rd_l
@@ -242,24 +174,75 @@ road_draw:
     lda (lp), y
     sta ln_depth + 1
 
-    ; the stripe set: bit 10 of depth + phase
+    ; the stripe set: bit 10 of depth + phase; the row in its grass
     clc
     lda ln_depth
     adc road_phase
     lda ln_depth + 1
     adc road_phase + 1
     and #4
-    cmp rd_shown
-    beq 2f
     sta rd_shown
-    ldx road_changes
-    cpx #RENDER_COLOURS
-    bcs 2f
-    sta road_change_set, x
-    lda rd_y
-    sta road_change_row, x
-    inc road_changes
+    beq 2f
+    lda #COL_SET_B
+    bra 3f
 2:
+    lda #COL_GRASS
+3:
+    sta rd_col
+    lda rd_y
+    jsr times320
+    sta row
+    stx row + 1
+    lda #FILL_JOB
+    jsr room
+    ldy #0
+    lda #$0A                    ; F018A jobs
+    sta (jp), y
+    iny
+    lda #$06                    ; no transparency
+    sta (jp), y
+    iny
+    lda #$81                    ; target megabyte 0
+    sta (jp), y
+    iny
+    lda #0
+    sta (jp), y
+    iny
+    sta (jp), y                 ; end of options
+    iny
+    lda #$07                    ; fill, chained
+    sta (jp), y
+    iny
+    lda #<FB_W
+    sta (jp), y
+    iny
+    lda #>FB_W
+    sta (jp), y
+    iny
+    lda rd_col
+    sta (jp), y
+    iny
+    lda #0
+    sta (jp), y
+    iny
+    sta (jp), y
+    iny
+    lda row
+    sta (jp), y
+    iny
+    lda row + 1
+    sta (jp), y
+    iny
+    lda #((PICTURE >> 16) & $0F)
+    sta (jp), y
+    iny
+    lda #0
+    sta (jp), y
+    iny
+    sta (jp), y
+    lda #5
+    ldx #FILL_JOB
+    jsr job_done
 
     ; the index entry of the pattern of width scale >> 4 and the line's
     ; variant: ROADIDX + 8 * (2 * w + (x & 1)) = ROADIDX + 16 * w + 8 * v
@@ -344,6 +327,17 @@ road_draw:
     lda [pat], z
     sta rd_src + 2
     ldz #0
+    ; set B: the patterns in its colours
+    lda rd_shown
+    beq 9f
+    clc
+    lda rd_src + 1
+    adc #((ROADPIX_B >> 8) & $FF)
+    sta rd_src + 1
+    lda rd_src + 2
+    adc #((ROADPIX_B >> 16) & $FF)
+    sta rd_src + 2
+9:
 
     ; nothing to draw if it starts at 320 or more or ends at 0 or less
     lda xx + 1

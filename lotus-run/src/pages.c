@@ -25,8 +25,6 @@ bool pages_load(void) {
 }
 
 void pages_on(void) {
-    POKE(0xD01A, 0);  // no raster interrupt (the race's colours)
-    POKE(0xD019, 0xFF);
     // the VIC-IV's geometry for 640 x 400 from the "hot" registers, then
     // 40 characters a row of 16 pixels
     POKE(0xD05D, PEEK(0xD05D) | 0x80);
@@ -34,6 +32,7 @@ void pages_on(void) {
     POKE(0xD016, 0xC8);
     POKE(0xD011, 0x1B);
     POKE(0xD05D, PEEK(0xD05D) & 0x7F);
+    POKE(0xD011, 0x0B);  // blank until a page is there
     POKE(0xD058, PAGE_COLS * 2);
     POKE(0xD059, 0);
     POKE(0xD05E, PAGE_COLS);
@@ -59,6 +58,7 @@ static uint8_t swap(uint8_t v) {
 bool page_show(const char *name) {
     if (!file_open(name, PAGE_LOAD))
         return false;
+    POKE(0xD011, 0x0B);  // blank while the page comes in
     for (uint16_t i = 0; i < 256; i++) {
         POKE(0xD100 + i, swap(file_byte(3 * i)));
         POKE(0xD200 + i, swap(file_byte(3 * i + 1)));
@@ -68,6 +68,7 @@ bool page_show(const char *name) {
     uint32_t off = file_unpack(770, PAGE_SCREEN, PAGE_SCREEN + CELLS * 2);
     off = file_unpack(off, COLOUR_RAM, COLOUR_RAM + CELLS * 2);
     file_unpack(off, PAGE_CHARS, PAGE_CHARS + chars * 64ul);
+    POKE(0xD011, 0x1B);
     return true;
 }
 

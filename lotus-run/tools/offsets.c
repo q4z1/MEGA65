@@ -44,12 +44,13 @@ int main(void) {
     // render.s
     printf("RL_x             = %zu\nRL_scale         = %zu\nRL_depth         = %zu\nROADLINE_SIZE    = %zu\n",
            offsetof(RoadLine, x), offsetof(RoadLine, scale), offsetof(RoadLine, depth), sizeof(RoadLine));
-    printf("RENDER_COLOURS   = %d\nFB_W             = %d\n", RENDER_COLOURS, FB_W);
+    printf("COL_GRASS        = %d\nCOL_SET_B        = %d\nFB_W             = %d\n", COL_GRASS, COL_SET_B, FB_W);
     printf("DMA_LIST         = $%04lX\nDMA_LIST_END     = $%04lX\n", (unsigned long)(uintptr_t)DMA_LIST,
            (unsigned long)(uintptr_t)DMA_LIST + DMA_LIST_SIZE);
     printf("PICTURE          = $%05lX\nROADPAT          = $%05lX\nATTIC            = $%07lX\n", PICTURE,
            ROADPAT, ATTIC);
-    printf("ROADIDX          = $%05lX\nROADPIX          = $%07lX\n", ROADIDX, ROADPIX);
+    printf("ROADIDX          = $%05lX\nROADPIX          = $%07lX\nROADPIX_B        = $%05lX\n", ROADIDX, ROADPIX,
+           ROADPIX_B);
     printf("SP_bank          = %zu\nSP_image         = %zu\nSP_x             = %zu\nSP_y             = %zu\n"
            "SP_clip          = %zu\nSPRITE_SIZE      = %zu\nSPR_CLEAR        = $%02X\n",
            offsetof(Sprite, bank), offsetof(Sprite, image), offsetof(Sprite, x), offsetof(Sprite, y),

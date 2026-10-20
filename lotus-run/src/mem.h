@@ -76,7 +76,8 @@ _Static_assert(PAGE_SCREEN + PAGE_SCREEN_SIZE <= 0x1F800, "the pages' screen rea
 // The road line patterns as pixels (road_pixels.c), the course's backdrop
 // (960 x 32), then its sprite banks (banks.c), one byte per pixel
 #define ROADPIX      ATTIC
-#define ROADPIX_SIZE 0x24000ul
+#define ROADPIX_SIZE 0x48000ul
+#define ROADPIX_B    0x24000ul  // the patterns in the colours of stripe set B, from ROADPIX + this
 #define BACKDROP     (ROADPIX + ROADPIX_SIZE)
 #define BACKDROP_SIZE 0x7800ul
 // the panel (banks.c, panel.c): as shown, then as on the disk (its picture

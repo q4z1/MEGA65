@@ -22,9 +22,9 @@ void fb_rows(uint8_t y0, uint8_t y1, uint8_t c);
 // within the framebuffer
 void fb_sprite_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len);
 
-// Pixels x .. x + len - 1 of row y from src (attic RAM on the MEGA65), all
-// of them; all within the framebuffer
-void fb_image_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len);
+// Pixels x .. x + len - 1 of row y from src (attic RAM on the MEGA65), but
+// those of value key; all within the framebuffer
+void fb_key_row(uint8_t y, uint16_t x, uint32_t src, uint16_t len, uint8_t key);
 
 // ROADPAT_MAX bytes of the road patterns (roadpat.h) from offset on, into
 // buf: they are not in the program's memory on the MEGA65
