@@ -25,7 +25,11 @@ toolchain/setup.sh
 | `tools/bin/cabextract` | unpacks the CABs (bsdtar fails on their LZX) | [cabextract 1.11](https://www.cabextract.org.uk/), built from `tools/src/` |
 | `vscode/mega65-asm/` | VS Code syntax highlighting for 45GS02 assembly in llvm-mos syntax (all 45GS02 opcodes incl. `ldz`, `map`/`eom`, the Q instructions; `mos16lo()` & co.) | written here |
 | `vscode/install-extensions.sh` | packs `mega65-asm` into `vscode/build/mega65-asm.vsix` and installs it together with the clangd extension | written here |
-| `tools/python/` | Python module `olefile` for reading the MSI | pip |
+| `tools/bin/adf.py` | lists and extracts the files of an Amiga disk image (ADF, OFS/FFS) | written here |
+| `tools/bin/m68k-dis.py` | recursive-descent 68000 disassembler: follows branches and calls, so code and data come apart; labels from a symbol file | written here |
+| `tools/bin/amiga-run` | Amiga emulator without a window, driven by a command script: frames, joystick, mouse, keys, screenshots, memory dumps, breakpoints, traces, snapshots (see below) | `tools/amiga-run/`, on the core of [vAmiga](https://github.com/dirkwhoffmann/vAmiga) (pinned commit, cloned into `tools/src/vAmiga`) |
+| `*.rom` | an Amiga Kickstart ROM (1.3 for the A500), for `amiga-run` – local only, not in the repo | your own copy |
+| `tools/python/` | Python modules `olefile` (reading the MSI) and `capstone` (disassembler) | pip |
 | `downloads/` | the downloaded archives (SDK, MSI, ROM patch, sources) | |
 
 Third-party files are listed in `.gitignore` and stay out of the repo:
@@ -163,3 +167,37 @@ tools/bin/xmega65 -headless -sleepless -prg x.prg -screenshot x.png
 
 (The screenshot is taken on exit; `-dumpmem file` saves the 384K of chip
 RAM on exit as well.)
+
+## Running Amiga programs
+
+`tools/bin/amiga-run` emulates an Amiga (the vAmiga core) without a window,
+as fast as it can (about four times real time), and does what a script
+says, line by line:
+
+```sh
+cat > boot.txt <<'EOS'
+config A500_OCS_1MB
+rom "toolchain/Kickstart v1.3 rev 34.5 (1987)(Commodore)(A500-A1000-A2000-CDTV).rom"
+disk 0 game.adf
+power
+frames 1500              # 30 seconds (PAL)
+mouse 1 left             # click
+frames 250
+joy 2 up fire            # joystick in port 2
+frames 100
+joy 2 release
+shot title.ppm           # screenshot, 368 x 287 lores pixels
+dump chip.bin 0 80000    # memory (hex address and length)
+until 1c2f0 500          # run to an address (at most 500 frames), print the registers
+save title.vasnap        # snapshot; "load" continues from it
+EOS
+toolchain/tools/bin/amiga-run boot.txt
+```
+
+All commands are listed at the top of
+[tools/amiga-run/amiga-run.cpp](tools/amiga-run/amiga-run.cpp). A Kickstart
+ROM is needed; it is not included (it may not be redistributed) and goes
+into `toolchain/` as a `.rom` file, which `.gitignore` keeps out.
+
+`tools/bin/m68k-dis.py` turns the code into a listing, `tools/bin/adf.py`
+gets the files off a disk image.
