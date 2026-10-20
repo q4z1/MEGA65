@@ -3,7 +3,8 @@
 
 # Bank 0
 ram  $0400+1024      the projection's depth steps (render.c)
-ram  $0800+3072      DMA list being collected (dma.c)
+ram  $00F8+8        the music player's pointers, in the KERNAL's zero page (music.s)
+ram  $0800+768       DMA list being collected (dma.c)
 
 ram  $E000+4352      the course, under the KERNAL (main.c, TRACK_BUF)
 
@@ -31,6 +32,7 @@ ram  $8148000+20426  the race's sound samples (SOUNDS, sound.c)
 ram  $8150000+8192   road line pattern index: where each is in ROADPIX (road_pixels.c)
 ram  $8154000+8186   the pages' code (MENU, main.c), copied to $E000 between the races
 ram  $8158000+4352   the course coming next, as on the disk (main.c)
+ram  $8160000+10498  the music: instruments, patterns, songs (MUSIC, music.s)
 ram  $8200000+1245184 road line patterns drawn out, stripe set A (ROADPIX, road_pixels.c)
 ram  $8330000+1245184 the same in the colours of stripe set B (ROADPIX_B)
 
@@ -45,5 +47,7 @@ file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprit
 file LAPBAR          @$40000     the lap bar, unpacked to attic RAM (tools/mksprites.py)
 file TEXTS           @$8140000   names from the game program (tools/mkdata.py)
 file SOUNDS          @$8148000   the race's sound samples (tools/mkdata.py)
+file LOWCODE         @$0B00      code that stays in bank 0: link.ld's .lowcode (build.sh)
+file MUSIC           @$8160000   the music, arranged (tools/mkmusic.py)
 file MENU            @$8154000   the pages' code: link.ld's .menu (build.sh)
 file TRACK??         @$8158000   the course coming next (main.c)

@@ -14,8 +14,9 @@
 // Loads the samples (SOUNDS) into attic RAM
 bool sound_load(void);
 
-// A race starts (after race_init): the samples into chip RAM, the engines on
-void sound_race_start(void);
+// A race starts (after race_init): the samples into chip RAM, the engines
+// on - or, with music on the radio, all silent
+void sound_race_start(bool radio);
 
 // Once a frame, before race_frame
 void sound_frame(void);

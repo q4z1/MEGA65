@@ -3,7 +3,9 @@
 
 #include "race.h"
 
-Race race;
+#include "mem.h"
+
+LOW_RAM Race race;  // cleared by main
 const Track *race_track;
 uint8_t race_joy[2];
 uint32_t race_lookup_pos;

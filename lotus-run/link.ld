@@ -4,7 +4,7 @@
  * work area, .lowram behind the DMA list, .highram behind the course under
  * the KERNAL (.workram and .highram usable once irq_init has switched it
  * out). The numbers are src/mem.h's. Besides, .menu: an overlay at
- * $E000 (see below). */
+ * $E000, and .lowcode (see below). */
 
 __basic_zp_start = 0x0002;
 __basic_zp_end = 0x0090;
@@ -12,7 +12,8 @@ __basic_zp_end = 0x0090;
 MEMORY {
     ram (rw) : ORIGIN = 0x2001, LENGTH = 0xafff
     workram (rw) : ORIGIN = 0x0200, LENGTH = 0x0200
-    lowram (rw) : ORIGIN = 0x1400, LENGTH = 0x0c00
+    lowcode (rx) : ORIGIN = 0x0b00, LENGTH = 0x0500
+    lowram (rw) : ORIGIN = 0x1000, LENGTH = 0x1000
     highram (rw) : ORIGIN = 0xf100, LENGTH = 0x0efa
     menu (rx) : ORIGIN = 0xe000, LENGTH = 0x1ffa
 }
@@ -20,10 +21,15 @@ MEMORY {
 SECTIONS {
     .workram (NOLOAD) : { *(.workram .workram.*) } >workram
     .lowram (NOLOAD) : { *(.lowram .lowram.*) } >lowram
+    /* code that stays in bank 0 (LOW_CODE in src/mem.h): not part of the
+       program file either - on the disk as LOWCODE, which main.c loads */
+    .lowcode : { *(.lowcode .lowcode.*) } >lowcode
     .highram (NOLOAD) : { *(.highram .highram.*) } >highram
     /* the code of the pages between the races (MENU in src/mem.h): not part
        of the program file - build.sh writes it to the disk as MENU, main.c
-       copies it here; the race's course and .highram take its place then */
+       copies it here; the race's course and .highram take its place then
+       (it may reach into .highram: build.sh links with --no-check-sections,
+       tools/bin/mega65-mem shows the overlap) */
     .menu : { *(.menu .menu.*) } >menu
 }
 

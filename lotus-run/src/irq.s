@@ -1,8 +1,13 @@
 ; Lotus Run: the machine for the game - the KERNAL switched out (the game
 ; never calls it), the interrupt vectors at $FFFA-$FFFF ours. No interrupt
-; is used: the vectors lead to handlers that only acknowledge.
+; is on at first: the vectors lead to handlers that acknowledge, and call
+; irq_frame (an assembly routine, which may use the KERNAL's zero page from
+; $90 on) - music.c turns on a raster interrupt for the music.
 
-.global irq_init
+.global irq_init, irq_frame
+
+.section .data.irq,"aw",@progbits
+irq_frame:  .word irq_nothing
 
 .section .text.irq,"ax",@progbits
 
@@ -41,8 +46,20 @@ irq_init:
 
 irq_handler:
     pha
+    phx
+    phy
+    phz
     lda #$FF
     sta $D019
+    jsr irq_call
+    plz
+    ply
+    plx
     pla
 nmi_handler:
     rti
+
+irq_call:
+    jmp (irq_frame)
+irq_nothing:
+    rts

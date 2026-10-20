@@ -9,10 +9,12 @@
 
 #include "track.h"
 
-// The controls: automatic gears, accelerate with fire (else with forward)
+// The controls: automatic gears, accelerate with fire (else with forward);
+// and the radio in the race: a song (1-4), or 0 for the engines' sound
 typedef struct {
     bool automatic;
     bool fire_accel;
+    uint8_t radio;
 } Controls;
 
 // The pages need the 640 x 400 mode (pages_on), and their code where it
@@ -21,7 +23,8 @@ typedef struct {
 // The level of a new season (0-2), starting from `level`
 uint8_t screen_level(uint8_t level);
 
-// The controls, changed on their page
+// The controls, changed on their page (the radio's song plays while it is
+// chosen)
 void screen_controls(Controls *c);
 
 // Before a race: the course (as loaded to TRACK_ATTIC), and which race of

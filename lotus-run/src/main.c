@@ -8,13 +8,16 @@
 // Run/Stop gives up.
 
 #include <stdint.h>
+#include <string.h>
 
 #include "banks.h"
 #include "disk.h"
 #include "dma.h"
 #include "hw.h"
 #include "input.h"
+#include "math.h"
 #include "mem.h"
+#include "music.h"
 #include "pages.h"
 #include "panel.h"
 #include "progdata.h"
@@ -78,6 +81,11 @@ static uint8_t joystick(void) {
 }
 
 #ifdef LOTUS_AUTOTEST
+// n / d (d > 0) with the math unit
+static int32_t div_signed(int32_t n, uint16_t d) {
+    return n < 0 ? -(int32_t)div32u((uint32_t)-n, d) : (int32_t)div32u((uint32_t)n, d);
+}
+
 // A driver for recordings: full gas (fire), and the steering it takes to
 // hold a line - against the bend's drift, back to the line, round slower
 // cars just ahead
@@ -100,10 +108,12 @@ static uint8_t driver(void) {
         s = (s + 0x0A00) >> 1;
     if (s < 0x100)
         return JOY_FIRE;
+    if (s > 0x3000)
+        s = 0x3000;
     // the steering that holds the bend, and that brings the car back to the
     // line in about half a second
-    int32_t want = -((int32_t)p->curve * 12 * (int16_t)p->speed) / (5 * s);
-    want -= ((int32_t)(x - target) << 16) / 25 / (5 * s);
+    int32_t want = -div_signed((int32_t)p->curve * 12 * (int16_t)p->speed, (uint16_t)(5 * s));
+    want -= div_signed(div_signed((int32_t)(x - target) << 16, 25), (uint16_t)(5 * s));
     if (want > 0x20)
         want = 0x20;
     if (want < -0x20)
@@ -172,7 +182,11 @@ static bool race_run(uint8_t n, const Controls *c) {
     race.p[0].fire_accel = c->fire_accel;
     race_init();
     panel_reset();
-    sound_race_start();
+    if (c->radio)
+        music_start(c->radio);
+    else
+        music_stop();
+    sound_race_start(c->radio != 0);
 
     view_scale = 512;
     view_lines = 192;
@@ -205,19 +219,23 @@ static bool race_run(uint8_t n, const Controls *c) {
 }
 
 int main(void) {
+    memset(&race, 0, sizeof race);  // LOW_RAM: not cleared at the start
     video_init();
-    if (!disk_load("MENU", MENU_ATTIC))
+    if (!disk_load("MENU", MENU_ATTIC) || !disk_load("LOWCODE", LOW_CODE_AT))
         halt(7);
     menu_in();
-    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load() || !sound_load())
+    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load() || !sound_load() ||
+        !music_load())
         halt(7);
+    music_init();
+    music_start(0);
     pages_on();
     if (!page_show("PTITLE"))
         halt(8);
     // the road's lines drawn out while the title is shown
     road_pixels_init();
     race.random[0] = 0x12345678;
-    Controls controls = {true, true};
+    Controls controls = {true, true, 1};
     uint8_t level = 0;
     for (;;) {
         screen_wait_fire();
@@ -234,8 +252,12 @@ int main(void) {
             pages_on();
             if (!course_in())
                 halt(2);
+#ifdef LOTUS_AUTOTEST
+            controls.radio = (uint8_t)(1 + (season.race & 3));  // every track in turn
+#endif
             bool done = race_run(n, &controls);
             menu_in();
+            music_start(0);
             if (!done) {
                 gave_up = true;
                 break;

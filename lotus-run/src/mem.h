@@ -19,15 +19,22 @@
 // The DMA list being collected (dma.c): below the program, where BASIC had
 // its screen; the game never goes back to BASIC.
 #define DMA_LIST      ((uint8_t *)0x0800)
-#define DMA_LIST_SIZE 0x0C00u
+#define DMA_LIST_SIZE 0x0300u
+
+// Code that has to stay in bank 0 all the time but does not fit beside the
+// program (link.ld's .lowcode: the music player): behind the DMA list,
+// loaded from the disk (LOWCODE) at the start
+#define LOW_CODE_AT   0x0B00
+#define LOW_CODE_SIZE 0x0500u
+_Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_CODE_AT, "the DMA list reaches LOW_CODE");
 
 // Variables that need no clearing, beside the program (link.ld): WORK_RAM
-// in the KERNAL's work area $0200-$03FF, LOW_RAM behind the DMA list up to
+// in the KERNAL's work area $0200-$03FF, LOW_RAM behind LOW_CODE up to
 // the program, HIGH_RAM behind the course under the KERNAL (WORK_RAM and
 // HIGH_RAM only once irq_init has switched that out). Not on the host.
-#define LOW_RAM_AT    0x1400
+#define LOW_RAM_AT    0x1000
 #define HIGH_RAM_AT   0xF100
-_Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_RAM_AT, "the DMA list reaches LOW_RAM");
+_Static_assert(LOW_CODE_AT + LOW_CODE_SIZE <= LOW_RAM_AT, "LOW_CODE reaches LOW_RAM");
 // The code of the pages between the races (link.ld's .menu, built with
 // LOTUS_MENU_OVERLAY): copied to MENU_AT from MENU_ATTIC before it runs, in
 // place of the course and HIGH_RAM, which the race fills again
@@ -128,6 +135,8 @@ _Static_assert(PAGE_SCREEN >= SOUND_CHIP, "the pages' screen is part of the soun
 // (its header for the pages; to TRACK_BUF for the race)
 #define MENU_ATTIC   (ATTIC + 0x154000ul)
 #define TRACK_ATTIC  (ATTIC + 0x158000ul)
+// the music (music.s, MUSIC), read through a 32-bit pointer
+#define MUSIC_ATTIC  (ATTIC + 0x160000ul)
 // The road line patterns as pixels (road_pixels.c), from 2M on: in the
 // colours of stripe set A, from ROADPIX + ROADPIX_B on in those of set B
 #define ROADPIX      (ATTIC + 0x200000ul)

@@ -7,9 +7,11 @@
 #include "dma.h"
 #include "input.h"
 #include "mem.h"
+#include "music.h"
 #include "pages.h"
 #include "progdata.h"
 #include "season.h"
+#include "songs.h"
 #include "texts.h"
 #include "video.h"
 
@@ -131,26 +133,37 @@ MENU static void controls_help(const Controls *c) {
 }
 
 MENU void screen_controls(Controls *c) {
-    static const uint8_t rows[3] = {12, 18, 24};
-    uint8_t at = 2;
+    static const uint8_t rows[4] = {10, 15, 20, 25};
+    static const char *const radio[MUSIC_SONGS] = {"OFF - THE ENGINES", "TRACK 01", "TRACK 02", "TRACK 03",
+                                                  "TRACK 04"};
+    uint8_t at = 3;
     page_show("PCONTROLS");
     for (;;) {
-        marks(rows, 3, at, 12);
-        put(14, 12, c->automatic ? "AUTOMATIC" : "MANUAL", 20, TEXT_WHITE);
-        put(14, 18, c->fire_accel ? "FIRE BUTTON" : "JOYSTICK FORWARD", 20, TEXT_WHITE);
-        put(14, 24, "START", 20, TEXT_AMBER);
+        marks(rows, 4, at, 12);
+        put(14, 10, c->automatic ? "AUTOMATIC" : "MANUAL", 20, TEXT_WHITE);
+        put(14, 15, c->fire_accel ? "FIRE BUTTON" : "JOYSTICK FORWARD", 20, TEXT_WHITE);
+        put(14, 20, radio[c->radio], 20, TEXT_WHITE);
+        put(14, 25, "START", 20, TEXT_AMBER);
         controls_help(c);
         uint8_t k = key();
         if ((k & IN_UP) && at)
             at--;
-        if ((k & IN_DOWN) && at < 2)
+        if ((k & IN_DOWN) && at < 3)
             at++;
         if (k & (IN_LEFT | IN_RIGHT | IN_BUTTON)) {
             if (at == 0)
                 c->automatic = !c->automatic;
             else if (at == 1)
                 c->fire_accel = !c->fire_accel;
-            else if (k & IN_BUTTON)
+            else if (at == 2) {
+                // the radio: on to the next song, back with left; the title's
+                // tune for the engines
+                if (k & IN_LEFT)
+                    c->radio = (uint8_t)(c->radio ? c->radio - 1 : MUSIC_SONGS - 1);
+                else
+                    c->radio = (uint8_t)(c->radio + 1 < MUSIC_SONGS ? c->radio + 1 : 0);
+                music_start(c->radio);
+            } else if (k & IN_BUTTON)
                 return;
         }
     }

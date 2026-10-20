@@ -419,8 +419,9 @@ def page_level():
 def page_controls():
     img, _ = canvas()
     header(img, 'CONTROLS', 'JOYSTICK IN PORT 2 OR KEYS')
-    label(img, 12, 'GEARS')
-    label(img, 18, 'ACCELERATE')
+    label(img, 10, 'GEARS')
+    label(img, 15, 'ACCELERATE')
+    label(img, 20, 'RADIO')
     label(img, 30, 'IN THE RACE', fg=GREY)
     footer(img, 'UP / DOWN: CHOOSE    LEFT / RIGHT: CHANGE    FIRE: GO ON')
     return img
