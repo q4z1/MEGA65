@@ -28,7 +28,8 @@ image and `-autoload`). Joystick in port 2, or the cursor keys and space.
 The controls page sets the gears (automatic or manual) and what
 accelerates (the fire button or the joystick forward) and shows what each
 direction does, and the radio: one of four tracks during the race (each
-plays while it is chosen) or off, for the engines and the sound effects.
+plays while it is chosen; the engines and the sound effects go on more
+quietly) or off.
 Run/Stop gives up a race.
 
 `LOTUS_CFLAGS=-DLOTUS_AUTOTEST ./build.sh` makes a build that goes through

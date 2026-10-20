@@ -134,7 +134,7 @@ MENU static void controls_help(const Controls *c) {
 
 MENU void screen_controls(Controls *c) {
     static const uint8_t rows[4] = {10, 15, 20, 25};
-    static const char *const radio[MUSIC_SONGS] = {"OFF - THE ENGINES", "TRACK 01", "TRACK 02", "TRACK 03",
+    static const char *const radio[MUSIC_SONGS] = {"OFF", "TRACK 01", "TRACK 02", "TRACK 03",
                                                   "TRACK 04"};
     uint8_t at = 3;
     page_show("PCONTROLS");

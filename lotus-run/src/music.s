@@ -1,6 +1,8 @@
 ; Lotus Run: the music player (music.h), run by the raster interrupt
-; (irq.s) once a frame. It plays MUSIC (tools/mkmusic.py) on the four SIDs,
-; reading it from attic RAM through a 32-bit pointer.
+; (irq.s) once a frame - one step for every frame that has passed (the
+; frame counter), so that the tempo holds when an interrupt is late. It
+; plays MUSIC (tools/mkmusic.py) on the four SIDs, reading it from attic
+; RAM through a 32-bit pointer.
 ;
 ; MUSIC: offsets (16 bits) of the instruments, of the pattern table and of
 ; each song's header. A song: frames per row, its length, the position to
@@ -38,9 +40,12 @@ PARTS  = 9
 STORED = 6                      ; the parts in the patterns
 ECHO   = 6                      ; the first echo
 NONE   = $FF
+FRAME  = $D7FA                  ; the frame counter
 
 .section .lowram.music_s,"aw",@nobits   ; set before use: LOW_RAM (mem.h)
 playing:    .fill 1
+last_frame: .fill 1             ; the frame of the last step
+steps:      .fill 1
 speed:      .fill 1
 tick:       .fill 1             ; frames to the next row
 row:        .fill 1
@@ -157,6 +162,10 @@ music_start:
     lda #0
     sta row
     sta ring_i
+    lda FRAME
+    sec
+    sbc #1
+    sta last_frame              ; the first step at the next interrupt
     lda #1
     sta tick
     sta playing
@@ -195,7 +204,17 @@ music_frame:
     lda playing
     bne 1f
     rts
-1:  dec tick
+1:  lda FRAME                   ; the frames since the last call: as many
+    tay                         ; steps (an interrupt may come late, or not
+    sec                         ; at all while a long DMA job holds the CPU)
+    sbc last_frame
+    beq 4f
+    sty last_frame
+    cmp #5
+    bcc 0f
+    lda #1                      ; long gone: go on from here
+0:  sta steps
+5:  dec tick
     bne 2f
     lda speed
     sta tick
@@ -204,7 +223,9 @@ music_frame:
 3:  jsr update_part
     dex
     bpl 3b
-    rts
+    dec steps
+    bne 5b
+4:  rts
 
 ; The next byte of the pattern
 read_pat:

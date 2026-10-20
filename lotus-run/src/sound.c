@@ -6,8 +6,8 @@
 // number: lower ones go first, and one keeps those from its own number on
 // off for sound_times[n] frames. An engine is a loop at a period from the
 // rpm: 0xF80C0 / rpm. Here the channels are the MEGA65's four audio DMA
-// channels, all mixed to the middle. With music on the radio all of it
-// stays silent, as in the original - but goes on, for its random numbers.
+// channels, all mixed to the middle - with music on the radio more quietly,
+// in the background.
 
 #include "sound.h"
 
@@ -41,7 +41,6 @@ static uint16_t engine_rpm[2], engine_volume[2];
 static uint32_t kerb_from[2];  // the kerb sounds again from here on
 static uint8_t busy[2];        // frames the last effect keeps others off
 static int8_t current[2];      // which it is
-static bool quiet;             // the radio plays
 
 bool sound_load(void) {
     return disk_load("SOUNDS", SOUNDS_ATTIC);
@@ -49,8 +48,6 @@ bool sound_load(void) {
 
 // A channel playing sample s at a period (one-shot or its loop)
 static void play(uint8_t ch, uint8_t s, uint16_t period, uint8_t volume) {
-    if (quiet)
-        return;
     const SoundSample *x = &sound_samples[s];
     uint32_t start = SOUND_CHIP + x->at, end = start + x->len;
     uint16_t r = CH(ch);
@@ -79,8 +76,6 @@ static void effect(uint8_t player, int8_t e) {
 
 // An engine's pitch and loudness (Paula's period and volume 0-64)
 static void engine(uint8_t player, uint16_t period, uint8_t volume) {
-    if (quiet)
-        return;
     uint16_t r = CH(CH_ENGINE + player);
     uint32_t step = div32u(STEP_PERIOD, period);
     POKE(r + 4, (uint8_t)step);
@@ -104,15 +99,15 @@ static void mixer(uint8_t reg, uint8_t value) {
 }
 
 void sound_race_start(bool radio) {
-    quiet = radio;
     sound_off();
     dma_copy(SOUNDS_ATTIC, SOUND_CHIP, SOUNDS_SIZE);
     dma_flush();
     // the digital channels to the middle (mixer: left $10-$13, right
-    // $30-$33), audio DMA on
+    // $30-$33), softer under music; audio DMA on
+    uint8_t level = radio ? 0x50 : 0xBE;
     for (uint8_t i = 0; i < 4; i++) {
-        mixer((uint8_t)(0x10 + i), 0xBE);
-        mixer((uint8_t)(0x30 + i), 0xBE);
+        mixer((uint8_t)(0x10 + i), level);
+        mixer((uint8_t)(0x30 + i), level);
     }
     POKE(0xD711, PEEK(0xD711) | 0x80);
     for (uint8_t n = 0; n < 2; n++) {

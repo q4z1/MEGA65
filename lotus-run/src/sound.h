@@ -15,7 +15,7 @@
 bool sound_load(void);
 
 // A race starts (after race_init): the samples into chip RAM, the engines
-// on - or, with music on the radio, all silent
+// on - with music on the radio more quietly
 void sound_race_start(bool radio);
 
 // Once a frame, before race_frame
