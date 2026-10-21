@@ -4,7 +4,7 @@
 #   bin/cabextract   from source (tools/src), for the CABs in the C64 Forever MSI
 #   python/olefile   Python module for reading the MSI (OLE compound file)
 #   python/capstone  disassembler module, used by bin/m68k-dis.py
-#   python/X.Y/      Pillow (images for the build tools, e.g. Lotus Run's
+#   python/X.Y/      Pillow (images for the build tools, e.g. Wedge Turbo's
 #                    tools/mkpages.py, tools/mkcars.py) and numpy (arrays for
 #                    the analysis scripts), per Python version
 #                    (python-modules.sh)

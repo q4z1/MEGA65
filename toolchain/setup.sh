@@ -28,7 +28,7 @@ if [ ! -x "$TC/llvm-mos/bin/mos-mega65-clang" ]; then
     tar xf "$DL/llvm-mos-linux.tar.xz" -C "$TC"
 fi
 
-# Fonts for screens rendered at build time (Lotus Run's tools/mkpages.py):
+# Fonts for screens rendered at build time (Wedge Turbo's tools/mkpages.py):
 # Exo 2, Rajdhani and Titillium Web from google/fonts, at a fixed commit
 FONTS_COMMIT=47d54ca1ebb14fd864695f1d39dc734f39017c33
 mkdir -p "$TC/fonts"
