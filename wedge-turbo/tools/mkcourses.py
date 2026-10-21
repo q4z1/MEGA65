@@ -44,10 +44,12 @@ ROCKS, BARRIER, BARRIER_RIGHT, BARRIER_LEFT, OIL, WATER = 0x9A, 0x9F, 0xA0, 0xA1
 HAZARDS = {ROCKS, BARRIER, BARRIER_RIGHT, BARRIER_LEFT, OIL, WATER}
 # kinds of our own (tools/mkscenery.py): wind turbines and solar fields,
 # where the land is open (the backdrops' themes, mkbackdrops.py), in groups
-# (one per so many segments, so many in a group), how far from the road
-# (the trees: mostly 16-56)
+# (one per so many segments, so many in a group, segments between them),
+# how far from the road (its edge is at 16, the signs at 18, most trees
+# at 16-24): a little further than the trees, near enough to be seen large
 TURBINE, SOLAR = 0x8D, 0x8E
-OPEN_LAND = {TURBINE: ({0, 4, 7, 8, 9}, 45, (3, 5), (26, 40)), SOLAR: ({0, 2, 3, 6, 7, 9}, 55, (2, 4), (28, 44))}
+OPEN_LAND = {TURBINE: ({0, 4, 7, 8, 9}, 40, (3, 5), (2, 3), (22, 28)),
+             SOLAR: ({0, 2, 3, 6, 7, 9}, 35, (6, 10), (1, 1), (20, 24))}
 NOT_SCENERY = {SIGN_RIGHT, SIGN_LEFT, GATE, PIT_SIGN, PIT_WALL} | HAZARDS
 
 
@@ -336,7 +338,7 @@ def course(n, th, rng, d, sizes, of_type, budget):
     # the theme's own kinds in what room is left (room for its commonest
     # kind at least)
     extra = []
-    for ty, (themes_of, _, _, _) in OPEN_LAND.items():
+    for ty, (themes_of, _, _, _, _) in OPEN_LAND.items():
         m = memory(need | set(extra) | {ty, pool[0]}, sizes, of_type)
         if theme in themes_of and m[0] <= budget[0] and m[1] <= budget[1]:
             extra.append(ty)
@@ -356,18 +358,26 @@ def course(n, th, rng, d, sizes, of_type, budget):
                 continue
             ty = rng.choices(chosen, weights=weights)[0]
             objects[i][q] = (ty, rng.choice(t['x'][ty]))
-    # wind turbines, solar fields: further out, in groups on one side
+    # wind turbines, solar fields: further out, in groups on one side, on
+    # straights where there are (no bend signs in front of them), else
+    # where the bends are gentlest
+    def straight(i, n):
+        return max(abs(segs[j][0]) for j in range(i - 2, i + n))
+    places = range(30, n_segs - 14)
+    open_road = [i for i in places if straight(i, 10) <= 2]
+    if len(open_road) < 8:
+        open_road = sorted(places, key=lambda i: straight(i, 10))[:max(8, len(places) // 4)]
     for ty in extra:
-        _, every, (fewest, most), (near, far) = OPEN_LAND[ty]
-        for _ in range(max(1, (n_segs - 40) // every)):
-            i, side = rng.randrange(30, n_segs - 12), rng.choice((-1, 1))
+        _, every, (fewest, most), (step0, step1), (near, far) = OPEN_LAND[ty]
+        for _ in range(max(1, (n_segs - 40) // every) if open_road else 0):
+            i, side = rng.choice(open_road), rng.choice((-1, 1))
             for k in range(rng.randint(fewest, most)):
                 # a free place, or one of the theme's own kinds makes room
                 free = [q for q in range(4) if not objects[i][q][0]] or \
                     [q for q in range(4) if objects[i][q][0] in chosen]
                 if free:
                     objects[i][rng.choice(free)] = (ty, side * rng.randint(near, far))
-                i += rng.randint(1, 3)
+                i += rng.randint(step0, step1)
 
     # the hazards on straights
     placed = set()
