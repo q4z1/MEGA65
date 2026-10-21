@@ -10,6 +10,7 @@
 #include "../race.h"
 
 #include "progdata.h"
+#include "sprbanks.h"
 
 
 // ---------------------------------------------------------------- arithmetic

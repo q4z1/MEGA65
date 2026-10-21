@@ -200,7 +200,6 @@ PROGRAM_TABLES = [
     ('tab_torque_acc', 'int16_t', 0xC23612, 76, 'h'),
     ('tab_grip', 'int8_t', 0xC2376E, 64, 'b'),
     ('tab_object_width', 'uint8_t', 0xC235E4, 44, 'B'),
-    ('tab_object_colours', 'uint16_t', 0xC23484, 44 * 4, 'H'),
     ('tab_grid_x', 'int16_t', 0xC21CBA, 20, 'h'),
     ('tab_grid_pos', 'uint32_t', 0xC21CE2, 20, 'I'),
     # the season (season.c): points per place, each course's record time

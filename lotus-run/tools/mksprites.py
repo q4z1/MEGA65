@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Converts the game's images - scenery objects, cars, race view overlays,
-the backdrops - into what Lotus Run loads.
+the backdrops - into what Lotus Run loads; the scenery, cars and backdrops
+drawn anew (tools/mkscenery.py, mkcars.py, mkbackdrops.py) in the game's
+sizes.
 
     mksprites.py ORIGDIR GENDIR
 
@@ -20,9 +22,8 @@ Writes into GENDIR:
                   u8 width and u8 height, then all pixels, packed (pack():
                   runs of pixels as they are, repeated pixels, copies of
                   what came before)
-    sprbanks.h/.c the banks: 00-2B the scenery objects $80-$AB (the types
-                  without a file of their own share another's bank),
-                  SPR_CARS, SPR_HUD
+    sprbanks.h/.c the banks: 00-2B the scenery objects $80-$AB,
+                  SPR_CARS, SPR_HUD; the scenery's colours
     backN.bin     backdrop N (on the disk as BACKN): 960 x 32 colours, row
                   after row, packed as the banks' pixels
     lapbar.bin    the lap bar (on the disk as LAPBAR): overlay 23 as drawn
@@ -38,7 +39,9 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import mkbackdrops  # noqa: E402
 import mkcars  # noqa: E402
+import mkscenery  # noqa: E402
 import packers  # noqa: E402
 
 SPR_CLEAR = 0xFF
@@ -49,8 +52,12 @@ OPP_PAINT = 48     # the opponents' paints: colours OPP_PAINT + 2k (light), + 2k
 OPP_COLOURS = 6
 SPR_OPP = 0x42     # banks SPR_OPP .. SPR_OPP + 4: the opponents in colourings 1-5
 
-# object types without a file use these
-ALIASES = {0x92: 0x8F, 0x93: 0x90, 0x88: 0x87, 0xA6: 0xA5, 0xA8: 0xA7}
+# the snowy kinds: shaped as the green ones (their sizes, their drawing),
+# in colours of their own
+SAME_SHAPE = {0x92: 0x8F, 0x93: 0x90, 0x88: 0x87, 0xA6: 0xA5, 0xA8: 0xA7}
+# the scenery's own colours (each type's 8-11 that its drawing uses) from
+# this colour on, set for the race (main.c)
+OBJ_COLOUR = 128
 # file $51 holds the banks of the types every course has, at these offsets
 FILE51 = {0x80: 0x489E, 0x81: 0x34A2, 0x82: 0x5C9A, 0x83: 0x0000}
 # file $50 holds the overlays of the race view (messages, countdown,
@@ -359,6 +366,7 @@ GATE_TYPE = 0x82
 GATE_NEAR = 35
 GATE_TABLE = 0xC20B1E
 CODE_BASE = 0xC18880
+OBJECT_COLOURS = 0xC23484  # per object type colours 8-11 (0: as they are)
 F59_SCALE, F59_OBJECT_SIZE = 0xD29C, 0xD39C
 
 
@@ -410,21 +418,36 @@ def main():
     def unpack(n):
         return packers.unpack_bytes(open(os.path.join(orig, f'{n:02X}.bin'), 'rb').read())
 
+    # the scenery: our own drawings (tools/mkscenery.py), in the sizes the
+    # game has
+    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
     banks = {}
     f51 = unpack(0x51)
     for t in range(0x80, 0xAC):
-        if t in ALIASES:
+        shape = SAME_SHAPE.get(t, t)
+        if shape in FILE51:
+            ims = list(images(f51, FILE51[shape]))
+        elif os.path.exists(os.path.join(orig, f'{shape:02X}.bin')):
+            ims = list(images(unpack(shape)))
+        else:
             continue
-        if t in FILE51:
-            banks[t - 0x80] = list(images(f51, FILE51[t]))
-        elif os.path.exists(os.path.join(orig, f'{t:02X}.bin')):
-            banks[t - 0x80] = list(images(unpack(t)))
+        banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, [(w, h) for w, h, _ in ims])
+    # each type's colours 8-11 that it uses become colours of its own
+    type_colours = struct.unpack_from('>176H', code, OBJECT_COLOURS - CODE_BASE)
+    obj_colours = []
+    for b, ims in banks.items():
+        lut = bytearray(range(256))
+        for k in range(4):
+            if any(8 + k in px for _, _, px in ims):
+                lut[8 + k] = OBJ_COLOUR + len(obj_colours)
+                obj_colours.append(type_colours[b * 4 + k])
+        banks[b] = [(w, h, px.translate(lut)) for w, h, px in ims]
+    assert OBJ_COLOUR + len(obj_colours) <= 256
     banks[GATE_TYPE - 0x80], gate_places = gate_near(banks[GATE_TYPE - 0x80], orig, unpack(0x59))
     # the cars: our own models (tools/mkcars.py), as many images and as
     # large as the game's, picked as it picks them (its table of images
     # per size and angle); the brake lights lit go behind the overlays
     game_cars = list(images(unpack(0xC0)))
-    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
     car_table = list(code[CAR_TABLE - CODE_BASE:CAR_TABLE - CODE_BASE + 153])
     banks[SPR_CARS], marks = mkcars.render([(w, h) for w, h, _ in game_cars[:63]], car_table,
                                            (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2), (OPP_PAINT, OPP_PAINT + 1))
@@ -440,12 +463,20 @@ def main():
     with open(os.path.join(gen, 'panel.bin'), 'wb') as f:
         f.write(panel_file(unpack(0x50)))
 
+    # the backdrops: our own (tools/mkbackdrops.py), each in the colours its
+    # theme's courses start from (the game's first course with it: which
+    # of the three is light, middle, dark)
     for n in range(BACKDROPS):
+        for t in range(32):
+            header = open(os.path.join(orig, f'{t:02X}.bin'), 'rb').read()[2:164]
+            if header[1] == n:
+                break
+        cols = struct.unpack_from('>3H', header, 2)
+        order = sorted(range(3), key=lambda i: -((cols[i] >> 8 & 15) * 3 + (cols[i] >> 4 & 15) * 6 + (cols[i] & 15)))
         with open(os.path.join(gen, f'back{n}.bin'), 'wb') as f:
-            f.write(pack(backdrop(unpack(0x60 + n))))
+            f.write(pack(mkbackdrops.backdrop(n, [BACK_COLOURS + i for i in order])))
 
-    of_type = [ALIASES.get(t, t) - 0x80 for t in range(0x80, 0xAC)]
-    of_type = [b if b in banks else 0xFF for b in of_type]
+    of_type = [t if t in banks else 0xFF for t in range(44)]
     largest = max(sum(w * h for w, h, _ in ims) for ims in banks.values())
     with open(os.path.join(gen, 'sprbanks.h'), 'w') as f:
         f.write('// Generated by tools/mksprites.py - do not edit\n#pragma once\n#include <stdint.h>\n'
@@ -468,6 +499,13 @@ def main():
                 f'#define LAPBAR_LAPS {LAPBAR_LAPS}\n'
                 '// The bank of scenery object type $80 + i ($FF: none, no course has it)\n'
                 'extern const uint8_t spr_bank_of_type[44];\n'
+                '// The scenery\'s colours: OBJ_COLOUR on, set for the race\n'
+                f'#define OBJ_COLOUR {OBJ_COLOUR}\n'
+                f'#define OBJ_COLOURS {len(obj_colours)}\n'
+                'extern const uint16_t obj_colours[OBJ_COLOURS];\n'
+                '// Per object type colours 8-11 to load as it comes near (0: leave it) -\n'
+                '// none: each has colours of its own\n'
+                'extern const uint16_t tab_object_colours[176];\n'
                 '// The gate\'s banner for sizes 0-6: images GATE_NEAR + size, its writing\n'
                 '// GATE_NEAR + 7 + size; gate_near: per size the banner\'s rise above the\n'
                 '// posts\' bottom, then its inset, then the writing\'s rise above it\n'
@@ -485,6 +523,11 @@ def main():
         for i in range(0, 44, 12):
             f.write('    ' + ', '.join(f'0x{b:02X}' for b in of_type[i:i + 12]) + ',\n')
         f.write('};\n')
+        f.write('const uint16_t obj_colours[OBJ_COLOURS] = {\n')
+        for i in range(0, len(obj_colours), 12):
+            f.write('    ' + ', '.join(f'0x{v:03X}' for v in obj_colours[i:i + 12]) + ',\n')
+        f.write('};\n')
+        f.write('const uint16_t tab_object_colours[176] = {0};\n')
         f.write('const uint8_t gate_near[21] = {' + ', '.join(str(min(255, v)) for v in gate_places) + '};\n')
         f.write('const int8_t car_plate[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for (x, y), _, _ in marks) + '};\n')
         f.write('const int8_t car_brake[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for _, _, (x, y) in marks) + '};\n')

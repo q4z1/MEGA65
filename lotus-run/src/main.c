@@ -43,11 +43,13 @@ static const uint16_t opp_paint[2 * OPP_COLOURS] = {0xCCC, 0x666, 0x59E, 0x236, 
                                                     0x555, 0x222, 0xF94, 0x942, 0xB7D, 0x535};
 
 // The race view's colours 1-7 (those of 12-15 change down the screen,
-// render.c; 8-11 are the scenery's, per picture), the player's car's paint,
-// the panel's 17-19, 25-27
+// render.c), the scenery's, the player's car's paint, the panel's 17-19,
+// 25-27
 static void view_colours(void) {
     for (uint8_t i = 0; i < 7; i++)
         video_colour(1 + i, tab_view_colours[i]);
+    for (uint8_t i = 0; i < OBJ_COLOURS; i++)
+        video_colour(OBJ_COLOUR + i, obj_colours[i]);
     for (uint8_t i = 0; i < 3; i++)
         video_colour(CAR_PAINT + i, car_paint[i]);
     for (uint8_t i = 0; i < 2 * OPP_COLOURS; i++)
@@ -211,8 +213,6 @@ static bool race_run(uint8_t n, const Controls *c) {
         render_view(&v);
         panel_draw();
         video_show();
-        for (uint8_t i = 0; i < 4; i++)
-            video_colour(8 + i, p->colours[i]);
     }
     sound_off();
     return true;
