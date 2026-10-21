@@ -45,6 +45,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkbackdrops  # noqa: E402
 import mkcars  # noqa: E402
+import mkdata  # noqa: E402
 import mkscenery  # noqa: E402
 import packers  # noqa: E402
 
@@ -427,6 +428,7 @@ def main():
     code = open(os.path.join(orig, 'code.bin'), 'rb').read()
     banks = {}
     f51 = unpack(0x51)
+    drawn, drawn_dims = mkscenery.drawn_signs(), {}
     for t in range(0x80, 0xAC):
         shape = SAME_SHAPE.get(t, t)
         if shape in FILE51:
@@ -438,6 +440,9 @@ def main():
             banks[t - 0x80] = mkscenery.new_bank(t, [w / boards[0][0] for w, _, _ in boards])
             continue
         else:
+            continue
+        if t in drawn and t not in SAME_SHAPE and t != GATE_TYPE:  # its colours after all the others'
+            drawn_dims[t] = [(w, h) for w, h, _ in ims]
             continue
         banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, ims)
     # each type's colours 8-11 that it uses become colours of its own
@@ -453,7 +458,15 @@ def main():
                 lut[8 + k] = OBJ_COLOUR + len(obj_colours)
                 obj_colours.append(type_colours[b * 4 + k])
         banks[b] = [(w, h, px.translate(lut)) for w, h, px in ims]
-    assert OBJ_COLOUR + len(obj_colours) <= 256
+    # the signs drawn elsewhere (art/signs): colours shared by them all, as
+    # many as are left
+    first = OBJ_COLOUR + len(obj_colours)
+    drawn_banks, drawn_colours = mkscenery.sign_banks(drawn_dims, [0] + mkdata.view_colours(orig), first,
+                                                      SPR_CLEAR - first)
+    for t, ims in drawn_banks.items():
+        banks[t - 0x80] = ims
+    obj_colours += drawn_colours
+    assert OBJ_COLOUR + len(obj_colours) <= SPR_CLEAR
     banks[GATE_TYPE - 0x80], gate_places = gate_near(banks[GATE_TYPE - 0x80], orig, unpack(0x59))
     # the cars: our own drawings (tools/mkcars.py), as many images and as
     # large as the game's, picked as it picks them (its table of images

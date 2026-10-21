@@ -9,11 +9,13 @@ snowy trees and bushes share the green ones' images and are white by their
 colours). What it shows is new: drawn four times as large in those colours
 and brought down to each size.
 
-bank(type, dims) gives a bank's images, gate(images) the start gate's.
+bank(type, dims) gives a bank's images, gate(images) the start gate's;
+sign_banks() those of the signs drawn elsewhere (art/signs).
 """
 import math
 import os
 import random
+import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -1028,6 +1030,117 @@ def board(t, ims):
             BOARDS[t](img)
         out.append((w, h, img.tobytes()))
     return out
+
+
+# ------------------------------------------------------------ signs drawn elsewhere
+#
+# A sign's or board's drawing in art/signs/NN-name.png (NN its type in hex)
+# takes its place: any size, its ground transparent - or a plain colour all
+# round it, the colour at the corners. Cropped to what is not ground, it is
+# brought down to each of the type's sizes, edge to edge, and its colours
+# to the race view's 0-7 and colours of the drawings' own, shared by all
+# of them.
+
+ART_SIGNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'signs')
+SIGN_WEIGHT = np.array([3.0, 4.0, 2.0])  # how much red, green, blue tell colours apart
+
+
+def drawn_signs():
+    """The types that have a drawing in art/signs: type -> its file"""
+    out = {}
+    if os.path.isdir(ART_SIGNS):
+        for f in sorted(os.listdir(ART_SIGNS)):
+            if not f.lower().endswith('.png'):
+                continue
+            try:
+                t = int(f[:2], 16)
+            except ValueError:
+                sys.exit(f'art/signs/{f}: the name does not start with the type (e.g. 9B-hotel.png)')
+            if t in out:
+                sys.exit(f'art/signs: two drawings of type {t:02X}')
+            out[t] = os.path.join(ART_SIGNS, f)
+    return out
+
+
+def sign_art(path):
+    """The drawing, RGBA, its ground transparent, cropped to the rest"""
+    im = Image.open(path).convert('RGBA')
+    keyed = im.getextrema()[3][0] == 255
+    if keyed:  # no transparency: the plain colour round it, from the corners in
+        ground = np.array(im.getpixel((0, 0))[:3], float)
+        for corner in ((0, 0), (im.width - 1, 0), (0, im.height - 1), (im.width - 1, im.height - 1)):
+            ImageDraw.floodfill(im, corner, (0, 0, 0, 0), thresh=40)
+    a = np.array(im)
+    if keyed and np.ptp(ground) > 150:  # a loud key colour (magenta): in the gaps it encloses too
+        a[np.abs(a[:, :, :3] - ground).sum(axis=2) <= 40, 3] = 0
+    solid = a[:, :, 3] >= 128
+    if keyed:  # its edge mixed with the ground: two pixels off
+        for _ in range(2):
+            solid[1:-1, 1:-1] &= solid[:-2, 1:-1] & solid[2:, 1:-1] & solid[1:-1, :-2] & solid[1:-1, 2:]
+    a[:, :, 3] = np.where(solid, 255, 0)
+    ys, xs = np.nonzero(solid)
+    if not ys.size:
+        sys.exit(f'{path}: nothing but ground')
+    return Image.fromarray(a).crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+
+
+def _nearest(px, pal):
+    d = (((px[:, None, :] - pal[None, :, :]) ** 2) * SIGN_WEIGHT).sum(axis=2)
+    return d.argmin(axis=1)
+
+
+def sign_banks(dims_of, view, first, room):
+    """The drawn signs: per type of dims_of (type -> its sizes) whose drawing
+    there is, its images in those sizes - colours 0-7 the race view's
+    (view: their 12-bit colours), first on those of the drawings - and
+    those (12-bit), at most room"""
+    art = drawn_signs()
+    smalls = {}
+    for t, dims in dims_of.items():
+        if t in art:
+            im = sign_art(art[t])
+            smalls[t] = [np.asarray(im.resize((w, h), Image.LANCZOS), float) for w, h in dims]
+    if not smalls:
+        return {}, []
+    # what the drawings have, on the 12-bit grid; small parts count more
+    # than their pixels (the square root of how many)
+    px = np.concatenate([s[s[:, :, 3] >= 128][:, :3] for ims in smalls.values() for s in ims])
+    grid = np.clip(np.rint(px / 17), 0, 15).astype(int)
+    codes, counts = np.unique(grid[:, 0] << 8 | grid[:, 1] << 4 | grid[:, 2], return_counts=True)
+    rgb = np.stack([codes >> 8, codes >> 4 & 15, codes & 15], axis=1) * 17.0
+    fixed = np.array([[(c >> 8 & 15) * 17, (c >> 4 & 15) * 17, (c & 15) * 17] for c in view], float)
+    weight = np.sqrt(counts)
+    free = _nearest(rgb, fixed)
+    free = (((rgb - fixed[free]) ** 2) * SIGN_WEIGHT).sum(axis=1) > 0
+    if free.sum() <= room:  # room for every one
+        own = rgb[free]
+    else:  # weighted k-means; the race view's colours stay where they are
+        rng = np.random.default_rng(0x5167)
+        own = rgb[free][rng.choice(free.sum(), room, replace=False, p=weight[free] / weight[free].sum())]
+        for _ in range(30):
+            near = _nearest(rgb, np.concatenate([fixed, own]))
+            for k in range(room):
+                m = near == len(fixed) + k
+                if m.any():
+                    own[k] = (rgb[m] * weight[m, None]).sum(axis=0) / weight[m].sum()
+        own = np.unique(np.clip(np.rint(own / 17), 0, 15) * 17, axis=0)
+        own = own[(((own[:, None] - fixed[None]) ** 2) * SIGN_WEIGHT).sum(axis=2).min(axis=1) > 0]
+    pal = np.concatenate([fixed, own])
+    index = np.concatenate([np.arange(len(fixed)), first + np.arange(len(own))]).astype(np.uint8)
+    banks = {}
+    for t, ims in smalls.items():
+        out = []
+        for s in ims:
+            h, w = s.shape[:2]
+            flat = s.reshape(-1, 4)
+            pix = np.full(w * h, CLEAR, np.uint8)
+            solid = flat[:, 3] >= 128
+            if solid.any():
+                pix[solid] = index[_nearest(flat[solid, :3], pal)]
+            out.append((w, h, pix.tobytes()))
+        banks[t] = out
+    colours = [int(r // 17) << 8 | int(g // 17) << 4 | int(b // 17) for r, g, b in own]
+    return banks, colours
 
 
 # ------------------------------------------------------------ kinds of our own
