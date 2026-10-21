@@ -10,12 +10,15 @@ before, so that everything around them stays).
 art/cars.png holds the drawings, each in a magenta box of its own, in
 rows; VIEWS says which are which. Turned to the right is the drawing
 turned as far to the left, mirrored. Each image takes the drawing of its
-angle, brought down to its size - as high as the game's image, as wide as
-the drawing is then, so that the car keeps its size as it turns - and into
-the race's colours: where it is mostly paint, the paint - in three shades
-(the player's, from the drawing: CAR_PAINT) or two (the opponents': the
-same car, which the game colours six ways) - as light as the drawing's;
-the rest (glass, lights, wheels, plate) black, reds and greys.
+angle, in the race's colours and brought down to its size - as high as
+the game's image, as wide as the drawing is then, so that the car keeps
+its size as it turns. The colours first, on the drawing as large as it
+is: where it is paint, the paint - in three shades (the player's, from the
+drawing: CAR_PAINT) or two (the opponents': the same car, which the game
+colours six ways) - as light as the paint around there, so the shades lie
+in calm areas; the rest (glass, lights, wheels, plate) black, reds and
+greys. Then down to the size, each pixel the colour most of its area has
+(none mixed, the edges stay sharp), the drawing's thick outline thinned.
 
 render() gives the bank's images; with them, for the player's largest
 size, where the number plate's digit and the brake lights go, and the
@@ -24,7 +27,7 @@ player's paint.
 import os
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 CLEAR = 0xFF
 BLACK, LIGHT_RED, RED, DARK_RED, DARK_GREY, GREY, LIGHT_GREY = 0, 1, 2, 3, 4, 5, 6
@@ -33,10 +36,11 @@ FIXED = [0x000, 0xC44, 0xA00, 0x600, 0x222, 0x666, 0xCCC]
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'cars.png')
 # the drawings for angles 0-4 (the nose to the left, most first, then
 # straight on): their places in art/cars.png, in reading order (boxes too
-# small to use not counted). Turned only a little - at angle 0 the flank
+# small to use not counted), and whether the drawing is turned the other
+# way (then mirrored); the large ones, the finest. Turned only a little - at angle 0 the flank
 # shows on a sixth of the width - as the race picks the angle by where the
 # car is as much as by its turns
-VIEWS = (6, 7, 7, 0, 0)
+VIEWS = ((2, True), (3, True), (3, True), (0, False), (0, False))
 
 
 def rgb12(c):
@@ -105,41 +109,74 @@ def is_paint(col):
     return (col[:, :, 1] > col[:, :, 0] + 30) & (col[:, :, 1] > col[:, :, 2] + 30)
 
 
-def shrink(drawing, w, h, mirror):
-    """A drawing down to w x h: per pixel how much of its area is the car,
-    how much of that paint, the paint's colour, the rest's colour"""
+def coloured(drawing, shades, details):
+    """A drawing in the race's colours, at its own size: where it is paint,
+    the shade (shades: [(index, rgb)], light to dark) as light as the paint
+    around there - smoothed, so the shades lie in calm areas, not in specks
+    - else the nearest of details ({index: rgb}); CLEAR where it is not the
+    car"""
     col, alpha = drawing
-    if mirror:
-        col, alpha = col[:, ::-1], alpha[:, ::-1]
-    paint = is_paint(col) * alpha
+    paint = is_paint(col) & (alpha > 0)
+    lum = col @ np.array([0.3, 0.59, 0.11])
 
-    def box(v):
-        return np.asarray(Image.fromarray(np.clip(v, 0, 255).astype(np.uint8)).resize((w, h), Image.BOX), float)
+    def blur(v, r):  # v 0-255
+        return np.asarray(Image.fromarray(np.clip(v, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)),
+                          float)
 
-    a = box(alpha * 255) / 255
-    p = box(paint * 255) / 255
-    rest = alpha - paint
-    r = box(rest * 255) / 255
-    c_paint = box(col * paint[:, :, None]) / np.maximum(p, 1e-6)[:, :, None]
-    c_rest = box(col * rest[:, :, None]) / np.maximum(r, 1e-6)[:, :, None]
-    return a, p / np.maximum(a, 1e-6), c_paint, c_rest
-
-
-def quantise(shrunk, shades, details):
-    """Per pixel: clear where it is mostly not the car; paint where it is
-    mostly paint - the shade (shades: [(index, rgb)], light to dark) as
-    light as the paint there; else the nearest of details ({index: rgb})"""
-    a, share, c_paint, c_rest = shrunk
-    lum = np.array([0.3, 0.59, 0.11])
-    shade_lum = np.array([rgb @ lum for _, rgb in shades])
-    paint = np.array([i for i, _ in shades])[np.abs((c_paint @ lum)[:, :, None] - shade_lum).argmin(2)]
+    r = max(1.0, col.shape[1] / 120)
+    smooth = blur(lum * paint, r) * 255 / np.maximum(blur(paint * 255.0, r), 1e-6)
+    shade_lum = np.array([rgb @ np.array([0.3, 0.59, 0.11]) for _, rgb in shades])
+    shade = np.array([i for i, _ in shades])[np.abs(smooth[:, :, None] - shade_lum).argmin(2)]
     idx = list(details)
     pal = np.array([details[i] for i in idx])
-    d = (((c_rest[:, :, None, :] - pal[None, None, :, :]) ** 2) * lum * 3).sum(3)
+    d = (((col[:, :, None, :] - pal[None, None, :, :]) ** 2) * np.array([0.3, 0.59, 0.11])).sum(3)
     rest = np.array(idx)[d.argmin(2)]
-    out = np.where(share >= 0.5, paint, rest)
-    out[a < 0.5] = CLEAR
-    return bytes(out.astype(np.uint8).flatten())
+    out = np.where(paint, shade, rest)
+    out[alpha <= 0] = CLEAR
+    return out
+
+
+# what counts more where a small area decides: the lights, the plate
+WEIGHT = {LIGHT_RED: 1.8, RED: 1.8, DARK_RED: 1.5, LIGHT_GREY: 1.6}
+
+
+def shrink(indices, w, h, mirror):
+    """Colour indices down to w x h: per pixel the colour most of its area
+    has (no colours mixed: the edges stay sharp), clear where most of it
+    is"""
+    if mirror:
+        indices = indices[:, ::-1]
+    best, score = None, None
+    for v in np.unique(indices):
+        share = np.asarray(Image.fromarray(((indices == v) * 255).astype(np.uint8)).resize((w, h), Image.BOX), float)
+        share = share * (1 if v == CLEAR else WEIGHT.get(int(v), 1.0))
+        if best is None:
+            best, score = np.full((h, w), v), share
+        else:
+            better = share > score
+            best[better], score[better] = v, share[better]
+    return bytes(best.astype(np.uint8).flatten())
+
+
+def thinned(px, w, h):
+    """The drawing's dark outline (a comic's, thick) thinned: a dark pixel
+    on the edge goes where the one inside it is dark too - one pixel of
+    outline stays"""
+    out = bytearray(px)
+    dark = (BLACK, DARK_GREY)
+
+    def at(x, y):
+        return px[y * w + x] if 0 <= x < w and 0 <= y < h else CLEAR
+
+    for y in range(h):
+        for x in range(w):
+            if px[y * w + x] not in dark:
+                continue
+            for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+                if at(x + dx, y + dy) == CLEAR and at(x - dx, y - dy) in dark:
+                    out[y * w + x] = CLEAR
+                    break
+    return bytes(out)
 
 
 def paint_shades(drawing):
@@ -161,7 +198,7 @@ def render(dims, car_table, player_paint, opp_paint):
     x, y from the car image's top left); the player's paint (three 12-bit
     colours, light to dark)"""
     d = drawings()
-    paint = paint_shades(d[VIEWS[4]])
+    paint = paint_shades(d[VIEWS[4][0]])
     details = {i: rgb12(c) for i, c in enumerate(FIXED)}
     # the player's paint in its three shades; the opponents' in two, as
     # light as the white colouring's (main.c) - the same car, painted so
@@ -174,14 +211,15 @@ def render(dims, car_table, player_paint, opp_paint):
     images = [None] * 126
     marks = []
     for base, shades in ((0, player), (63, opp)):
+        views = [(coloured(d[v], shades, details), flip) for v, flip in VIEWS]
         for i in range(63):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            view = d[VIEWS[4 - round(abs(turn))]]
+            view, flip = views[4 - round(abs(turn))]
             h = dims[i][1]
-            w = max(1, round(h * view[0].shape[1] / view[0].shape[0]))
-            images[base + i] = (w, h, quantise(shrink(view, w, h, turn > 0), shades, details))
+            w = max(1, round(h * view.shape[1] / view.shape[0]))
+            images[base + i] = (w, h, thinned(shrink(view, w, h, (turn > 0) != flip), w, h))
             if base == 0 and size == 0:
                 marks.append(overlay(images[i]))
     return images, marks, paint
