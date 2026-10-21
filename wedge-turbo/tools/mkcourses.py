@@ -42,6 +42,12 @@ GATE, PIT_SIGN, PIT_WALL = 0x82, 0x83, 0x86
 SIGN_RIGHT, SIGN_LEFT = 0x80, 0x81
 ROCKS, BARRIER, BARRIER_RIGHT, BARRIER_LEFT, OIL, WATER = 0x9A, 0x9F, 0xA0, 0xA1, 0xA2, 0xA3
 HAZARDS = {ROCKS, BARRIER, BARRIER_RIGHT, BARRIER_LEFT, OIL, WATER}
+# kinds of our own (tools/mkscenery.py): wind turbines and solar fields,
+# where the land is open (the backdrops' themes, mkbackdrops.py), in groups
+# (one per so many segments, so many in a group), how far from the road
+# (the trees: mostly 16-56)
+TURBINE, SOLAR = 0x8D, 0x8E
+OPEN_LAND = {TURBINE: ({0, 4, 7, 8, 9}, 45, (3, 5), (26, 40)), SOLAR: ({0, 2, 3, 6, 7, 9}, 55, (2, 4), (28, 44))}
 NOT_SCENERY = {SIGN_RIGHT, SIGN_LEFT, GATE, PIT_SIGN, PIT_WALL} | HAZARDS
 
 
@@ -326,9 +332,17 @@ def course(n, th, rng, d, sizes, of_type, budget):
     # as long as the sprites fit
     pool = [ty for ty, _ in t['types'].most_common()]
     picks = rng.randint(3, 5)
+    # first wind turbines and solar fields where the land is open, then
+    # the theme's own kinds in what room is left (room for its commonest
+    # kind at least)
+    extra = []
+    for ty, (themes_of, _, _, _) in OPEN_LAND.items():
+        m = memory(need | set(extra) | {ty, pool[0]}, sizes, of_type)
+        if theme in themes_of and m[0] <= budget[0] and m[1] <= budget[1]:
+            extra.append(ty)
     chosen = []
     for ty in rng.sample(pool[:8], min(len(pool[:8]), picks)):
-        m = memory(need | set(chosen) | {ty}, sizes, of_type)
+        m = memory(need | set(extra) | set(chosen) | {ty}, sizes, of_type)
         if m[0] <= budget[0] and m[1] <= budget[1]:
             chosen.append(ty)
     if not chosen:  # the hazards' sprites left no room: fewer hazards
@@ -342,6 +356,18 @@ def course(n, th, rng, d, sizes, of_type, budget):
                 continue
             ty = rng.choices(chosen, weights=weights)[0]
             objects[i][q] = (ty, rng.choice(t['x'][ty]))
+    # wind turbines, solar fields: further out, in groups on one side
+    for ty in extra:
+        _, every, (fewest, most), (near, far) = OPEN_LAND[ty]
+        for _ in range(max(1, (n_segs - 40) // every)):
+            i, side = rng.randrange(30, n_segs - 12), rng.choice((-1, 1))
+            for k in range(rng.randint(fewest, most)):
+                # a free place, or one of the theme's own kinds makes room
+                free = [q for q in range(4) if not objects[i][q][0]] or \
+                    [q for q in range(4) if objects[i][q][0] in chosen]
+                if free:
+                    objects[i][rng.choice(free)] = (ty, side * rng.randint(near, far))
+                i += rng.randint(1, 3)
 
     # the hazards on straights
     placed = set()

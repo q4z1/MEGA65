@@ -44,7 +44,7 @@ _Static_assert(LOW_CODE_AT + LOW_CODE_SIZE <= LOW_RAM_AT, "LOW_CODE reaches LOW_
 #define MENU_AT   0xE000
 #define MENU_SIZE 0x1FFAu
 #if defined(__mos__) && defined(WEDGE_MENU_OVERLAY)
-#define MENU __attribute__((section(".menu")))
+#define MENU __attribute__((section(".menu"), noinline))  // not copied into callers
 #define BOOT_CODE __attribute__((section(".bootcode"), noinline))  // not copied into callers
 #else
 #define MENU

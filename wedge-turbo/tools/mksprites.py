@@ -433,6 +433,10 @@ def main():
             ims = list(images(f51, FILE51[shape]))
         elif os.path.exists(os.path.join(orig, f'{shape:02X}.bin')):
             ims = list(images(unpack(shape)))
+        elif t in mkscenery.NEW_TYPES:  # a kind of our own, sized as the game's boards
+            boards = list(images(unpack(0x96)))
+            banks[t - 0x80] = mkscenery.new_bank(t, [w / boards[0][0] for w, _, _ in boards])
+            continue
         else:
             continue
         banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, ims)

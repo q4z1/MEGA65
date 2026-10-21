@@ -1028,3 +1028,92 @@ def board(t, ims):
             BOARDS[t](img)
         out.append((w, h, img.tobytes()))
     return out
+
+
+# ------------------------------------------------------------ kinds of our own
+#
+# Two kinds the game has numbers for but never used ($8D, $8E - never
+# touched, no width to run into): wind turbines and fields of solar
+# panels, set further from the road than the trees (mkcourses.py). Their
+# sizes: the game's for its boards, from BASE on.
+
+NEW_TYPES = {0x8D: (84, 168), 0x8E: (120, 40)}
+COLOURS.update({
+    0x8D: {8: 0xEEE, 9: 0x99A},                          # white, its shade
+    0x8E: {8: 0x124, 9: 0x358, 10: 0x8BE, 11: 0x999},    # panels dark, mid, the sky in them; frames
+})
+
+
+def render_turbine(w, h, rng):
+    """A wind turbine: a white tower, lit on the left, the nacelle, three
+    blades with red tips"""
+    img = Image.new('L', (w, h), CLEAR)
+    d = ImageDraw.Draw(img)
+    cx, hub = w / 2, h * 0.33
+    base, top = max(1.0, w * 0.045), max(1.0, w * 0.022)
+    d.polygon([(cx - base, h - 1), (cx - top, hub), (cx + top, hub), (cx + base, h - 1)], fill=LIGHT_GREY)
+    d.polygon([(cx, h - 1), (cx, hub), (cx + top, hub), (cx + base, h - 1)], fill=C9)
+    if base >= 2:
+        d.line([(cx - base, h - 1), (cx - top, hub)], fill=C8)
+    turn = 0.35
+    for k in range(3):
+        a = turn + k * 2 * np.pi / 3
+        ln = h * 0.3
+        ex, ey = cx + np.cos(a) * ln, hub - np.sin(a) * ln
+        nx, ny = -np.sin(a), -np.cos(a)  # across the blade
+        wb = max(0.6, w * 0.022)
+        d.polygon([(cx + nx * wb, hub + ny * wb), (ex, ey), (cx - nx * wb, hub - ny * wb)], fill=C8)
+        d.line([(cx - nx * wb, hub - ny * wb), (ex, ey)], fill=C9)
+        tip = 0.86
+        d.line([(cx + (ex - cx) * tip, hub + (ey - hub) * tip), (ex, ey)], fill=RED, width=max(1, round(wb)))
+    r = max(1, w * 0.03)
+    d.rectangle([cx - r * 1.6, hub - r, cx + r * 1.2, hub + r], fill=LIGHT_GREY)  # the nacelle
+    d.ellipse([cx - r, hub - r, cx + r, hub + r], fill=C8)
+    out = np.array(img, np.uint8)
+    shadow(out, cx, h - 1, w * 0.1)
+    return out
+
+
+def render_solar(w, h, rng):
+    """A field of solar panels: rows of tilted panels, framed, the sky
+    shining in them, on short legs"""
+    img = Image.new('L', (w, h), CLEAR)
+    d = ImageDraw.Draw(img)
+    rows = 3
+    for k in range(rows):  # the far row first, higher up and shorter
+        f = 1 - 0.12 * (rows - 1 - k)
+        x0, x1 = w * (0.5 - 0.5 * f), w * (0.5 + 0.5 * f) - 1
+        top = h * (0.06 + 0.24 * k)
+        depth = h * 0.26
+        bottom = top + depth
+        lean = depth * 0.45
+        d.polygon([(x0 + lean, top), (x1 + lean, top), (x1, bottom), (x0, bottom)], fill=C9)
+        # the sky in them, brighter to the left
+        d.polygon([(x0 + lean, top), (x0 + lean + (x1 - x0) * 0.35, top), (x0 + (x1 - x0) * 0.22, bottom),
+                   (x0, bottom)], fill=C10)
+        d.line([(x0 + lean, top), (x0, bottom)], fill=C11)
+        cells = max(1, int((x1 - x0) / 6))
+        for c in range(1, cells):  # the panels' frames
+            t = c / cells
+            xa = x0 + lean + (x1 - x0) * t
+            d.line([(xa, top), (xa - lean, bottom)], fill=C8)
+        d.line([(x0 + lean, top), (x1 + lean, top)], fill=C11)
+        d.line([(x0, bottom), (x1, bottom)], fill=BLACK)
+        for c in range(0, cells + 1, 2):  # the legs
+            xa = x0 + (x1 - x0) * c / cells
+            d.line([(xa, bottom), (xa, min(h - 1, bottom + h * 0.08))], fill=DARK_GREY)
+    return np.array(img, np.uint8)
+
+
+RENDER_NEW = {0x8D: render_turbine, 0x8E: render_solar}
+
+
+def new_bank(t, ratios):
+    """A kind of our own: its images in the sizes base * ratios"""
+    bw, bh = NEW_TYPES[t]
+    out = []
+    for k, r in enumerate(ratios):
+        w, h = max(1, round(bw * r)), max(1, min(255, round(bh * r)))
+        px = RENDER_NEW[t](w, h, np.random.default_rng(0x77E0 + t * 32 + k))
+        out.append((w, h, bytes(np.asarray(px, np.uint8).flatten())))
+    return out

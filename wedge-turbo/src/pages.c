@@ -146,7 +146,7 @@ MENU void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour) {
 // The digits' characters at the end, before the text's
 #define DIGIT_BASE (PAGE_CHAR_END - DIGIT_CHARS)
 
-MENU void page_digits_in(void) {
+LOW_CODE void page_digits_in(void) {
     dma_copy(GLYPHS_ATTIC + GLYPHS * 64ul, PAGE_CHARS + (uint32_t)(DIGIT_BASE - PAGE_CHAR_BASE) * 64,
              DIGIT_CHARS * 64u);
     dma_flush();

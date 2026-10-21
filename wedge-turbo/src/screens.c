@@ -26,7 +26,7 @@ static const uint8_t *auto_keys;  // what the test presses next (0: fire)
 // After the next frame: the presses new since the last (bits not set the
 // frame before); built with WEDGE_AUTOTEST, a press every second on its own
 // (auto_keys, else fire)
-MENU static uint8_t key_poll(void) {
+LOW_CODE static uint8_t key_poll(void) {
     static uint8_t last = 0xFF;
     uint8_t f = video_frame();
     while (video_frame() == f)
