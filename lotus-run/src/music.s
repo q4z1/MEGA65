@@ -1,6 +1,8 @@
-; Lotus Run: the music player (music.h), run by the raster interrupt
-; (irq.s) once a frame - one step for every frame that has passed (the
-; frame counter), so that the tempo holds when an interrupt is late. It
+; Lotus Run: the music player (music.h), run by a timer interrupt (irq.s,
+; music.c) several times a frame: the first after a new frame makes a
+; step, one for every frame that has passed (the frame counter) - the tempo
+; is the screen's. (A raster interrupt got lost in Xemu whenever its line
+; went by during a DMA job, which in the race is often.) It
 ; plays MUSIC (tools/mkmusic.py) on the four SIDs, reading it from attic
 ; RAM through a 32-bit pointer.
 ;
@@ -199,14 +201,14 @@ silence:
     sta $D478
     rts
 
-; Once a frame (irq.s)
+; Several times a frame (irq.s)
 music_frame:
     lda playing
     bne 1f
     rts
-1:  lda FRAME                   ; the frames since the last call: as many
-    tay                         ; steps (an interrupt may come late, or not
-    sec                         ; at all while a long DMA job holds the CPU)
+1:  lda FRAME                   ; the frames since the last step: as many
+    tay                         ; steps
+    sec
     sbc last_frame
     beq 4f
     sty last_frame

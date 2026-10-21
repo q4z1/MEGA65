@@ -2,7 +2,7 @@
 ; never calls it), the interrupt vectors at $FFFA-$FFFF ours. No interrupt
 ; is on at first: the vectors lead to handlers that acknowledge, and call
 ; irq_frame (an assembly routine, which may use the KERNAL's zero page from
-; $90 on) - music.c turns on a raster interrupt for the music.
+; $90 on) - music.c turns on a timer interrupt for the music.
 
 .global irq_init, irq_frame
 
@@ -49,6 +49,7 @@ irq_handler:
     phx
     phy
     phz
+    lda $DC0D           ; acknowledge CIA 1 and the VIC
     lda #$FF
     sta $D019
     jsr irq_call

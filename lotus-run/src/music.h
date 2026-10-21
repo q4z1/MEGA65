@@ -1,6 +1,6 @@
 // Lotus Run: the music - the game's five tunes, arranged for the MEGA65's
 // four SIDs (tools/mkmusic.py): song 0 for the title and the pages, 1-4 on
-// the radio during the race. A raster interrupt plays them (music.s), so
+// the radio during the race. A timer interrupt plays them (music.s), so
 // they go on while the program loads or waits.
 
 #ifndef MUSIC_H

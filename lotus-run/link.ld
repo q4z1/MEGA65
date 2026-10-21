@@ -12,7 +12,7 @@ __basic_zp_end = 0x0090;
 MEMORY {
     ram (rw) : ORIGIN = 0x2001, LENGTH = 0xafff
     workram (rw) : ORIGIN = 0x0200, LENGTH = 0x0200
-    lowcode (rx) : ORIGIN = 0x0b00, LENGTH = 0x0500
+    lowcode (rx) : ORIGIN = 0x0a00, LENGTH = 0x0600
     lowram (rw) : ORIGIN = 0x1000, LENGTH = 0x1000
     highram (rw) : ORIGIN = 0xf100, LENGTH = 0x0efa
     menu (rx) : ORIGIN = 0xe000, LENGTH = 0x1ffa

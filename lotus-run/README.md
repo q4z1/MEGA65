@@ -45,7 +45,7 @@ round slower cars) with the radio's tracks in turn, for recordings.
   ([season.c](src/season.c)) and its pages ([screens.c](src/screens.c), an
   overlay loaded between the races: [link.ld](link.ld)), the sounds
   ([sound.c](src/sound.c)), the music ([music.s](src/music.s), played by
-  a raster interrupt; arranged at build time by
+  a timer interrupt; arranged at build time by
   [tools/mkmusic.py](tools/mkmusic.py)),
   scenery and cars ([sprites.c](src/sprites.c)),
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200

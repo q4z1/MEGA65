@@ -19,13 +19,13 @@
 // The DMA list being collected (dma.c): below the program, where BASIC had
 // its screen; the game never goes back to BASIC.
 #define DMA_LIST      ((uint8_t *)0x0800)
-#define DMA_LIST_SIZE 0x0300u
+#define DMA_LIST_SIZE 0x0200u
 
 // Code that has to stay in bank 0 all the time but does not fit beside the
 // program (link.ld's .lowcode: the music player): behind the DMA list,
 // loaded from the disk (LOWCODE) at the start
-#define LOW_CODE_AT   0x0B00
-#define LOW_CODE_SIZE 0x0500u
+#define LOW_CODE_AT   0x0A00
+#define LOW_CODE_SIZE 0x0600u
 _Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_CODE_AT, "the DMA list reaches LOW_CODE");
 
 // Variables that need no clearing, beside the program (link.ld): WORK_RAM
