@@ -17,8 +17,13 @@
 
 // ---------------------------------------------------------------- input
 
+#ifdef LOTUS_AUTOTEST
+static const uint8_t *auto_keys;  // what the test presses next (0: fire)
+#endif
+
 // After the next frame: the presses new since the last (bits not set the
-// frame before); built with LOTUS_AUTOTEST, fire every second on its own
+// frame before); built with LOTUS_AUTOTEST, a press every second on its own
+// (auto_keys, else fire)
 MENU static uint8_t key_poll(void) {
     static uint8_t last = 0xFF;
     uint8_t f = video_frame();
@@ -29,6 +34,8 @@ MENU static uint8_t key_poll(void) {
     if (++frames < 50)
         return 0;
     frames = 0;
+    if (auto_keys && *auto_keys)
+        return *auto_keys++;
     return IN_BUTTON;
 #endif
     uint8_t in = input_read();
@@ -172,6 +179,10 @@ MENU static void two_digits(uint8_t col, uint8_t row, bool big, uint8_t n) {
 }
 
 MENU uint8_t screen_radio(uint8_t track) {
+#ifdef LOTUS_AUTOTEST
+    static const uint8_t keys[] = {IN_RIGHT, IN_RIGHT, IN_BUTTON, 0};  // track 03
+    auto_keys = keys;
+#endif
     page_show("PRADIO");
     page_digits_in();
     uint8_t shown = 0xFF, second = 0xFF, frames = 0, f = video_frame();

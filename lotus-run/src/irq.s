@@ -49,10 +49,16 @@ irq_handler:
     phx
     phy
     phz
+    lda $D030           ; the I/O as it should be: without the colour RAM
+    pha                 ; at $D800-$DFFF (video.c turns it on for a while),
+    and #$FE            ; which hides CIA 1
+    sta $D030
     lda $DC0D           ; acknowledge CIA 1 and the VIC
     lda #$FF
     sta $D019
     jsr irq_call
+    pla
+    sta $D030
     plz
     ply
     plx

@@ -253,9 +253,6 @@ int main(void) {
             pages_on();
             if (!course_in())
                 halt(2);
-#ifdef LOTUS_AUTOTEST
-            controls.radio = (uint8_t)(1 + (season.race & 3));  // every track in turn
-#endif
             bool done = race_run(n, &controls);
             menu_in();
             music_start(0);

@@ -34,7 +34,7 @@ Run/Stop gives up a race.
 
 `LOTUS_CFLAGS=-DLOTUS_AUTOTEST ./build.sh` makes a build that goes through
 the pages by itself and drives on its own (full gas, holding a line,
-round slower cars) with the radio's tracks in turn, for recordings.
+round slower cars) - with track 03 chosen on the radio - for recordings.
 
 ## Inside
 
