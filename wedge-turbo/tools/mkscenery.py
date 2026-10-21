@@ -1066,20 +1066,20 @@ def drawn_signs():
 
 def strays(solid):
     """Takes off what a drawing cut out of a sheet keeps of its neighbours:
-    narrow pieces at the left or right edge (at most STRAY_W of the width),
-    small beside the rest (STRAY_AREA of it) - the posts stand on the
-    bottom edge, never at the sides"""
+    pieces at the left, right or top edge, narrow across it (at most
+    STRAY_W of the width or height) and small beside the rest (STRAY_AREA
+    of it) - the posts stand on the bottom edge, never at the others"""
     h, w = solid.shape
     mask = Image.fromarray(np.where(solid, 255, 0).astype(np.uint8)).copy()  # (its own pixels: floodfill)
-    for x in (0, w - 1):
-        for y in np.nonzero(np.asarray(mask)[:, x] == 255)[0]:
-            if mask.getpixel((int(x), int(y))) != 255:  # a piece seen already
-                continue
-            ImageDraw.floodfill(mask, (int(x), int(y)), 128)
-            piece = np.asarray(mask) == 128
-            xs = np.nonzero(piece.any(axis=0))[0]
-            gone = xs[-1] - xs[0] + 1 <= w * STRAY_W and piece.sum() <= solid.sum() * STRAY_AREA
-            mask = Image.fromarray(np.where(piece, 0 if gone else 64, np.asarray(mask)).astype(np.uint8)).copy()
+    edges = [((0, y), 1) for y in range(h)] + [((w - 1, y), 1) for y in range(h)] + [((x, 0), 0) for x in range(w)]
+    for (x, y), across in edges:
+        if mask.getpixel((x, y)) != 255:  # ground, or a piece seen already
+            continue
+        ImageDraw.floodfill(mask, (x, y), 128)
+        piece = np.asarray(mask) == 128
+        span = np.nonzero(piece.any(axis=1 - across))[0]
+        gone = span[-1] - span[0] + 1 <= (w, h)[1 - across] * STRAY_W and piece.sum() <= solid.sum() * STRAY_AREA
+        mask = Image.fromarray(np.where(piece, 0 if gone else 64, np.asarray(mask)).astype(np.uint8)).copy()
     solid &= np.asarray(mask) != 0
 
 
