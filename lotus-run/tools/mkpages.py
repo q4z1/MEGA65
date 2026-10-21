@@ -17,13 +17,13 @@ transparent ground), else from tools/art.py.
 Writes into GENDIR:
     pages/pNAME.bin  a page (on the disk as PNAME): the palette (16 banks of 16
                   colours, R G B), the number of characters (2 bytes), then,
-                  each run-length coded on its own as
+                  each packed on its own as
                   tools/mksprites.py does it: screen RAM (2 bytes a
                   character), colour RAM (2 bytes a character) - each
                   as all the low bytes, then all the high ones - and the
                   characters (64 bytes each)
     pages/glyphs.bin the text font (on the disk as GLYPHS): 8 x 16 pixels a
-                  glyph (the ramp's levels), run-length coded
+                  glyph (the ramp's levels), packed
     pages_gen.h/.c the glyphs' order, the pages' character base and limits
 """
 import os
@@ -32,7 +32,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mksprites import rle  # noqa: E402
+from mksprites import pack as pack_bytes  # noqa: E402
 import art  # noqa: E402
 
 FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'toolchain', 'fonts')
@@ -227,8 +227,8 @@ def page_file(img):
     count = bytes([len(chars) & 0xFF, len(chars) >> 8])
     # screen and colour RAM each as their low bytes, then their high ones:
     # that way they have runs to code
-    return (pal + count + rle(bytes(screen[0::2] + screen[1::2])) + rle(bytes(colour[0::2] + colour[1::2])) +
-            rle(b''.join(chars)), len(chars))
+    return (pal + count + pack_bytes(bytes(screen[0::2] + screen[1::2])) +
+            pack_bytes(bytes(colour[0::2] + colour[1::2])) + pack_bytes(b''.join(chars)), len(chars))
 
 
 # ---------------------------------------------------------------- the font
@@ -256,7 +256,7 @@ def glyph_font():
             g.paste(crop.resize((nw, 16), Image.LANCZOS), ((8 - nw) // 2, 0))
         px = [round(v * 15 / 255) for v in g.tobytes()]
         out += bytes(px[i] | px[i + 1] << 4 for i in range(0, 128, 2))
-    return rle(bytes(out))
+    return pack_bytes(bytes(out))
 
 
 # ---------------------------------------------------------------- the pages

@@ -3,7 +3,7 @@
 // The VIC-IV shows 40 x 50 characters of 16 x 8 pixels in 16 colours: per
 // character two bytes of screen RAM (its number) and two of colour RAM
 // (16-colour mode, its palette bank). A page from the disk is the palette,
-// then screen RAM, colour RAM and its characters, each run-length coded
+// then screen RAM, colour RAM and its characters, each packed
 // (tools/mkpages.py). Text put in at run time gets characters of its own
 // behind the page's: each text row its 2 x PAGE_COLS, two glyphs of 8 x 16
 // pixels side by side making a character's top and bottom.

@@ -17,20 +17,20 @@ colours 4-7 and 12-14 - those three become BACK_COLOURS on - and 7 the sky
 
 Writes into GENDIR:
     sprNN.bin     bank NN (on the disk as SPRNN): u8 image count, per image
-                  u8 width and u8 height, then all pixels, run-length coded:
-                  a byte n < $80 is followed by n + 1 pixels, n >= $80 by one
-                  pixel repeated n - $7E times
+                  u8 width and u8 height, then all pixels, packed (pack():
+                  runs of pixels as they are, repeated pixels, copies of
+                  what came before)
     sprbanks.h/.c the banks: 00-2B the scenery objects $80-$AB (the types
                   without a file of their own share another's bank),
                   SPR_CARS, SPR_HUD
     backN.bin     backdrop N (on the disk as BACKN): 960 x 32 colours, row
-                  after row, run-length coded as the banks' pixels
+                  after row, packed as the banks' pixels
     lapbar.bin    the lap bar (on the disk as LAPBAR): overlay 23 as drawn
                   for 1-8 laps, then a box's row filled with each of 16
-                  masks (16 pixels), run-length coded as the banks' pixels
+                  masks (16 pixels), packed as the banks' pixels
     panel.bin     the panel of the race view (on the disk as PANEL): u8
                   width, height, field count; per field u8 x, y, w, h and
-                  state count; then run-length coded as the banks' pixels:
+                  state count; then packed as the banks' pixels:
                   the panel, then every field's states, w x h each
 """
 import os
@@ -78,22 +78,61 @@ def images(d, base=0):
         yield w, h, bytes(px)
 
 
-def rle(d):
-    out, i = bytearray(), 0
-    while i < len(d):
-        j = i
-        while j < len(d) and d[j] == d[i] and j - i < 129:
-            j += 1
-        if j - i >= 2:
-            out += bytes([0x7E + j - i, d[i]])
-            i = j
-            continue
-        j = i + 1
-        while j < len(d) and j - i < 128 and not (j + 1 < len(d) and d[j] == d[j + 1]):
-            j += 1
-        out += bytes([j - i - 1]) + d[i:j]
-        i = j
-    return out
+def pack(d, chain=24):
+    """Packs d as src/banks.c's file_unpack unpacks it, token by token:
+    $00-$7F: the next 1-128 bytes as they are; $80-$BF: 2-65 times the next
+    byte; $C0-$FF: 4-67 bytes from what is unpacked already, the next two
+    bytes (low first) back - never overlapping what they make (one DMA
+    job)."""
+    n = len(d)
+    out, lit = bytearray(), bytearray()
+    heads = {}
+
+    def note(p):
+        if p + 3 <= n:
+            heads.setdefault(d[p:p + 3], []).append(p)
+
+    def flush():
+        for k in range(0, len(lit), 128):
+            part = lit[k:k + 128]
+            out.append(len(part) - 1)
+            out.extend(part)
+        lit.clear()
+
+    i = 0
+    while i < n:
+        run = 1
+        while i + run < n and d[i + run] == d[i] and run < 65:
+            run += 1
+        best, at = 0, 0
+        for p in reversed(heads.get(d[i:i + 3], [])[-chain:]):
+            dist = i - p
+            if dist > 0xFFFF:
+                break
+            most = min(67, dist, n - i)
+            if most <= best:
+                continue
+            m = 0
+            while m < most and d[p + m] == d[i + m]:
+                m += 1
+            if m > best:
+                best, at = m, dist
+        if run >= 3 and run >= best:
+            flush()
+            out += bytes([0x80 + run - 2, d[i]])
+            step = run
+        elif best >= 4:
+            flush()
+            out += bytes([0xC0 + best - 4, at & 0xFF, at >> 8])
+            step = best
+        else:
+            lit.append(d[i])
+            step = 1
+        for p in range(i, i + step):
+            note(p)
+        i += step
+    flush()
+    return bytes(out)
 
 
 BACKDROPS = 10
@@ -223,7 +262,7 @@ def panel_file(d50):
         head += bytes([x0, y0, x1 - x0, y1 - y0, n])
         for p in pics:
             states += [p[y * PANEL_W + x] for y in range(y0, y1) for x in range(x0, x1)]
-    return bytes(head) + rle(bytes(base) + bytes(states))
+    return bytes(head) + pack(bytes(base) + bytes(states))
 
 
 # ---------------------------------------------------------------- the lap bar
@@ -282,7 +321,7 @@ def lapbar_file():
         if px[2 * LAPBAR_W:2 * LAPBAR_W + 16] != px[3 * LAPBAR_W:3 * LAPBAR_W + 16]:
             sys.exit('lap bar: rows 2 and 3 of a box differ')
         out += px[2 * LAPBAR_W:2 * LAPBAR_W + 16]
-    return rle(bytes(out))
+    return pack(bytes(out))
 
 
 def repaint(cars):
@@ -310,7 +349,7 @@ def bank_file(ims):
     head = bytearray([len(ims)])
     for w, h, _ in ims:
         head += bytes([w, h])
-    return bytes(head) + rle(b''.join(px for _, _, px in ims))
+    return bytes(head) + pack(b''.join(px for _, _, px in ims))
 
 
 def main():
@@ -342,7 +381,7 @@ def main():
 
     for n in range(BACKDROPS):
         with open(os.path.join(gen, f'back{n}.bin'), 'wb') as f:
-            f.write(rle(backdrop(unpack(0x60 + n))))
+            f.write(pack(backdrop(unpack(0x60 + n))))
 
     of_type = [ALIASES.get(t, t) - 0x80 for t in range(0x80, 0xAC)]
     of_type = [b if b in banks else 0xFF for b in of_type]

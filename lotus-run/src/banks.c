@@ -1,7 +1,9 @@
 // Lotus Run: the sprite banks in attic RAM (see banks.h).
 //
 // A bank file is loaded to PICTURE (free before the race), then unpacked
-// into attic RAM by DMA: a literal run is a copy, a repeated pixel a fill.
+// into attic RAM by DMA (tools/mksprites.py's pack): bytes as they are are
+// a copy from the file, a repeated byte a fill, a copy of what came before
+// a copy within the output.
 // What the program keeps of a bank is its directory: per image width,
 // height and where its pixels are.
 
@@ -53,9 +55,14 @@ uint32_t file_unpack(uint32_t off, uint32_t out, uint32_t end) {
             len = c + 1;
             dma_copy(file_at + off, out, len);
             off += len;
-        } else {
+        } else if (c < 0xC0) {
             len = c - 0x7E;
             dma_fill(out, rd(off++), len);
+        } else {
+            len = c - 0xBC;
+            uint8_t lo = rd(off++);
+            uint8_t hi = rd(off++);
+            dma_copy(out - (uint16_t)(hi << 8 | lo), out, len);
         }
         out += len;
     }
