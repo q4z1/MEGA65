@@ -241,7 +241,6 @@ int main(void) {
         screen_title();
         level = screen_level(level);
         screen_controls(&controls);
-        controls.radio = screen_radio(controls.radio);
         season_start(level);
         bool out = false, gave_up = false;
         do {
@@ -250,6 +249,7 @@ int main(void) {
             if (!load_course(n))
                 halt(2);
             screen_course(n);
+            controls.radio = screen_radio(controls.radio);
             pages_on();
             if (!course_in())
                 halt(2);

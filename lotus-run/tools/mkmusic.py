@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Arranges the game's five tunes for the MEGA65's four SIDs.
+"""The music for the MEGA65's four SIDs: the game's five tunes arranged
+anew, then the radio's own tracks (tools/radio_tracks.py).
 
     mkmusic.py ORIGDIR GENDIR
 
@@ -9,7 +10,9 @@ instruments instead of samples, the melody doubled and slightly detuned
 over both sides with an echo going left and right, a hi-hat added to the
 beat, the bass through the filter - in stereo: bass and beat in the
 middle, the melody wide over both sides, the second voice on the left with
-its echo on the right, the hi-hats going between the sides.
+its echo on the right, the hi-hats going between the sides. The own tracks
+(song 5 on) are built from their chords, beat, bass, accompaniment and
+melodies in the same parts and instruments.
 
 Writes into GENDIR:
     music.bin  on the disk as MUSIC, played by src/music.s (see there for
@@ -22,6 +25,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import packers  # noqa: E402
+import radio_tracks  # noqa: E402
 
 CODE_BASE = 0xC18880
 SONG_TABLE = 0xC1C59A  # where each tune lies in memory, file $E8 loaded at the first
@@ -111,6 +115,17 @@ instrument('chord', 0x86, 0xA8, [(SAW | GATE, rel(0)), (SAW | GATE, rel(5)),
 instrument('riff echo', 0x08, 0x48, [(PULSE | GATE, rel(0))], pw=0x30, pw_speed=0x0C)
 instrument('riff', 0x08, 0x88, [(PULSE | GATE, rel(0))], pw=0x60, pw_speed=0x14,
            echo='riff echo')
+
+# for the own tracks (tools/radio_tracks.py): a melody on a saw and on a
+# triangle; chords broken fast (arp) and slowly (pad), per kind of chord
+instrument('saw lead', 0x09, 0xA8, [(SAW | GATE, rel(0))], vibrato=0xC7, echo='lead echo')
+instrument('soft lead', 0x3A, 0xA9, [(TRI | GATE, rel(0))], vibrato=0x87, echo='bell echo')
+CHORDS = {'': (0, 4, 7, 12), 'm': (0, 3, 7, 12), '7': (0, 4, 7, 10), 'm7': (0, 3, 7, 10),
+          'maj7': (0, 4, 7, 11), 'sus': (0, 5, 7, 12)}
+for kind, steps in CHORDS.items():
+    instrument('arp ' + kind, 0x06, 0x97, [(PULSE | GATE, rel(s)) for s in steps], loop=0, pw=0x40,
+               pw_speed=0x18)
+    instrument('pad ' + kind, 0x88, 0xA9, [(SAW | GATE, rel(s)) for s in steps for _ in (0, 1)], loop=0)
 
 NAMES = list(INSTRUMENTS)
 
@@ -228,6 +243,106 @@ def arrange(song, n, lengths):
     return speed, order, song[1] if song[1] < length else 0, patterns
 
 
+# ------------------------------------------------------------ the own tracks
+
+NOTE = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11,
+        'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10}
+BASS_STEP = {'R': 0, 'O': 12, 'F': 7, '6': 9, 'S': 10}
+
+
+def chord(s):
+    """'F#m7' -> (6, 'm7')"""
+    root = s[:2] if len(s) > 1 and s[1] in '#b' else s[:1]
+    return NOTE[root], s[len(root):]
+
+
+def note(s):
+    """'C#5' -> 61 (C0 is 0)"""
+    return int(s[-1]) * 12 + NOTE[s[:-1]]
+
+
+def melody(rows, part, inst, bar, at):
+    """A melody bar (\"E5:4 r:2 ...\", 16 rows) into rows from row at"""
+    r = 0
+    for token in bar.split():
+        name, length = token.split(':')
+        if name == 'r':
+            rows[at + r][part] = 'off'
+        else:
+            rows[at + r][part] = (inst, note(name))
+        r += int(length)
+    assert r == 16, bar
+
+
+def bar_of(rows, at, t, chords_kind, root, drums, hats, ticks, bass, second, crash):
+    """Beat, bass and accompaniment of a bar over a chord"""
+    for i in range(16):
+        row = rows[at + i]
+        d = drums[i]
+        if d == 'K':
+            row[DRUMS] = ('kick', 0)
+        elif d == 'S':
+            row[DRUMS] = ('snare', 0)
+        elif d in 'Tt':
+            row[DRUMS] = ('tom', 45 if d == 'T' else 38)
+        if hats[i] in 'ho':
+            row[HATS] = ('hat' if hats[i] == 'h' else 'open hat', 0)
+        if ticks[i] == 'x':
+            row[TICKS] = ('tick', 0)
+        b = bass[i]
+        third = 3 if chords_kind.startswith('m') else 4
+        if b == '-':
+            row[BASS] = 'off'
+        elif b == 'T':
+            row[BASS] = ('bass', 24 + root + third)
+        elif b in BASS_STEP:
+            row[BASS] = ('bass', 24 + root + BASS_STEP[b])
+    kind = chords_kind if chords_kind in CHORDS else ''
+    if second == 'arp' or second == 'pad':
+        rows[at][SECOND] = (second + ' ' + kind, 36 + root)
+    elif second == 'riff':
+        third = 3 if chords_kind.startswith('m') else 4
+        for i, step in enumerate((0, 0, third, 0, 5, 0, 7, 5)):
+            rows[at + 2 * i][SECOND] = ('riff', 36 + root + step)
+    elif second.startswith('stab:'):
+        for i, c in enumerate(second[5:]):
+            if c == 'x':
+                rows[at + i][SECOND] = ('arp ' + kind, 48 + root)
+            elif c == '-':
+                rows[at + i][SECOND] = 'off'
+    if crash:
+        rows[at][HATS] = rows[at][TICKS] = ('crash', 0)
+
+
+def own_track(t):
+    """An own track (tools/radio_tracks.py): speed, order, restart, patterns"""
+    def section(chords, bars, beat, fill, lead, crash, bass=None, second=None, hats=None, ticks=None):
+        rows = [[None] * PARTS for _ in range(64)]
+        for k, c in enumerate(chords):
+            root, kind = chord(c)
+            bar_of(rows, 16 * k, t, kind, root, fill if k == 3 and fill else beat, hats or t['hats'],
+                   ticks or t['ticks'], bass or t['bass'], second or t['second'], crash and k == 0)
+            if bars:
+                melody(rows, LEAD, lead, bars[k], 16 * k)
+        return rows
+
+    a_chords, a_bars = t['a'][0].split(), t['a'][1]
+    b_chords, b_bars = t['b'][0].split(), t['b'][1]
+    b2_chords = b_chords[:3] + [t.get('b_end_chord', b_chords[3])]
+    lead = t['lead']
+    sections = {
+        'I': section(a_chords, None, t['intro'], None, lead, False),
+        'A': section(a_chords, a_bars, t['drums'], t['fill'], lead, True),
+        'a': section(a_chords, a_bars[:3] + [t['a_end']], t['drums'], t['fill'], lead, False),
+        'B': section(b_chords, b_bars, t['drums'], t['fill'], lead, True),
+        'b': section(b2_chords, b_bars[:3] + [t['b_end']], t['drums'], t['fill'], lead, False),
+        'X': section(a_chords, None, 'K.......K.......', None, lead, True, bass='R.......-.......',
+                     second='pad', hats='................'),
+    }
+    order = list(t['order'])
+    return t['speed'], order, 1, sections
+
+
 # ------------------------------------------------------------ encoding
 
 def encode(rows):
@@ -276,8 +391,9 @@ def main():
                for i in range(32)]
     assert len(NAMES) <= 31
     pattern_data, pattern_index, songs = [], {}, []
-    for n, song in enumerate(load_songs(orig)):
-        speed, order, restart, patterns = arrange(song, n, lengths)
+    tunes = [arrange(song, n, lengths) for n, song in enumerate(load_songs(orig))]
+    tunes += [own_track(t) for t in radio_tracks.TRACKS]
+    for speed, order, restart, patterns in tunes:
         mine = {}
         for p, rows in patterns.items():
             data = encode(rows)
@@ -287,7 +403,8 @@ def main():
             mine[p] = pattern_index[data]
         songs.append(bytes([speed, len(order), restart] + [mine[p] for p in order]))
     assert len(pattern_data) < 256
-    head = 4 + 2 * SONGS
+    songs_n = len(songs)
+    head = 4 + 2 * songs_n
     insts = inst_bytes()
     at_insts = head
     at_table = at_insts + len(insts)
@@ -300,7 +417,7 @@ def main():
     for s in songs:
         song_at.append(at)
         at += len(s)
-    out = struct.pack('<HH', at_insts, at_table) + struct.pack(f'<{SONGS}H', *song_at)
+    out = struct.pack('<HH', at_insts, at_table) + struct.pack(f'<{songs_n}H', *song_at)
     out += insts + table + b''.join(pattern_data) + b''.join(songs)
     assert len(out) == at and len(out) < 0x10000
     with open(os.path.join(gen, 'music.bin'), 'wb') as f:
@@ -308,7 +425,7 @@ def main():
     with open(os.path.join(gen, 'songs.h'), 'w') as f:
         f.write('// Generated by tools/mkmusic.py - do not edit\n#pragma once\n'
                 f'#define MUSIC_SIZE {len(out)}u  // MUSIC: the songs (src/music.s)\n'
-                f'#define MUSIC_SONGS {SONGS}  // 0 the title\'s, 1-4 the radio\'s\n')
+                f'#define MUSIC_SONGS {songs_n}  // 0 the title\'s, the radio\'s from 1 on\n')
     print(f'mkmusic: {len(pattern_data)} patterns, {len(out)} bytes')
 
 

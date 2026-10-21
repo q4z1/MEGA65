@@ -7,8 +7,9 @@ Work in progress: a season can be driven - choose the level (7, 10 or 15
 races) and the controls, then course after course, with the result and the
 championship after each race; finish outside the first ten and the season
 is over for you. Road, scenery, opponents and the own car at 25 pictures per
-second, with the engines and the sound effects of the race - or the radio:
-the game's tunes in new arrangements for the four SIDs, in stereo.
+second, with the engines and the sound effects of the race - and the radio:
+sixteen tracks for the four SIDs in stereo, the game's tunes in new
+arrangements and twelve of our own.
 
 ## Building
 
@@ -28,14 +29,15 @@ image and `-autoload`). Joystick in port 2, or the cursor keys and space.
 On the title the car's headlights go up and down until fire is pressed.
 The controls page sets the gears (automatic or manual) and what
 accelerates (the fire button or the joystick forward) and shows what each
-direction does. Then the radio: left and right choose one of four tracks
-for the race (each plays while it is chosen, the display counts its time;
+direction does. Before every race the radio: left and right choose one of
+sixteen tracks (each plays while it is chosen, the display counts its time;
 the engines and the sound effects go on more quietly under it) or 00, off.
 Run/Stop gives up a race.
 
 `LOTUS_CFLAGS=-DLOTUS_AUTOTEST ./build.sh` makes a build that goes through
 the pages by itself and drives on its own (full gas, holding a line,
-round slower cars) - with track 03 chosen on the radio - for recordings.
+round slower cars) - going two tracks on on the radio before each race -
+for recordings.
 
 ## Inside
 
