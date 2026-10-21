@@ -189,7 +189,7 @@ static bool race_run(uint8_t n, const Controls *c) {
         music_stop();
     sound_race_start(c->radio != 0);
 
-    view_scale = 512;
+    view_scale = 384;  // the road 1.5 times as tall as the game's (its 96 lines)
     view_lines = 192;
     view_y0 = 4;
     road_view();

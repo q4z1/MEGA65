@@ -204,7 +204,7 @@ int main(void) {
         const Track *t = (const Track *)track_buf;
         // a 96-line view, and the full screen's
         for (uint8_t scale = 0; scale < 2; scale++) {
-            view_scale = scale ? 512 : 256;
+            view_scale = scale ? 384 : 256;
             view_lines = scale ? 192 : 96;
             view_y0 = scale ? 4 : 0;
             road_view();

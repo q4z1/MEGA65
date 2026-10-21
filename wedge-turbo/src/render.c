@@ -24,11 +24,12 @@ static RoadStep steps[ROAD_STEPS];
 #endif
 
 // The backdrop above the horizon (row top of the picture): 32 rows, its
-// bottom at (16 - slope) / 2 + 32 in a 96-line view (scaled), no lower
-// than the horizon; scrolled by the direction (960 pixels a turn)
+// bottom at (16 - slope) / 2 + 32 in a 96-line view (scaled, moved down
+// with the road), no lower than the horizon; scrolled by the direction
+// (960 pixels a turn)
 static void backdrop(const View *v, int16_t top) {
     int16_t bottom = (int16_t)(((int16_t)(16 - v->slope) >> 1) + 32);
-    bottom = (int16_t)(((int32_t)bottom * view_scale) >> 8);
+    bottom = (int16_t)((((int32_t)bottom * view_scale) >> 8) + view_drop);
     int16_t y = (int16_t)(bottom - BACK_H), row = 0;
     if (y < 0) {
         row = (int16_t)-y;

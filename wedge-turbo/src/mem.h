@@ -87,7 +87,7 @@ _Static_assert(CONV_LIST + CONV_LIST_SIZE <= 0x1F800, "the conversion list reach
 // sprites' pointers, then the image shown (one of CARHI's, copied in)
 #define CARSPR_PTRS 0x17280ul
 #define CARSPR_DATA 0x17300ul
-#define CARSPR_SIZE 0x1400u  // 8 sprites of up to 80 rows
+#define CARSPR_SIZE 0x1600u  // 8 sprites of up to 88 rows
 _Static_assert(CONV_LIST + CONV_LIST_SIZE <= CARSPR_PTRS, "the conversion list reaches the car's sprites");
 
 // The race's sound samples (sound.c, from SOUNDS in attic RAM): the audio

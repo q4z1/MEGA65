@@ -13,13 +13,15 @@ uint16_t view_scale = 256;
 int16_t view_y0 = 0;
 
 // The line of depth step i: vbase[i] + (y * vscale[i]) >> 16, the tables
-// scaled by view_scale (road_view)
+// scaled by view_scale and moved down by view_drop (road_view)
 LOW_RAM static int16_t vbase[ROAD_STEPS];
 LOW_RAM static int16_t vscale[ROAD_STEPS];
+int16_t view_drop;
 
 void road_view(void) {
+    view_drop = (int16_t)(view_lines - ((96u * view_scale) >> 8));
     for (uint8_t i = 0; i < ROAD_STEPS; i++) {
-        vbase[i] = (int16_t)(((uint32_t)tab_base[i] * view_scale) >> 8);
+        vbase[i] = (int16_t)((((uint32_t)tab_base[i] * view_scale) >> 8) + view_drop);
         vscale[i] = (int16_t)(((uint32_t)tab_scale[i] * view_scale) >> 8);
     }
 }

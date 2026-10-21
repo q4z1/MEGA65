@@ -11,9 +11,10 @@ art/cars.png holds the drawings on magenta - each in a box of its own, or
 all on one magenta ground, in rows (the first used). Each image takes the
 view turned as the game's car at its angle (TURNS; turned to the right:
 one turned to the left, mirrored), in the race's colours, as high as the
-game's image and as wide as the drawing then is, times one factor for all
-views: the one that makes the straight view as wide as the game's - so
-the car is as large as the game's however wide the drawing, and a view
+game's image (times GROW) and as wide as the drawing then is, times one
+factor for all views: the one that makes the straight view as much wider
+than the game's - so the car is as large as the game's (times GROW)
+however wide the drawing, and a view
 has the same width at every angle it serves (the angle changes all the
 time on a straight: the car does not grow and shrink); none narrower than
 the straight one (a drawing narrower turned than straight is widened). The colours first, on the drawing as large as it
@@ -43,6 +44,10 @@ ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'car
 # the whole car, to the right, in heights (local/car-spec, measured on the
 # game's largest images). The drawings' views are picked by it.
 TURNS = (0.228, 0.146, 0.082, 0.026, 0.0)
+# The cars a little larger than the game's: the race view's road is
+# stretched upwards (main.c's view_scale), so beside a car of the game's
+# size it is wider than in the game's view and the car looks narrow
+GROW = 1.08
 
 
 def rgb12(c):
@@ -292,7 +297,7 @@ def render(dims, car_table, player_paint, opp_paint):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            h = dims[i][1]
+            h = max(1, round(dims[i][1] * GROW))
             k, flip = pick(views, widening, TURNS[4 - round(abs(turn))] * (-1 if turn > 0 else 1))
             w = width(views, k, widening, h)
             images[base + i] = (w, h, thinned(shrink(views[k], w, h, flip), w, h))

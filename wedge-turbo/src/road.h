@@ -29,12 +29,15 @@ typedef struct {
 } RoadLine;
 
 // The view: lines 0 .. view_lines - 1; line = base + y * scale >> 16, both
-// scaled by view_scale / 256 (256: 96 lines). road_view
-// takes a change of view_scale over.
+// scaled by view_scale / 256 (256: 96 lines), moved down to end at the
+// view's bottom (a view taller than 96 * view_scale / 256 lines: more sky
+// above). road_view takes a change of view_scale or view_lines over.
 extern uint16_t view_lines;
 extern uint16_t view_scale;
 // On screen, line l is row view_y0 + l
 extern int16_t view_y0;
+// how far the road is moved down (road_view): the backdrop goes with it
+extern int16_t view_drop;
 void road_view(void);
 
 // Projects the road from pos (high word: segment, low word: way through it).
