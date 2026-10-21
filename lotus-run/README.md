@@ -3,10 +3,10 @@
 A racing game for the MEGA65 after **Lotus Esprit Turbo Challenge** (Amiga,
 1990), with the race on the whole screen.
 
-Work in progress: a season can be driven - choose the level (7, 10 or 15
-races) and the controls, then course after course, with the result and the
-championship after each race; finish outside the first ten and the season
-is over for you. Road, scenery, opponents and the own car at 25 pictures per
+Work in progress: a season can be driven - choose the level (12, 16 or 20
+races) and the controls, then course after course of 48, each a little
+harder than the one before, with the result and the championship after
+each race; finish outside the first ten and the season is over for you. Road, scenery, opponents and the own car at 25 pictures per
 second, with the engines and the sound effects of the race - and the radio:
 sixteen tracks for the four SIDs in stereo, the game's tunes in new
 arrangements and twelve of our own.
@@ -56,5 +56,8 @@ season.
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.
-* [tools/](tools/): turn that data into what the build uses.
+* [tools/](tools/): turn that data into what the build uses, and make what
+  is our own: the courses ([mkcourses.py](tools/mkcourses.py)), the radio's
+  tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
+  ([mkpages.py](tools/mkpages.py), with the drawings in [art/](art/)).
 * [tests/](tests/): the assembly checked against its C reference.
