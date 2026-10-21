@@ -26,7 +26,7 @@ greys. Then down to the size, each pixel the colour most of its area has
 (none mixed, the edges stay sharp), the drawing's thick outline thinned.
 
 render() gives the bank's images; with them, for the player's largest
-size, where the number plate's digit and the brake lights go, and the
+size, where the brake lights go, and the
 player's paint; hardware() the player's car near, twice as fine.
 """
 import os
@@ -279,9 +279,9 @@ def render(dims, car_table, player_paint, opp_paint):
     """The bank's 126 images in the sizes dims[i] (the game's: so the car
     is as wide as the game's, however wide the drawing); car_table: per
     size and angle the image (as the race picks them). Returns the images;
-    per angle of the largest size the plate's centre and the lit brake
-    lights (image, x, y from the car image's top left); the player's paint
-    (three 12-bit colours, light to dark)"""
+    per angle of the largest size the lit brake lights (image, and x, y
+    from the car image's top left); the player's paint (three 12-bit
+    colours, light to dark)"""
     d = drawings()
     paint, player, opp, details = palettes(d, player_paint, opp_paint)
     angles = {}
@@ -307,19 +307,16 @@ def render(dims, car_table, player_paint, opp_paint):
 
 
 def overlay(car):
-    """The plate's centre in the car image (its light grey), and the brake
-    lights lit: the car's reds a shade lighter, an image of them alone and
-    where it goes"""
+    """The brake lights lit: the car's reds a shade lighter, an image of
+    them alone and where it goes"""
     w, h, px = car
-    plate = [(i % w, i // w) for i, v in enumerate(px) if v == LIGHT_GREY and i // w > h // 3]
-    centre = (sum(x for x, _ in plate) // len(plate), sum(y for _, y in plate) // len(plate)) if plate else (w // 2, h * 2 // 3)
     lit = {RED: LIGHT_RED, DARK_RED: RED, LIGHT_RED: LIGHT_RED}
     on = [(i % w, i // w) for i, v in enumerate(px) if v in lit]
     x0, x1 = min(x for x, _ in on), max(x for x, _ in on)
     y0, y1 = min(y for _, y in on), max(y for _, y in on)
     bw, bh = x1 - x0 + 1, y1 - y0 + 1
     img = bytes(lit.get(px[(y0 + y) * w + x0 + x], CLEAR) for y in range(bh) for x in range(bw))
-    return centre, (bw, bh, img), (x0, y0)
+    return (bw, bh, img), (x0, y0)
 
 
 # The player's car near, for the MEGA65's hardware sprites: eight of 16
@@ -337,12 +334,11 @@ NYBBLE = {CLEAR: 0, BLACK: 1, LIGHT_RED: 2, RED: 3, DARK_RED: 4, DARK_GREY: 5, G
 HW_PAINT = 8  # the paint's three shades: nybbles 8-10
 
 
-def hardware(images, player_paint, digit):
+def hardware(images, player_paint):
     """The images for angles 0-8, without and with the brake lights lit:
     (rows, bytes per sprite, the 18 images' bytes one after the other).
     images: the game's largest images of the player's car per angle (as
-    render() made them); digit: the number plate's (an image of the race's
-    columns, drawn on at the plate)"""
+    render() made them)"""
     d = drawings()
     _, shades, _, details = palettes(d, player_paint, (0, 0))
     nybble = dict(NYBBLE)
@@ -363,14 +359,6 @@ def hardware(images, player_paint, digit):
                 for x in range(w):
                     if px[y * w + x] == CLEAR:
                         px[y * w + x] = low[(y // 2) * lw + x // 2]
-            (cx, cy), _, _ = overlay((w, rows, bytes(px)))
-            dw, dh, dpx = digit  # twice as large, its middle at the plate's
-            for y in range(2 * dh):
-                for x in range(2 * dw):
-                    v = dpx[(y // 2) * dw + x // 2]
-                    tx, ty = cx - dw + x, cy - dh + y
-                    if v != CLEAR and 0 <= tx < w and 0 <= ty < rows:
-                        px[ty * w + tx] = v
             if lit:
                 light = {RED: LIGHT_RED, DARK_RED: RED}
                 px = bytearray(light.get(v, v) for v in px)

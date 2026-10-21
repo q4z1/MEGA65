@@ -284,7 +284,7 @@ static void own_car(void) {
     int16_t x = sprite_state.last_x;
     if (size == 0 && sprite_count != placed) {
         // near: the hardware sprites show it over its image (carsprite.h),
-        // plate and brake lights included
+        // the brake lights included
         car_sprite_image = (uint8_t)(sprite_state.angle + (p->joy & JOY_DOWN ? 9 : 0));
         car_sprite_x = (int16_t)(2 * x + sprite_state.last_w);
         car_sprite_row = (int16_t)(view_y0 + sprite_state.last_y);
@@ -292,12 +292,11 @@ static void own_car(void) {
     }
     if (sprite_state.last_y != BOTTOM(0x5E))
         return;
-    // the number plate's digit, the brake lights (tools/mkcars.py: where
-    // they are on our car), from the car image's top left
+    // the brake lights (tools/mkcars.py: where they are on our car), from
+    // the car image's top left
     uint8_t a = (uint8_t)sprite_state.angle;
     int16_t top = (int16_t)(BOTTOM(0x5E) - sprite_height(SPR_CARS, a) + 1);
     clip = BOTTOM(0x5F);
-    put(SPR_HUD, 18, (int16_t)(x + car_plate[a][0] - 2), (int16_t)(top + car_plate[a][1] - 2));
     if (p->joy & JOY_DOWN)
         put(SPR_HUD, (uint8_t)(CAR_BRAKES + a), (int16_t)(x + car_brake[a][0]), (int16_t)(top + car_brake[a][1]));
 }

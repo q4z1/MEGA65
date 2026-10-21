@@ -465,13 +465,13 @@ def main():
                                                       (OPP_PAINT, OPP_PAINT + 1))
     banks[SPR_HUD] = list(images(unpack(0x50), FILE50_HUD))
     car_brakes = len(banks[SPR_HUD])
-    banks[SPR_HUD] += [brake for _, brake, _ in marks]
+    banks[SPR_HUD] += [brake for brake, _ in marks]
     for b, ims in banks.items():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
             f.write(bank_file(ims))
 
     hw_rows, hw_block, hw_data = mkcars.hardware([banks[SPR_CARS][car_table[a]] for a in range(9)],
-                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2), banks[SPR_HUD][18])
+                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2))
     with open(os.path.join(gen, 'carhi.bin'), 'wb') as f:
         f.write(pack(hw_data))
     with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:
@@ -527,11 +527,9 @@ def main():
                 '// posts\' bottom, then its inset, then the writing\'s rise above it\n'
                 f'#define GATE_NEAR {GATE_NEAR}\n'
                 'extern const uint8_t gate_near[21];\n'
-                '// The player\'s car at its largest, per angle: where its number plate\'s\n'
-                '// digit goes, and the lit brake lights (image CAR_BRAKES + angle), from\n'
-                '// the car image\'s top left\n'
+                '// The player\'s car at its largest, per angle: where the lit brake\n'
+                '// lights go (image CAR_BRAKES + angle), from the car image\'s top left\n'
                 f'#define CAR_BRAKES {car_brakes}\n'
-                'extern const int8_t car_plate[9][2];\n'
                 'extern const int8_t car_brake[9][2];\n'
                 '// The player\'s car\'s paint, light to dark (the drawing\'s)\n'
                 'extern const uint16_t car_paint[3];\n'
@@ -556,9 +554,8 @@ def main():
         f.write('};\n')
         f.write('const uint16_t tab_object_colours[176] = {0};\n')
         f.write('const uint8_t gate_near[21] = {' + ', '.join(str(min(255, v)) for v in gate_places) + '};\n')
-        f.write('const int8_t car_plate[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for (x, y), _, _ in marks) + '};\n')
         f.write('const uint16_t car_paint[3] = {' + ', '.join(f'0x{c:03X}' for c in car_paint) + '};\n')
-        f.write('const int8_t car_brake[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for _, _, (x, y) in marks) + '};\n')
+        f.write('const int8_t car_brake[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for _, (x, y) in marks) + '};\n')
 
 
 if __name__ == '__main__':
