@@ -9,6 +9,7 @@ build/
 # for the repository is let in on purpose, by name
 *.mp4
 !smaragd-dash/screenshots/first-six-caves.mp4
+!wedge-turbo/screenshots/first-race.mp4
 
 # toolchain: third-party files - downloads, disks, SDKs and the ROM
 # (Commodore copyright, may not be redistributed) - all restorable by script

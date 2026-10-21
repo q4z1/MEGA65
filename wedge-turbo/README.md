@@ -11,6 +11,14 @@ second, with the engines and the sound effects of the race - and the radio:
 sixteen tracks for the four SIDs in stereo, the game's tunes in new
 arrangements and twelve of our own.
 
+![Title screen](screenshots/title.png) ![The radio before a race](screenshots/radio.png)
+
+![The start of the first race](screenshots/race.png) ![An evening race in the desert](screenshots/race-evening.png)
+
+**[Video: the first race of a season](screenshots/first-race.mp4)**
+(3½ minutes, with music and sound; recorded with the self-driving build
+described under [Playing](#playing) and `toolchain/tools/bin/mega65-cast`).
+
 ## Building
 
 The build needs data that is not part of this repository (`WEDGE_ZIP` in
