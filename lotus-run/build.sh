@@ -16,8 +16,8 @@ set -e
 cd "$(dirname "$0")"
 CC=${MEGA65_CC:-../toolchain/llvm-mos/bin/mos-mega65-clang}
 LOTUS_ZIP=${LOTUS_ZIP:-../lotus-data.zip}
-# the Python modules the tools use (Pillow), as toolchain/setup.sh installs them
-PYTHONPATH="$(pwd)/../toolchain/tools/python${PYTHONPATH:+:$PYTHONPATH}"
+# the Python modules the tools use (Pillow), for the python3 at hand
+PYTHONPATH="$(../toolchain/tools/python-modules.sh)${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONPATH
 VERSION=$(cat VERSION)
 
