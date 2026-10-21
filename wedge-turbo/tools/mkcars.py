@@ -10,10 +10,12 @@ before, so that everything around them stays).
 art/cars.png holds the drawings, each in a magenta box of its own, in
 rows; VIEWS says which are which. Turned to the right is the drawing
 turned as far to the left, mirrored. Each image takes the drawing of its
-angle, brought down to its size and into the race's colours:
-the paint in three shades (the player's, from the drawing: CAR_PAINT) or
-two (the opponents', drawn white: the game colours them six ways), the
-rest black, reds and greys.
+angle, brought down to its size - as high as the game's image, as wide as
+the drawing is then, so that the car keeps its size as it turns - and into
+the race's colours: the paint in three shades (the player's, from the
+drawing: CAR_PAINT) or two (the opponents' - the same car, its paint made
+white and grey: the game colours them six ways), the rest black, reds and
+greys.
 
 render() gives the bank's images; with them, for the player's largest
 size, where the number plate's digit and the brake lights go, and the
@@ -30,8 +32,11 @@ FIXED = [0x000, 0xC44, 0xA00, 0x600, 0x222, 0x666, 0xCCC]
 
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'cars.png')
 # the drawings for angles 0-4 (the nose to the left, most first, then
-# straight on): their places in art/cars.png, in reading order
-VIEWS = {'player': (4, 5, 6, 7, 0), 'opponent': (29, 30, 31, 32, 25)}
+# straight on): their places in art/cars.png, in reading order (boxes too
+# small to use not counted). Turned only a little - at angle 0 the flank
+# shows on a sixth of the width - as the race picks the angle by where the
+# car is as much as by its turns
+VIEWS = (6, 7, 7, 0, 0)
 
 
 def rgb12(c):
@@ -75,13 +80,17 @@ def boxes(mag):
 
 
 def drawings():
-    """The drawings in art/cars.png: per magenta box the car (RGB, and how
-    much each pixel is the car), cut to its bounds"""
+    """The drawings in art/cars.png: per magenta box (but the smallest) the
+    car (RGB, and how much each pixel is the car), cut to its bounds"""
     im = np.asarray(Image.open(ART).convert('RGB')).astype(int)
     # magenta, and where the car's edge took on some of it
     mag = (im[:, :, 0] - im[:, :, 1] > 40) & (im[:, :, 2] - im[:, :, 1] > 40)
     out = []
-    for x0, y0, x1, y1 in boxes(mag):
+    found = boxes(mag)
+    tallest = max(y1 - y0 for _, y0, _, y1 in found)
+    for x0, y0, x1, y1 in found:
+        if y1 - y0 < tallest // 5:  # a scrap, or a drawing too small to use
+            continue
         car = ~mag[y0:y1, x0:x1]
         car[:3, :] = car[-3:, :] = False  # the box's soft edge
         car[:, :3] = car[:, -3:] = False
@@ -116,6 +125,16 @@ def quantise(c, a, palette):
     return bytes(near.astype(np.uint8).flatten())
 
 
+def whitened(drawing):
+    """A drawing with its paint (green) white and grey, as light as it was"""
+    col, alpha = drawing
+    col = col.copy()
+    paint = (col[:, :, 1] > col[:, :, 0] + 30) & (col[:, :, 1] > col[:, :, 2] + 30)
+    lum = np.clip(col @ np.array([0.3, 0.59, 0.11]) * 2.2 + 40, 0, 255)
+    col[paint] = lum[paint][:, None]
+    return col, alpha
+
+
 def paint_shades(drawing):
     """The player's paint: three shades of the drawing's green, light to
     dark"""
@@ -130,13 +149,13 @@ def paint_shades(drawing):
 
 
 def render(dims, car_table, player_paint, opp_paint):
-    """The bank's 126 images in the sizes dims[i]; car_table: per size and
+    """The bank's 126 images, as high as dims[i]; car_table: per size and
     angle the image (as the race picks them). Returns the images; per angle
     of the largest size the plate's centre and the lit brake lights (image,
     x, y from the car image's top left); the player's paint (three 12-bit
     colours, light to dark)"""
     d = drawings()
-    paint = paint_shades(d[VIEWS['player'][4]])
+    paint = paint_shades(d[VIEWS[4]])
     player = {i: rgb12(c) for i, c in enumerate(FIXED)}
     player.update({p: rgb12(c) for p, c in zip(player_paint, paint)})
     # the opponents: their paint white and grey, as the white colouring
@@ -149,13 +168,14 @@ def render(dims, car_table, player_paint, opp_paint):
         angles.setdefault(i, []).append((k // 9, k % 9))
     images = [None] * 126
     marks = []
-    for base, views, palette in ((0, VIEWS['player'], player), (63, VIEWS['opponent'], opp)):
+    for base, views, palette in ((0, [d[v] for v in VIEWS], player), (63, [whitened(d[v]) for v in VIEWS], opp)):
         for i in range(63):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            w, h = dims[i]
-            view = d[views[4 - round(abs(turn))]]
+            view = views[4 - round(abs(turn))]
+            h = dims[i][1]
+            w = max(1, round(h * view[0].shape[1] / view[0].shape[0]))
             images[base + i] = (w, h, quantise(*shrink(view, w, h, turn > 0), palette))
             if base == 0 and size == 0:
                 marks.append(overlay(images[i]))
