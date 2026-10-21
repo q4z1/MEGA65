@@ -39,9 +39,9 @@ ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'car
 # counted), and whether the drawing is turned the other way (then
 # mirrored). Picked by how far each is turned, measured against the game's
 # turns (the rear face's shift, local/car-spec): the drawings turn faster
-# than the game's angles, so the straight one serves angles 3 and 4 and
+# than the game's angles, so the least turned serves angles 2 and 3 and
 # the most turned one is not used
-VIEWS = ((3, False), (2, False), (1, False), (0, False), (0, False))
+VIEWS = ((3, False), (2, False), (1, False), (1, False), (0, False))
 
 
 def rgb12(c):
