@@ -1044,6 +1044,7 @@ def board(t, ims):
 ART_SIGNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'signs')
 SIGN_WEIGHT = np.array([3.0, 4.0, 2.0])  # how much red, green, blue tell colours apart
 SIGN_STRETCH = 0.03  # how far a drawing's shape may be from its sizes' to be stretched to them
+STRAY_W, STRAY_AREA = 0.08, 0.1  # a neighbour's piece at the side: how narrow, how small
 
 
 def drawn_signs():
@@ -1063,6 +1064,25 @@ def drawn_signs():
     return out
 
 
+def strays(solid):
+    """Takes off what a drawing cut out of a sheet keeps of its neighbours:
+    narrow pieces at the left or right edge (at most STRAY_W of the width),
+    small beside the rest (STRAY_AREA of it) - the posts stand on the
+    bottom edge, never at the sides"""
+    h, w = solid.shape
+    mask = Image.fromarray(np.where(solid, 255, 0).astype(np.uint8)).copy()  # (its own pixels: floodfill)
+    for x in (0, w - 1):
+        for y in np.nonzero(np.asarray(mask)[:, x] == 255)[0]:
+            if mask.getpixel((int(x), int(y))) != 255:  # a piece seen already
+                continue
+            ImageDraw.floodfill(mask, (int(x), int(y)), 128)
+            piece = np.asarray(mask) == 128
+            xs = np.nonzero(piece.any(axis=0))[0]
+            gone = xs[-1] - xs[0] + 1 <= w * STRAY_W and piece.sum() <= solid.sum() * STRAY_AREA
+            mask = Image.fromarray(np.where(piece, 0 if gone else 64, np.asarray(mask)).astype(np.uint8)).copy()
+    solid &= np.asarray(mask) != 0
+
+
 def sign_art(path):
     """The drawing, RGBA, its ground transparent, cropped to the rest"""
     im = Image.open(path).convert('RGBA')
@@ -1078,6 +1098,7 @@ def sign_art(path):
     if keyed:  # its edge mixed with the ground: two pixels off
         for _ in range(2):
             solid[1:-1, 1:-1] &= solid[:-2, 1:-1] & solid[2:, 1:-1] & solid[1:-1, :-2] & solid[1:-1, 2:]
+    strays(solid)
     a[:, :, 3] = np.where(solid, 255, 0)
     ys, xs = np.nonzero(solid)
     if not ys.size:
