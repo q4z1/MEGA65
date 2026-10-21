@@ -4,6 +4,7 @@
 
 #include "screens.h"
 
+#include "courses.h"
 #include "dma.h"
 #include "input.h"
 #include "mem.h"
@@ -148,6 +149,11 @@ MENU static void marks(const uint8_t *rows, uint8_t n, uint8_t at, uint8_t col) 
 
 MENU uint8_t screen_level(uint8_t level) {
     static const uint8_t rows[LEVELS] = {12, 18, 24};
+#if defined(LOTUS_AUTOTEST) && defined(LOTUS_AUTOTEST_LEVEL)
+    // the test's level (1: medium, 2: hard)
+    static const uint8_t keys[] = {IN_DOWN, IN_DOWN, IN_BUTTON, 0};
+    auto_keys = keys + 2 - LOTUS_AUTOTEST_LEVEL;
+#endif
     page_show("PLEVEL");
     for (;;) {
         marks(rows, LEVELS, level, 2);
@@ -287,7 +293,7 @@ MENU void screen_course(uint8_t course) {
     page_text(30, 1, line, TEXT_GREY);
     header_text(56, 10, 2, 9, TEXT_WHITE);
     header_text(66, 32, 13, 16, TEXT_WHITE);
-    number(buf, tab_laps[course], 1);
+    number(buf, course_laps[course], 1);
     put(13, 20, buf, 4, TEXT_WHITE);
     header_text(98, 32, 13, 24, TEXT_WHITE);
     header_text(130, 32, 13, 30, TEXT_WHITE);

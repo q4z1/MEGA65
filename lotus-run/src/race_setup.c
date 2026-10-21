@@ -4,6 +4,7 @@
 
 #include "race.h"
 
+#include "courses.h"
 #include "progdata.h"
 
 static int16_t hi(int32_t v) {
@@ -72,8 +73,8 @@ void race_track_setup(Track *t) {
 // ---------------------------------------------------------------- the start
 
 void race_init(void) {
-    race.laps = tab_laps[race.course];
-    race.opp_bonus = (uint16_t)((uint32_t)tab_opp_bonus[race.course] * 0x2000 / 0xC0);
+    race.laps = course_laps[race.course];
+    race.opp_bonus = (uint16_t)((uint32_t)course_bonus[race.course] * 0x2000 / 0xC0);
     race.opponents = (uint16_t)(19 - race.two_players);
     for (uint8_t i = 0; i < 20; i++)
         race.finish_frames[i] = 0;

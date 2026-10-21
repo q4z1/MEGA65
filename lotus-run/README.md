@@ -38,6 +38,8 @@ Run/Stop gives up a race.
 the pages by itself and drives on its own (full gas, holding a line,
 round slower cars) - going two tracks on on the radio before each race -
 for recordings.
+With `-DLOTUS_AUTOTEST_LEVEL=1` (or `2`) besides it plays the medium (hard)
+season.
 
 ## Inside
 

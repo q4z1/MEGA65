@@ -551,7 +551,7 @@ def label(img, row, s, x=16, fg=AMBER):
 def page_level():
     img, _ = canvas()
     header(img, 'NEW SEASON', 'CHOOSE THE LEVEL')
-    for row, name, info in ((12, 'EASY', 'seven races'), (18, 'MEDIUM', 'ten races'), (24, 'HARD', 'fifteen races')):
+    for row, name, info in ((12, 'EASY', 'twelve races'), (18, 'MEDIUM', 'sixteen races'), (24, 'HARD', 'twenty races')):
         text(img, (64, ROW(row) - 6), name, font('Exo2.ttf', 26, 800), WHITE)
         text(img, (240, ROW(row) - 1), info, font('TitilliumWeb-Regular.ttf', 18), GREY)
     centred(img, ROW(32), 'The first ten of each race score points; finish outside them', font('TitilliumWeb-Regular.ttf', 17), GREY)

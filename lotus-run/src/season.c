@@ -5,6 +5,7 @@
 #include "disk.h"
 #include "dma.h"
 #include "mem.h"
+#include "courses.h"
 #include "progdata.h"
 #include "race.h"
 #include "texts.h"
@@ -14,12 +15,12 @@ LOW_RAM Season season;
 // The course records: time, and who holds it (a driver, or HOLDER_FIRST:
 // the name the game starts with, TEXT_RECORDS)
 #define HOLDER_FIRST 0xFF
-LOW_RAM static uint16_t record_time[32];
-LOW_RAM static uint8_t record_by[32];
+LOW_RAM static uint16_t record_time[COURSES];
+LOW_RAM static uint8_t record_by[COURSES];
 
 MENU bool season_load(void) {
-    for (uint8_t c = 0; c < 32; c++) {
-        record_time[c] = tab_course_time[c];
+    for (uint8_t c = 0; c < COURSES; c++) {
+        record_time[c] = course_time[c];
         record_by[c] = HOLDER_FIRST;
     }
     return disk_load("TEXTS", TEXTS_ATTIC);
@@ -28,13 +29,13 @@ MENU bool season_load(void) {
 MENU void season_start(uint8_t level) {
     season.level = level;
     season.race = 0;
-    season.races = (uint8_t)(tab_course_base[level + 1] - tab_course_base[level]);
+    season.races = (uint8_t)(course_first[level + 1] - course_first[level]);
     for (uint8_t d = 0; d < DRIVERS; d++)
         season.points[d] = 0;
 }
 
 MENU uint8_t season_course(void) {
-    return (uint8_t)(tab_course_base[season.level] + season.race);
+    return (uint8_t)(course_first[season.level] + season.race);
 }
 
 // A random number 0 .. n - 1 (as the original scales them)
@@ -67,7 +68,7 @@ MENU void season_classify(void) {
     // line their own, the others behind the one before; the first from the
     // course's record time
     uint8_t course = season_course();
-    uint16_t t = (uint16_t)(tab_course_time[course] + (race_random() & 0xFF));
+    uint16_t t = (uint16_t)(course_time[course] + (race_random() & 0xFF));
     for (uint8_t i = 0; i < DRIVERS; i++) {
         if (i < SCORING) {
             if (race.finish_frames[i])
@@ -132,7 +133,7 @@ MENU void season_name(uint8_t driver, char *buf) {
 
 MENU uint16_t season_record(uint8_t course, char *buf) {
     if (record_by[course] == HOLDER_FIRST)
-        text((uint8_t)(TEXT_RECORDS + course), buf);
+        text((uint8_t)(TEXT_RECORDS + course % 32), buf);  // the game's 32 names
     else
         season_name(record_by[course], buf);
     return record_time[course];

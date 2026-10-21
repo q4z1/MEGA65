@@ -40,7 +40,7 @@ ram  $8330000+1245184 the same in the colours of stripe set B (ROADPIX_B)
 ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
 
 # The disk (build.sh). The program itself is found by its contents.
-file TRACK??         @$E000      a course (tools/mkdata.py)
+file TRACK??         @$E000      a course (tools/mkcourses.py)
 file SPR??           @$40000     a sprite bank, unpacked to attic RAM (tools/mksprites.py)
 file BACK?           @$40000     a backdrop, unpacked to attic RAM (tools/mksprites.py)
 file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprites.py)
