@@ -1038,12 +1038,14 @@ def board(t, ims):
 # takes its place: any size, its ground transparent - or a plain colour all
 # round it, the colour at the corners. Cropped to what is not ground, it is
 # brought down to each of the type's sizes, edge to edge (undistorted if its
-# shape is not theirs), and its colours to the race view's 0-7 and colours
-# of the drawings' own, shared by all of them.
+# shape is not theirs - a plain margin inside its frame made longer where it
+# has one), and its colours to the race view's 0-7 and colours of the
+# drawings' own, shared by all of them.
 
 ART_SIGNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'signs')
 SIGN_WEIGHT = np.array([3.0, 4.0, 2.0])  # how much red, green, blue tell colours apart
 SIGN_STRETCH = 0.03  # how far a drawing's shape may be from its sizes' to be stretched to them
+SIGN_PLAIN = 6  # how little a margin's line may differ from its neighbours (per channel)
 STRAY_W, STRAY_AREA = 0.08, 0.1  # a neighbour's piece at the side: how narrow, how small
 
 
@@ -1106,9 +1108,62 @@ def sign_art(path):
     return Image.fromarray(a).crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
 
 
+def sign_margin(im, w, h):
+    """The drawing brought to the shape of w x h by repeating a line of its
+    board's margin - just inside the frame, on either side - where that is
+    plain (like the lines two pixels of w x h away, nothing of the posts
+    below it, one colour inside the frame); None if it has no such margin"""
+    a = np.array(im).astype(int)
+    wide = im.width / im.height < w / h
+    n = round(im.height * w / h) - im.width if wide else round(im.width * h / w) - im.height
+    b = np.swapaxes(a, 0, 1) if wide else a  # b[line, along it]
+    solid = b[:, :, 3] >= 128
+    board = np.nonzero((a[:, :, 3] >= 128).sum(axis=1) > 0.6 * im.width)[0]  # the board's rows
+    if not board.size:
+        return None
+    along = slice(board[0], board[-1] + 1) if wide else slice(None)
+    span = np.nonzero(solid[:, along].any(axis=1))[0] if wide else board
+    lo, hi = span[0], span[-1]
+    step = max(1, round(2 * len(b) / (w if wide else h)))
+    def plain(i):
+        if wide and (solid[i, :board[0]].any() or solid[i, board[-1] + 1:].any()):
+            return False  # a post goes through
+        line = b[i, along]
+        inner = line[int(len(line) * 0.12):int(len(line) * 0.88)]
+        colour = np.median(inner, axis=0)
+        if np.abs(inner - colour).mean() > SIGN_PLAIN:
+            return False  # not one colour inside the frame: writing or a picture
+        ends = np.concatenate([line[:max(1, len(line) // 25)], line[-max(1, len(line) // 25):]])
+        if np.abs(ends - colour).mean() <= SIGN_PLAIN * 4:
+            return False  # no frame at its ends: the frame itself
+        return (np.abs(line - b[i - step, along]) + np.abs(line - b[i + step, along])).mean() <= SIGN_PLAIN
+
+    # from either end inwards (to a quarter of the board): the innermost
+    # line of the first plain stretch, at least two pixels wide, beginning
+    # by the frame (in the outer 15 %)
+    picks = []
+    for lines in (range(lo, lo + (hi - lo) // 4), range(hi, hi - (hi - lo) // 4, -1)):
+        run = []
+        for k, i in enumerate(lines):
+            if step <= i < len(b) - step and plain(i):
+                run.append(i)
+            elif run or k > 0.15 * (hi - lo):
+                break
+        if len(run) >= step:
+            picks.append(run[-1])
+    if not picks:
+        return None
+    reps = np.zeros(len(b), int)
+    for k, i in enumerate(picks):
+        reps[i] += n // len(picks) + (k < n % len(picks))
+    out = np.repeat(b, 1 + reps, axis=0)
+    return Image.fromarray((np.swapaxes(out, 0, 1) if wide else out).astype(np.uint8))
+
+
 def sign_fit(im, w, h):
     """The drawing in w x h: stretched to it if its shape is near enough
-    (3 %), else as large as it fits undistorted, centred, on the ground"""
+    (3 %), else as large as it fits undistorted, centred, on the ground
+    (sign_banks has brought it to that shape first where it could)"""
     ratio = im.width / im.height / (w / h)
     if abs(ratio - 1) <= SIGN_STRETCH:
         return im.resize((w, h), Image.LANCZOS)
@@ -1133,6 +1188,8 @@ def sign_banks(dims_of, view, first, room):
     for t, dims in dims_of.items():
         if t in art:
             im = sign_art(art[t])
+            if abs(im.width / im.height / (dims[0][0] / dims[0][1]) - 1) > SIGN_STRETCH:
+                im = sign_margin(im, *dims[0]) or im
             smalls[t] = [np.asarray(sign_fit(im, w, h), float) for w, h in dims]
     if not smalls:
         return {}, []
