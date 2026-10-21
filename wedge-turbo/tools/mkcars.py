@@ -7,8 +7,8 @@ nine angles and 17 sizes (the bank's images as tools/mksprites.py has them:
 the player's car 0-62, the opponents' 63-125, as many and as large as
 before, so that everything around them stays).
 
-art/cars.png holds the drawings, each in a magenta box of its own, in
-rows; VIEWS says which are which. Turned to the right is the drawing
+art/cars.png holds the drawings on magenta - each in a box of its own, or
+all on one magenta ground, in rows; VIEWS says which are which. Turned to the right is the drawing
 turned as far to the left, mirrored. Each image takes the drawing of its
 angle, in the race's colours and brought down to its size - as high as
 the game's image, as wide as the drawing is then, so that the car keeps
@@ -35,12 +35,13 @@ FIXED = [0x000, 0xC44, 0xA00, 0x600, 0x222, 0x666, 0xCCC]
 
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'cars.png')
 # the drawings for angles 0-4 (the nose to the left, most first, then
-# straight on): their places in art/cars.png, in reading order (boxes too
-# small to use not counted), and whether the drawing is turned the other
-# way (then mirrored); the large ones, the finest. Turned only a little - at angle 0 the flank
-# shows on a sixth of the width - as the race picks the angle by where the
-# car is as much as by its turns
-VIEWS = ((2, True), (3, True), (3, True), (0, False), (0, False))
+# straight on): their places in art/cars.png, in reading order (scraps not
+# counted), and whether the drawing is turned the other way (then
+# mirrored). Picked by how far each is turned, measured against the game's
+# turns (the rear face's shift, local/car-spec): the drawings turn faster
+# than the game's angles, so the straight one serves angles 3 and 4 and
+# the most turned one is not used
+VIEWS = ((3, False), (2, False), (1, False), (0, False), (0, False))
 
 
 def rgb12(c):
@@ -83,13 +84,37 @@ def boxes(mag):
     return [b for r in rows for b in sorted(r)]
 
 
+def spans(v, least):
+    """The runs of True in v longer than least: (start, end)"""
+    out, start = [], None
+    for i, x in enumerate(list(v) + [False]):
+        if x and start is None:
+            start = i
+        elif not x and start is not None:
+            if i - start > least:
+                out.append((start, i))
+            start = None
+    return out
+
+
 def drawings():
-    """The drawings in art/cars.png: per magenta box (but the smallest) the
-    car (RGB, and how much each pixel is the car), cut to its bounds"""
+    """The drawings in art/cars.png: per magenta box (but the smallest) -
+    or, all on one magenta ground, per car in rows - the car (RGB, and how
+    much each pixel is the car), cut to its bounds"""
     im = np.asarray(Image.open(ART).convert('RGB')).astype(int)
     # magenta, and where the car's edge took on some of it
     mag = (im[:, :, 0] - im[:, :, 1] > 40) & (im[:, :, 2] - im[:, :, 1] > 40)
     out = []
+    if mag[0, 0] and mag[-1, -1]:  # one ground: the cars apart by rows, then columns
+        car = ~mag
+        for y0, y1 in spans(car.sum(1) > 2, 40):
+            for x0, x1 in spans(car[y0:y1].sum(0) > 2, 40):
+                c = car[y0:y1, x0:x1]
+                ys, xs = np.nonzero(c)
+                by0, by1, bx0, bx1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+                out.append((im[y0 + by0:y0 + by1, x0 + bx0:x0 + bx1].astype(float),
+                            c[by0:by1, bx0:bx1].astype(float)))
+        return out
     found = boxes(mag)
     tallest = max(y1 - y0 for _, y0, _, y1 in found)
     for x0, y0, x1, y1 in found:
