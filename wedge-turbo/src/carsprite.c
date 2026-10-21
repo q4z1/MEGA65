@@ -23,7 +23,7 @@ static uint8_t shown;  // the image in chip RAM
 
 _Static_assert(CARHI_IMAGE <= CARSPR_SIZE, "the car's sprites do not fit into CARSPR_DATA");
 
-bool car_sprite_load(void) {
+MENU __attribute__((noinline)) bool car_sprite_load(void) {
     if (!file_open("CARHI", PICTURE))
         return false;
     file_unpack(0, CARHI_ATTIC, CARHI_ATTIC + 18ul * CARHI_IMAGE);

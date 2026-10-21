@@ -13,7 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-// CARHI into attic RAM, once; false
+// CARHI into attic RAM, once (with the pages' code, mem.h's MENU); false
 // if it cannot be loaded
 bool car_sprite_load(void);
 

@@ -36,22 +36,29 @@ class Pen:
     def __init__(self, w, h, rng):
         self.img = Image.new('L', (w, h), CLEAR)
         self.d = ImageDraw.Draw(self.img)
+        self.d.fontmode = '1'  # no smoothing: crisp writing
         self.w, self.h, self.rng = w, h, rng
 
     def rect(self, x0, y0, x1, y1, c, outline=None, width=1):
-        self.d.rectangle([x0, y0, x1, y1], fill=c, outline=outline, width=width)
+        if x1 >= x0 and y1 >= y0:  # (nothing left of it in the smallest sizes)
+            self.d.rectangle([x0, y0, x1, y1], fill=c, outline=outline, width=width)
 
     def poly(self, pts, c):
         self.d.polygon(pts, fill=c)
 
     def ellipse(self, x0, y0, x1, y1, c):
-        self.d.ellipse([x0, y0, x1, y1], fill=c)
+        if x1 >= x0 and y1 >= y0:
+            self.d.ellipse([x0, y0, x1, y1], fill=c)
 
     def line(self, pts, c, width):
         self.d.line(pts, fill=c, width=width)
 
-    def text(self, xy, s, size, c, name='Rajdhani-Bold.ttf', anchor='mm'):
-        self.d.text(xy, s, fill=c, font=font(size, name), anchor=anchor)
+    def text(self, xy, s, size, c, name='Exo2.ttf', anchor='mm'):
+        if size >= 4:
+            f = font(size, name)
+            if name == 'Exo2.ttf':
+                f.set_variation_by_axes([800])
+            self.d.text(xy, s, fill=c, font=f, anchor=anchor)
 
     def blob(self, cx, cy, r, c, lumps=9, rough=0.25):
         """A round shape with a lumpy edge"""
@@ -64,9 +71,25 @@ class Pen:
         self.poly(pts, c)
 
     def posts(self, xs, top, c=DARK_GREY, width=None):
-        width = width or max(4, self.w // 28)
+        """Posts down to the ground: lit on the left, a shadow at the foot"""
+        width = width or max(1, round(self.w / 28))
         for x in xs:
-            self.rect(x - width // 2, top, x + width // 2, self.h - 1, c)
+            x0 = int(x - width / 2)
+            self.rect(x0, top, x0 + width - 1, self.h - 1, c)
+            if width >= 2:
+                self.rect(x0, top, x0, self.h - 1, GREY if c != GREY else LIGHT_GREY)
+            self.rect(x0 - 1, self.h - 1, x0 + width + 1, self.h - 1, BLACK)
+
+    def bevel(self, x0, y0, x1, y1):
+        """A frame's edges: black around, lit at the top and left, in shade
+        at the bottom and right"""
+        x0, y0, x1, y1 = int(x0), int(y0), int(x1), int(y1)
+        if x1 < x0 or y1 < y0:
+            return
+        self.d.rectangle([x0, y0, x1, y1], outline=BLACK)
+        if x1 - x0 > 6 and y1 - y0 > 6:
+            self.d.line([(x0 + 1, y1 - 1), (x0 + 1, y0 + 1), (x1 - 1, y0 + 1)], fill=LIGHT_GREY)
+            self.d.line([(x0 + 2, y1 - 1), (x1 - 1, y1 - 1), (x1 - 1, y0 + 2)], fill=DARK_GREY)
 
 
 def outline(px, w, h):
@@ -393,11 +416,14 @@ def billboard(p, lines, bg, fg, frame=LIGHT_GREY, pic=None, legs=2, round_=False
     board = h * 0.78
     p.posts([w * (k + 1) / (legs + 1) for k in range(legs)], board * 0.8)
     if round_:
-        p.ellipse(0, 0, w - 1, board, frame)
-        p.ellipse(w * 0.05, board * 0.05, w * 0.95, board * 0.95, bg)
+        p.ellipse(0, 0, w - 1, board, BLACK)
+        p.ellipse(1, 1, w - 2, board - 1, frame)
+        p.ellipse(w * 0.06, board * 0.07, w * 0.94, board * 0.93, bg)
     else:
         p.rect(0, 0, w - 1, board, frame)
-        p.rect(w * 0.03, board * 0.04, w * 0.97, board * 0.94, bg)
+        p.bevel(0, 0, w - 1, board)
+        p.rect(w * 0.045, board * 0.07, w * 0.955, board * 0.91, bg)
+        p.bevel(int(w * 0.045) - 1, int(board * 0.07) - 1, int(w * 0.955) + 1, int(board * 0.91) + 1)
     if pic:
         pic(p, board)
     for (s, y, size, col) in lines:
@@ -514,21 +540,22 @@ OUTLINED = {0x87, 0x89, 0x8A, 0x8B, 0x8C, 0x8F, 0x90, 0x95, 0x99, 0x9D, 0x9E, 0x
 
 
 def bank(t, dims):
-    """Type t's images in the bank's sizes; None if we have no drawing of
-    it. The drawing has the shape most sizes have (the game squeezed the
-    nearest into 96 rows), squeezed as they are."""
-    ratios = sorted(h / w for w, h in dims if w >= 8)
-    ratio = ratios[len(ratios) // 2]
-    w0 = dims[0][0]
-    master = draw_type(t, w0 * 4, round(w0 * ratio) * 4, random.Random(0x5CE + t))
-    if master is None:
-        return None
+    """Type t's images in the bank's sizes, each drawn in its size (the
+    textured kinds pixel by pixel, the others with crisp lines and
+    writing); None if we have no drawing of it"""
+    if t in TEXTURED:
+        out = []
+        for k, (w, h) in enumerate(dims):
+            px = TEXTURED[t](w, h, np.random.default_rng(0x5CE0 + t * 32 + k))
+            out.append((w, h, bytes(np.asarray(px, np.uint8).flatten())))
+        return out
+    # the others drawn in each size as they are: lines and writing crisp
     out = []
-    for w, h in dims:
-        px = reduce(master.resize((w * 4, h * 4), Image.NEAREST), w, h)
-        if t in OUTLINED and w >= 12:
-            px = outline(px, w, h)
-        out.append((w, h, px))
+    for k, (w, h) in enumerate(dims):
+        img = draw_type(t, w, h, random.Random(0x5CE + t))
+        if img is None:
+            return None
+        out.append((w, h, img.tobytes()))
     return out
 
 
@@ -558,3 +585,300 @@ def gate(ims):
     for w, h, _ in ims[27:35]:
         out.append((w, h, reduce(p.img.resize((w * 4, h * 4), Image.NEAREST), w, h)))
     return out
+
+
+# ------------------------------------------------------------ textured, pixel by pixel
+#
+# Plants and rocks are drawn for every size anew, pixel by pixel, so their
+# texture stays one pixel fine however small: shapes of lit round lobes,
+# the light from the upper left and the front; leaves, needles and stone
+# as noise on top, in three or four shades and black where it is deepest.
+
+import numpy as np  # noqa: E402
+
+# colours the textured kinds have besides the race's: per type its slots
+# 8-11 as 12-bit colours (mksprites.py gives them the type's own palette
+# entries); the snowy kinds' snow where the green kinds' leaves are lit
+GREEN_LIGHT, SNOW_LIGHT, BARK_LIGHT = 0x491, 0xDEF, 0x642
+COLOURS = {
+    0x87: {8: GREEN_LIGHT}, 0x88: {8: SNOW_LIGHT},
+    0xA5: {8: GREEN_LIGHT, 9: BARK_LIGHT}, 0xA6: {8: SNOW_LIGHT, 9: BARK_LIGHT},
+    0xA7: {8: GREEN_LIGHT, 9: BARK_LIGHT}, 0xA8: {8: SNOW_LIGHT, 9: BARK_LIGHT},
+    0x8F: {8: GREEN_LIGHT, 9: BARK_LIGHT}, 0x92: {8: SNOW_LIGHT, 9: BARK_LIGHT},
+    0x90: {8: GREEN_LIGHT, 9: BARK_LIGHT, 11: 0x320}, 0x93: {8: SNOW_LIGHT, 9: BARK_LIGHT, 11: 0x320},
+    0x99: {8: GREEN_LIGHT, 9: 0x777},
+    0x9D: {10: 0x3A3}, 0x9E: {10: 0x3A3},
+}
+
+
+def noise(rng, h, w, cell):
+    """Smooth value noise in 0..1, features about cell pixels large"""
+    gh, gw = int(h / cell) + 2, int(w / cell) + 2
+    g = rng.random((gh, gw))
+    ys, xs = np.arange(h) / cell, np.arange(w) / cell
+    y0, x0 = ys.astype(int), xs.astype(int)
+    fy, fx = (ys - y0)[:, None], (xs - x0)[None, :]
+    fy, fx = fy * fy * (3 - 2 * fy), fx * fx * (3 - 2 * fx)
+    a, b = g[y0][:, x0], g[y0][:, x0 + 1]
+    c, d = g[y0 + 1][:, x0], g[y0 + 1][:, x0 + 1]
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy
+
+
+LIGHT = np.array([-0.55, -0.6, 0.58])  # from the upper left and the front
+
+
+def lobes(h, w, parts, rng, ragged=0.18, front=False):
+    """A shape of round parts (cx, cy, rx, ry - pixels): where it is, and
+    how lit (-1..1); its edge frayed by noise a pixel or two large. front:
+    each part in front of those before it, lit as itself (clusters with
+    their own light and shade), else the parts as one"""
+    yy, xx = np.mgrid[0:h, 0:w].astype(float) + 0.5
+    fray = noise(rng, h, w, 1.5) - 0.5
+    inside = np.zeros((h, w), bool)
+    lit = np.full((h, w), -1.0)
+    for cx, cy, rx, ry in parts:
+        nx, ny = (xx - cx) / rx, (yy - cy) / ry
+        d = nx * nx + ny * ny
+        m = d < (1 + ragged * 2 * fray) ** 2
+        nz = np.sqrt(np.clip(1 - d, 0, 1))
+        s = (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2])
+        lit = np.where(m, s if front else np.maximum(lit, s), lit)
+        inside |= m
+    return inside, lit
+
+
+def tones(v, colours, cuts):
+    """v (0..1) into colours by the cuts between them"""
+    out = np.full(v.shape, colours[-1], np.uint8)
+    for c, cut in reversed(list(zip(colours[:-1], cuts))):
+        out[v < cut] = c
+    return out
+
+
+def leafy(img, inside, lit, rng, dark, mid, light, holes=True, grain=0.5):
+    """Leaves on the shape: light and shade, the leaves' noise, black in
+    the deepest gaps"""
+    h, w = img.shape
+    v = 0.45 + 0.42 * lit + grain * (0.55 * (rng.random((h, w)) - 0.5) + 0.6 * (noise(rng, h, w, 2.2) - 0.5))
+    shade = tones(v, [BLACK if holes else dark, dark, mid, light], [0.15, 0.45, 0.76])
+    img[inside] = shade[inside]
+
+
+def shadow(img, cx, y, rx):
+    """The shadow on the ground under it: a black line or two"""
+    h, w = img.shape
+    for dy, f in ((0, 1.0), (-1, 0.75)):
+        r = max(1, int(rx * f))
+        if 0 <= y + dy < h:
+            x0, x1 = max(0, int(cx - r)), min(w, int(cx + r) + 1)
+            row = img[y + dy, x0:x1]
+            row[row == CLEAR] = BLACK
+
+
+def trunk(img, cx, y0, y1, w0, w1, rng, bark, lit):
+    """A trunk from row y0 (narrow, w0) down to y1 (w1): bark, lit on the left"""
+    h, w = img.shape
+    for y in range(max(0, int(y0)), min(h, int(y1))):
+        t = (y - y0) / max(1, y1 - y0)
+        half = (w0 + (w1 - w0) * t * t) / 2
+        for x in range(max(0, int(cx - half)), min(w, int(cx + half) + 1)):
+            u = (x + 0.5 - cx) / max(half, 0.5)
+            r = rng.random()
+            img[y, x] = BLACK if r < 0.08 else lit if u < -0.2 and r < 0.75 else bark if u < 0.55 else BLACK
+
+
+def edge_dark(img):
+    """The edge facing away from the light (right, below) a shade darker:
+    black where it meets nothing"""
+    h, w = img.shape
+    solid = img != CLEAR
+    right = np.zeros_like(solid)
+    right[:, :-1] = ~solid[:, 1:]
+    right[:, -1] = True
+    below = np.zeros_like(solid)
+    below[:-1, :] = ~solid[1:, :]
+    below[-1, :] = True
+    img[solid & (right | below)] = BLACK
+
+
+def clusters(cx, cy, rx, ry, n, size, rng):
+    """n round clusters over an ellipse, the upper ones last (in front)"""
+    parts = [(cx, cy, rx * 0.85, ry * 0.85)]
+    for _ in range(n):
+        a = rng.uniform(0, 2 * np.pi)
+        d = np.sqrt(rng.uniform(0, 1)) * 0.78
+        r = size * rng.uniform(0.8, 1.2)
+        parts.append((cx + np.cos(a) * rx * d, cy + np.sin(a) * ry * d, r * rx, r * ry))
+    return parts[:1] + sorted(parts[1:], key=lambda p: -p[1])
+
+
+def render_oak(w, h, rng, leaf=C10, dark=DARK_GREEN, light=C8, bark=C11, bark_lit=C9, crown=0.78):
+    img = np.full((h, w), CLEAR, np.uint8)
+    top, bottom = h * (1 - crown), h * (1 - crown * 0.18)
+    cx, cy, rx, ry = w / 2, (top + bottom) / 2, w * 0.46, (bottom - top) / 2
+    trunk(img, cx, bottom - h * 0.12, h - 1, max(1.5, w * 0.07), max(2, w * 0.13), rng, bark, bark_lit)
+    inside, lit = lobes(h, w, clusters(cx, cy, rx, ry, 16, 0.32, rng), rng, front=True)
+    leafy(img, inside, lit, rng, dark, leaf, light)
+    # branches where the crown opens: dark lines from the trunk out
+    if w >= 24:
+        for k in range(5):
+            a = np.pi * (1.15 + 0.7 * k / 4)
+            ex, ey = cx + np.cos(a) * rx * 0.75, cy + np.sin(a) * ry * 0.2 + ry * 0.35
+            n = int(abs(ex - cx) + abs(ey - bottom)) + 1
+            for i in range(n):
+                t = i / n
+                x, y = int(cx + (ex - cx) * t), int(bottom - h * 0.06 + (ey - bottom) * t)
+                if 0 <= x < w and 0 <= y < h and img[y, x] in (BLACK, dark) and rng.random() < 0.8:
+                    img[y, x] = bark if rng.random() < 0.5 else BLACK
+    shadow(img, cx, h - 1, w * 0.3)
+    return img
+
+
+def render_autumn(w, h, rng):
+    return render_oak(w, h, rng, leaf=C9, dark=C10, light=C8, bark=C11, bark_lit=C10, crown=0.8)
+
+
+def render_bush(w, h, rng):
+    img = np.full((h, w), CLEAR, np.uint8)
+    inside, lit = lobes(h, w, clusters(w / 2, h * 0.55, w * 0.46, h * 0.42, 12, 0.36, rng), rng, front=True)
+    inside[int(h * 0.94):, :] = False
+    leafy(img, inside, lit, rng, DARK_GREEN, C10, C8)
+    shadow(img, w / 2, h - 1, w * 0.42)
+    return img
+
+
+def render_poplar(w, h, rng):
+    img = np.full((h, w), CLEAR, np.uint8)
+    cx = w / 2
+    trunk(img, cx, h * 0.8, h - 1, max(1.5, w * 0.08), max(2, w * 0.12), rng, C11, C9)
+    parts = [(cx, h * 0.44, w * 0.3, h * 0.4)]
+    for k in range(14):
+        y = h * (0.06 + 0.76 * rng.uniform(0, 1))
+        bulge = np.sin(np.pi * min(1, max(0, (y / h) / 0.85)))
+        parts.append((cx + rng.uniform(-1, 1) * w * 0.12 * bulge, y, w * (0.12 + 0.14 * bulge), h * 0.07))
+    parts = parts[:1] + sorted(parts[1:], key=lambda p: -p[1])
+    inside, lit = lobes(h, w, parts, rng, ragged=0.22, front=True)
+    leafy(img, inside, lit, rng, DARK_GREEN, C10, C8)
+    shadow(img, cx, h - 1, w * 0.25)
+    return img
+
+
+def render_fir(w, h, rng):
+    img = np.full((h, w), CLEAR, np.uint8)
+    cx = w / 2
+    trunk(img, cx, h * 0.8, h - 1, max(1.5, w * 0.08), max(2, w * 0.1), rng, C11, C9)
+    yy, xx = np.mgrid[0:h, 0:w].astype(float) + 0.5
+    grain = rng.random((h, w))
+    needles = noise(rng, h, w, 1.6)
+    tiers = 7
+    for k in range(tiers):
+        top = h * (0.0 + 0.1 * k)
+        bottom = h * (0.2 + 0.1 * k) if k < tiers - 1 else h * 0.84
+        half = w * (0.12 + 0.055 * k)
+        u = (xx - cx) / half
+        teeth = max(3, int(half / 2.5))
+        jag = (np.abs(((xx - cx) / half * teeth) % 2 - 1)) * h * 0.035 + (needles - 0.5) * h * 0.02
+        lower = bottom + h * 0.025 * u * u - jag
+        upper = top + np.abs(u) * (bottom - top) * 0.85
+        m = (np.abs(u) <= 1) & (yy >= upper) & (yy <= lower)
+        # lit on the left, in shade under the tier above, the needles' grain
+        depth = (yy - upper) / np.maximum(lower - upper, 1)
+        v = 0.62 - 0.32 * u - 0.25 * (1 - depth) * (k > 0) + 0.45 * (0.5 * (grain - 0.5) + 0.6 * (needles - 0.5))
+        img[m] = tones(v, [BLACK, DARK_GREEN, C10, C8], [0.14, 0.42, 0.72])[m]
+    shadow(img, cx, h - 1, w * 0.3)
+    return img
+
+
+def render_palm(w, h, rng):
+    img = Image.new('L', (w, h), CLEAR)
+    d = ImageDraw.Draw(img)
+    pts = [(w * 0.5 + np.sin(t * 1.5) * w * 0.1, h - 1 - t * h * 0.68) for t in np.linspace(0, 1, 14)]
+    tw = max(1, round(w * 0.07))
+    for k in range(len(pts) - 1):
+        d.line([pts[k], pts[k + 1]], fill=C10, width=tw)
+    for k in range(1, len(pts) - 1, 2):  # the rings
+        x, y = pts[k]
+        d.point((x + tw / 2, y), fill=BLACK)
+        d.point((x - tw / 2, y), fill=C9)
+    tx, ty = pts[-1]
+    fronds = []
+    for k in range(13):
+        a = 2 * np.pi * k / 13 + rng.uniform(-0.2, 0.2)
+        side, depth = np.cos(a), np.sin(a)
+        fronds.append((depth, side, w * 0.47 * (0.3 + 0.7 * abs(side)), h * (0.09 - 0.04 * abs(side)),
+                       h * (0.1 + 0.07 * abs(side) + 0.05 * depth)))
+    for depth, side, reach, lift, droop in sorted(fronds):
+        arc = [(tx + side * reach * t, ty - lift * 4 * t * (1 - t) + droop * t * t) for t in np.linspace(0, 1, 14)]
+        upper, lower = [], []
+        for j, (x, y) in enumerate(arc):  # a leaf along the arc, its lower edge in leaflets
+            t = j / 13
+            width = h * 0.055 * np.sin(np.pi * min(1, 0.12 + t * 0.95))
+            upper.append((x, y - width * 0.3))
+            lower.append((x, y + width * (1.0 if j % 2 else 0.45)))
+        lit, mid = (C8, C11) if depth < -0.2 else (C11, DARK_GREEN) if depth < 0.5 else (DARK_GREEN, BLACK)
+        d.polygon(upper + lower[::-1], fill=mid)
+        d.line(arc, fill=lit, width=max(1, round(w / 70)))
+    out = np.array(img, np.uint8)
+    shadow(out, w / 2, h - 1, w * 0.15)
+    return out
+
+
+def render_cactus(w, h, rng, arms):
+    img = np.full((h, w), CLEAR, np.uint8)
+    t = max(3, w * 0.26)
+
+    def column(x0, x1, y0, y1):
+        for y in range(max(0, int(y0)), min(h, int(y1))):
+            for x in range(max(0, int(x0)), min(w, int(np.ceil(x1)))):
+                u = (x + 0.5 - x0) / max(x1 - x0, 1)
+                rib = (x - int(x0)) % 3 == 2
+                img[y, x] = C10 if u < 0.3 and not rib else C9 if u > 0.75 or rib else C8
+            r = (x1 - x0) / 2
+        cx = (x0 + x1) / 2
+        for x in range(max(0, int(x0)), min(w, int(np.ceil(x1)))):  # a round top
+            if abs(x + 0.5 - cx) > (x1 - x0) * 0.35 and 0 <= int(y0) < h:
+                img[int(y0), x] = CLEAR
+    column(w / 2 - t / 2, w / 2 + t / 2, h * 0.04, h - 1)
+    for k in range(arms):
+        side = 1 if k % 2 == 0 else -1
+        y = h * (0.38 + 0.16 * k)
+        xa = w / 2 + side * (t / 2 + w * 0.17)
+        x0, x1 = sorted((w / 2, xa))
+        for yy in range(int(y), int(y + t * 0.6)):  # the elbow
+            for xx in range(int(x0), int(x1)):
+                if 0 <= yy < h and 0 <= xx < w:
+                    img[yy, xx] = C8 if yy < y + t * 0.3 else C9
+        column(xa - t * 0.38, xa + t * 0.38, y - h * 0.2, y + t * 0.6)
+    edge_dark(img)
+    shadow(img, w / 2, h - 1, w * 0.25)
+    return img
+
+
+def render_rock(w, h, rng, flat):
+    img = np.full((h, w), CLEAR, np.uint8)
+    parts = [(w * 0.5, h * 1.0, w * 0.48, h * (0.95 if not flat else 0.85))]
+    for k in range(3):
+        parts.append((w * rng.uniform(0.3, 0.7), h * rng.uniform(0.55, 0.9), w * rng.uniform(0.2, 0.32),
+                      h * rng.uniform(0.35, 0.6)))
+    inside, lit = lobes(h, w, parts, rng, ragged=0.06)
+    v = 0.42 + 0.45 * lit + 0.22 * (rng.random((h, w)) - 0.5) + 0.3 * (noise(rng, h, w, 3) - 0.5)
+    img[inside] = tones(v, [BLACK, DARK_GREY, C8, GREY, LIGHT_GREY], [0.14, 0.4, 0.66, 0.9])[inside]
+    for _ in range(max(1, w // 12)):  # cracks
+        x, y = rng.uniform(0.25, 0.75) * w, rng.uniform(0.35, 0.8) * h
+        for _ in range(int(h * 0.3)):
+            xi, yi = int(x), int(y)
+            if 0 <= xi < w and 0 <= yi < h and img[yi, xi] != CLEAR:
+                img[yi, xi] = BLACK if rng.random() < 0.7 else DARK_GREY
+            x += rng.uniform(-0.8, 0.8)
+            y += 1
+    edge_dark(img)
+    return img
+
+
+TEXTURED = {
+    0x87: render_fir, 0xA5: render_oak, 0x95: render_autumn, 0x8F: render_bush, 0x90: render_bush,
+    0xA7: render_poplar, 0x99: render_palm,
+    0x9D: lambda w, h, rng: render_cactus(w, h, rng, 2), 0x9E: lambda w, h, rng: render_cactus(w, h, rng, 1),
+    0x89: lambda w, h, rng: render_rock(w, h, rng, False), 0x8A: lambda w, h, rng: render_rock(w, h, rng, False),
+    0x8B: lambda w, h, rng: render_rock(w, h, rng, True), 0x8C: lambda w, h, rng: render_rock(w, h, rng, True),
+}
