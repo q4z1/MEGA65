@@ -63,6 +63,7 @@ season.
   tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
   ([mkpages.py](tools/mkpages.py), with the drawings in [art/](art/)), the
   cars ([mkcars.py](tools/mkcars.py)), the scenery along the road
-  ([mkscenery.py](tools/mkscenery.py)) and the mountains behind
+  ([mkscenery.py](tools/mkscenery.py); the signs and boards from the
+  drawings in [art/signs/](art/signs/)) and the mountains behind
   ([mkbackdrops.py](tools/mkbackdrops.py)).
 * [tests/](tests/): the assembly checked against its C reference.

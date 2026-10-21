@@ -1037,12 +1037,13 @@ def board(t, ims):
 # A sign's or board's drawing in art/signs/NN-name.png (NN its type in hex)
 # takes its place: any size, its ground transparent - or a plain colour all
 # round it, the colour at the corners. Cropped to what is not ground, it is
-# brought down to each of the type's sizes, edge to edge, and its colours
-# to the race view's 0-7 and colours of the drawings' own, shared by all
-# of them.
+# brought down to each of the type's sizes, edge to edge (undistorted if its
+# shape is not theirs), and its colours to the race view's 0-7 and colours
+# of the drawings' own, shared by all of them.
 
 ART_SIGNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'signs')
 SIGN_WEIGHT = np.array([3.0, 4.0, 2.0])  # how much red, green, blue tell colours apart
+SIGN_STRETCH = 0.03  # how far a drawing's shape may be from its sizes' to be stretched to them
 
 
 def drawn_signs():
@@ -1084,6 +1085,18 @@ def sign_art(path):
     return Image.fromarray(a).crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
 
 
+def sign_fit(im, w, h):
+    """The drawing in w x h: stretched to it if its shape is near enough
+    (3 %), else as large as it fits undistorted, centred, on the ground"""
+    ratio = im.width / im.height / (w / h)
+    if abs(ratio - 1) <= SIGN_STRETCH:
+        return im.resize((w, h), Image.LANCZOS)
+    fw, fh = (w, max(1, round(h / ratio))) if ratio > 1 else (max(1, round(w * ratio)), h)
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    out.paste(im.resize((fw, fh), Image.LANCZOS), ((w - fw) // 2, h - fh))
+    return out
+
+
 def _nearest(px, pal):
     d = (((px[:, None, :] - pal[None, :, :]) ** 2) * SIGN_WEIGHT).sum(axis=2)
     return d.argmin(axis=1)
@@ -1099,7 +1112,7 @@ def sign_banks(dims_of, view, first, room):
     for t, dims in dims_of.items():
         if t in art:
             im = sign_art(art[t])
-            smalls[t] = [np.asarray(im.resize((w, h), Image.LANCZOS), float) for w, h in dims]
+            smalls[t] = [np.asarray(sign_fit(im, w, h), float) for w, h in dims]
     if not smalls:
         return {}, []
     # what the drawings have, on the 12-bit grid; small parts count more
