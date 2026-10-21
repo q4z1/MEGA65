@@ -151,18 +151,35 @@ static void gate(uint16_t depth, int16_t size) {
     uint16_t left_w = sprite_state.last_w;
     place(bank, KIND_OBJECT, 0, depth, 0x108, obj_frac, size);
     int16_t right_x = sprite_state.last_x, bottom = sprite_state.last_y;
-    if (!left_w || size < 7)
+    if (!left_w)
         return;
-    uint8_t i = (uint8_t)(size - 7);
-    int16_t top = (int16_t)(bottom - tab_gate[i]);
-    int16_t inset = tab_gate[10 + i];
+    // the banner and its writing: from size 7 on as the original has them;
+    // nearer (the original's view had them out of sight) scaled up
+    // (tools/mksprites.py)
+    int16_t rise, inset, above;
+    uint8_t banner, writing;
+    if (size >= 7) {
+        uint8_t i = (uint8_t)(size - 7);
+        rise = tab_gate[i];
+        inset = tab_gate[10 + i];
+        above = tab_gate[20 + i];
+        banner = (uint8_t)(size + 10);
+        writing = (uint8_t)(size + 20);
+    } else {
+        rise = gate_near[size];
+        inset = gate_near[7 + size];
+        above = gate_near[14 + size];
+        banner = (uint8_t)(GATE_NEAR + size);
+        writing = (uint8_t)(GATE_NEAR + 7 + size);
+    }
+    int16_t top = (int16_t)(bottom - rise);
     clip = BOTTOM(0x5F);
-    put_centred(bank, (uint8_t)(size + 10), (int16_t)(right_x - 0x8C - inset), top);
-    put_centred(bank, (uint8_t)(size + 10), (int16_t)(left_x - 0x8C + left_w + inset), top);
-    if (size + 20 >= 35)
+    put_centred(bank, banner, (int16_t)(right_x - 0x8C - inset), top);
+    put_centred(bank, banner, (int16_t)(left_x - 0x8C + left_w + inset), top);
+    if (writing >= 35 && size >= 7)
         return;
-    put_centred(bank, (uint8_t)(size + 20), (int16_t)(((int16_t)(left_x + left_w + right_x) >> 1) - 0x8C),
-                (int16_t)(top - tab_gate[20 + i]));
+    put_centred(bank, writing, (int16_t)(((int16_t)(left_x + left_w + right_x) >> 1) - 0x8C),
+                (int16_t)(top - above));
 }
 
 static void object(void) {
