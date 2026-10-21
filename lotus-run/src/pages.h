@@ -26,6 +26,10 @@ bool page_show(const char *name);
 // rows high) in one of the TEXT_* colours
 void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour);
 
+// The page's animation: how many frames (0: none), and frame f shown
+uint8_t page_frames(void);
+void page_frame(uint8_t f);
+
 // The radio's seven-segment digits on the page shown (after page_show):
 // their characters in place, then digit d (0-9, DIGIT_DASH) at a cell, big
 // or small, in the display's green

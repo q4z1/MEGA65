@@ -4,7 +4,10 @@
 // character two bytes of screen RAM (its number) and two of colour RAM
 // (16-colour mode, its palette bank). A page from the disk is the palette,
 // then screen RAM, colour RAM and its characters, each packed
-// (tools/mkpages.py). Text put in at run time gets characters of its own
+// (tools/mkpages.py), then its animation: frame count, first row, rows,
+// and per frame its rows of screen RAM and colour RAM as they are, put in
+// by DMA from the file (in attic RAM while the page is shown). Text put in
+// at run time gets characters of its own
 // behind the page's: each text row its 2 x PAGE_COLS, two glyphs of 8 x 16
 // pixels side by side making a character's top and bottom.
 
@@ -64,6 +67,7 @@ MENU static uint32_t planes(uint32_t off, uint32_t to) {
 // (row_slot: its number + 1, 0: none yet)
 #define TEXT_ROW_CHARS (2 * PAGE_COLS)
 static uint16_t text_base, text_end;
+static uint32_t frames_at;  // the page's animation in its file
 static uint8_t row_slot[PAGE_ROWS], slots;
 
 MENU bool page_show(const char *name) {
@@ -80,7 +84,7 @@ MENU bool page_show(const char *name) {
     slots = 0;
     uint32_t off = planes(770, PAGE_SCREEN);
     off = planes(off, COLOUR_RAM);
-    file_unpack(off, PAGE_CHARS, PAGE_CHARS + chars * 64ul);
+    frames_at = file_unpack(off, PAGE_CHARS, PAGE_CHARS + chars * 64ul);
     POKE(0xD011, 0x1B);
     return true;
 }
@@ -157,4 +161,21 @@ MENU void page_digit(uint8_t col, uint8_t row, bool big, uint8_t d) {
         dma_copy((uint16_t)attr, COLOUR_RAM + at, 2u * w);
         dma_flush();
     }
+}
+
+uint8_t page_frames(void) {
+    return file_byte(frames_at);
+}
+
+void page_frame(uint8_t f) {
+    uint8_t row = file_byte(frames_at + 1), rows = file_byte(frames_at + 2);
+    uint32_t src = PAGE_LOAD + frames_at + 3 + (uint32_t)f * rows * (PAGE_COLS * 4);
+    uint16_t at = (uint16_t)row * (PAGE_COLS * 2);
+    for (uint8_t r = 0; r < rows; r++, at += PAGE_COLS * 2) {
+        dma_copy(src, PAGE_SCREEN + at, PAGE_COLS * 2);
+        src += PAGE_COLS * 2;
+        dma_copy(src, COLOUR_RAM + at, PAGE_COLS * 2);
+        src += PAGE_COLS * 2;
+    }
+    dma_flush();
 }

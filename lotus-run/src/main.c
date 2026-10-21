@@ -238,7 +238,7 @@ int main(void) {
     Controls controls = {true, true, 1};
     uint8_t level = 0;
     for (;;) {
-        screen_wait_fire();
+        screen_title();
         level = screen_level(level);
         screen_controls(&controls);
         controls.radio = screen_radio(controls.radio);

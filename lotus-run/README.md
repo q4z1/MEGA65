@@ -25,6 +25,7 @@ makes `build/lotus-run.d81`.
 
 Mount `build/lotus-run.d81` and run `LOTUS RUN` (in Xemu: `-8` with the
 image and `-autoload`). Joystick in port 2, or the cursor keys and space.
+On the title the car's headlights go up and down until fire is pressed.
 The controls page sets the gears (automatic or manual) and what
 accelerates (the fire button or the joystick forward) and shows what each
 direction does. Then the radio: left and right choose one of four tracks

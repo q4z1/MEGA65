@@ -19,6 +19,7 @@
 
 #ifdef LOTUS_AUTOTEST
 static const uint8_t *auto_keys;  // what the test presses next (0: fire)
+#define KEY_NONE 0xFF             // in auto_keys: nothing this time
 #endif
 
 // After the next frame: the presses new since the last (bits not set the
@@ -34,8 +35,10 @@ MENU static uint8_t key_poll(void) {
     if (++frames < 50)
         return 0;
     frames = 0;
-    if (auto_keys && *auto_keys)
-        return *auto_keys++;
+    if (auto_keys && *auto_keys) {
+        uint8_t k = *auto_keys++;
+        return k == KEY_NONE ? 0 : k;
+    }
     return IN_BUTTON;
 #endif
     uint8_t in = input_read();
@@ -55,6 +58,35 @@ MENU static uint8_t key(void) {
 MENU void screen_wait_fire(void) {
     while (!(key() & IN_BUTTON))
         ;
+}
+
+// The title (shown already) until fire: its car's headlights go up and down
+// (the page's animation) - a frame every TITLE_STEP frames, held at either
+// end
+#define TITLE_STEP 3
+void screen_title(void) {
+#ifdef LOTUS_AUTOTEST
+    static const uint8_t keys[] = {KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, IN_BUTTON, 0};
+    auto_keys = keys;
+#endif
+    uint8_t last = (uint8_t)(page_frames() - 1), f = 0, wait = 50;
+    int8_t step = 1;
+    for (;;) {
+        if (key_poll() & IN_BUTTON)
+            return;
+        if (last == 0xFF || --wait)
+            continue;
+        f = (uint8_t)(f + step);
+        page_frame(f);
+        wait = TITLE_STEP;
+        if (f == last) {
+            step = -1;
+            wait = 150;
+        } else if (f == 0) {
+            step = 1;
+            wait = 100;
+        }
+    }
 }
 
 // ---------------------------------------------------------------- text

@@ -44,4 +44,7 @@ void screen_season_over(bool out);
 // Waits until fire is let go, then pressed
 void screen_wait_fire(void);
 
+// The title page (shown) until fire, its headlights going up and down
+void screen_title(void);
+
 #endif

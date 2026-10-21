@@ -95,7 +95,7 @@ def pack(img, art):
     least from). Returns the banks, each cell's bank and its colour lookup."""
     px = img.load()
     counts = {}
-    for r in range(ROWS):
+    for r in range(img.height // CH):
         for c in range(COLS):
             count = {}
             for y in range(CH):
@@ -212,20 +212,46 @@ def char_bytes(pixels):
     return bytes(pixels[i] | pixels[i + 1] << 4 for i in range(0, 128, 2))
 
 
-def page_file(img):
+def page_file(page):
+    """The page's file, and how many characters it has. A page is an image,
+    or (image, Animation): then its frames' rows follow the page in the
+    image converted, so that they share its palette and characters"""
+    img, anim = page if isinstance(page, tuple) else (page, None)
+    if anim:
+        r0, r1 = anim.rows
+        tall = Image.new('RGB', (W, H + (len(anim.frames) - 1) * (r1 - r0) * CH))
+        tall.paste(img, (0, 0))
+        for f, frame in enumerate(anim.frames[1:]):
+            tall.paste(frame.crop((0, r0 * CH, W, r1 * CH)), (0, H + f * (r1 - r0) * CH))
+        img = tall
     palette, cellmap = convert(img, ART)
     chars, ids = [], {}
+
+    def cell(r, c):
+        bank, pixels = cellmap[r, c]
+        data = char_bytes(pixels)
+        if data not in ids:
+            ids[data] = len(chars)
+            chars.append(data)
+        ch = CHAR_BASE + ids[data]
+        return bytes([ch & 0xFF, ch >> 8]), bytes([0x08, bank << 4 | 0x0F])  # 16 colours, the bank
+
     screen, colour = bytearray(), bytearray()
     for r in range(ROWS):
         for c in range(COLS):
-            bank, pixels = cellmap[r, c]
-            data = char_bytes(pixels)
-            if data not in ids:
-                ids[data] = len(chars)
-                chars.append(data)
-            ch = CHAR_BASE + ids[data]
-            screen += bytes([ch & 0xFF, ch >> 8])
-            colour += bytes([0x08, bank << 4 | 0x0F])  # 16 colours, the bank
+            s, a = cell(r, c)
+            screen += s
+            colour += a
+    # the animation: frame count, first row, rows; then per frame and row its
+    # screen RAM, then its colour RAM (a frame's rows each in turn)
+    frames = bytearray([0])
+    if anim:
+        frames = bytearray([len(anim.frames), r0, r1 - r0])
+        for f in range(len(anim.frames)):
+            for r in range(r0, r1):
+                at = r if f == 0 else ROWS + (f - 1) * (r1 - r0) + r - r0
+                row = [cell(at, c) for c in range(COLS)]
+                frames += b''.join(s for s, _ in row) + b''.join(a for _, a in row)
     if len(chars) > PAGE_CHARS:
         sys.exit(f'page: {len(chars)} characters, at most {PAGE_CHARS}')
     pal = bytes(v for bank in palette for col in bank for v in col)
@@ -233,7 +259,15 @@ def page_file(img):
     # screen and colour RAM each as their low bytes, then their high ones:
     # that way they have runs to code
     return (pal + count + pack_bytes(bytes(screen[0::2] + screen[1::2])) +
-            pack_bytes(bytes(colour[0::2] + colour[1::2])) + pack_bytes(b''.join(chars)), len(chars))
+            pack_bytes(bytes(colour[0::2] + colour[1::2])) + pack_bytes(b''.join(chars)) + bytes(frames),
+            len(chars))
+
+
+class Animation:
+    """Frames of a page (whole images, the first the page) that differ in
+    rows rows[0] .. rows[1] - 1 only"""
+    def __init__(self, frames, rows):
+        self.frames, self.rows = frames, rows
 
 
 # ---------------------------------------------------------------- the font
@@ -400,18 +434,63 @@ def canvas(bg=BG_PAGE, ramps=TEXT_RAMPS):
     return img, ImageDraw.Draw(img)
 
 
+# The title's car (art/title-closed.png, art/title-open.png): where it is
+# in the drawings, where its headlights are when up; between closed and
+# open they rise from the bonnet, in TITLE_FRAMES steps
+TITLE_CAR = (60, 150, 1476, 890)
+TITLE_LIGHTS = ((172, 384, 492, 534), (1044, 384, 1364, 534))
+TITLE_FRAMES = 6
+TITLE_CAR_W, TITLE_CAR_Y = 508, 104
+
+
+def title_cars():
+    """The car in each step, TITLE_CAR_W wide (none without the drawings)"""
+    paths = [os.path.join(ART_DIR, f'title-{n}.png') for n in ('closed', 'open')]
+    if not all(os.path.exists(p) for p in paths):
+        return []
+    closed, opened = (Image.open(p).convert('RGBA') for p in paths)
+    cars = []
+    for k in range(TITLE_FRAMES):
+        im = closed.copy()
+        for x0, y0, x1, y1 in TITLE_LIGHTS:
+            h = round((y1 - y0) * k / (TITLE_FRAMES - 1))
+            if h:
+                im.paste(opened.crop((x0, y0, x1, y1)).resize((x1 - x0, h), Image.LANCZOS), (x0, y1 - h))
+        car = im.crop(TITLE_CAR)
+        cars.append(car.resize((TITLE_CAR_W, round(car.height * TITLE_CAR_W / car.width)), Image.LANCZOS))
+    return cars
+
+
 def page_title():
-    img, d = canvas()
-    for i in range(6):
-        y0 = 230 + i * 10
-        d.polygon([(0, y0), (W, y0 - 80), (W, y0 - 76), (0, y0 + 4)], fill=(90 + 20 * i, 16, 20))
-    f = font('Exo2.ttf', 92, 900)
-    centred(img, 36, 'LOTUS RUN', f, WHITE)
+    img, d = canvas((0, 0, 0))
+    f = font('Exo2.ttf', 60, 900)
+    centred(img, 2, 'LOTUS RUN', f, WHITE)
     tw = d.textlength('LOTUS RUN', font=f)
-    d.rectangle([((W - tw) / 2, 146), ((W + tw) / 2, 150)], fill=RED)
-    centred(img, 158, 'A  RACING  GAME  FOR  THE  MEGA65', font('Rajdhani-SemiBold.ttf', 22), GREY)
-    centred(img, 352, 'PRESS  FIRE', font('Rajdhani-Bold.ttf', 26), AMBER)
-    return img
+    d.rectangle([((W - tw) / 2, 74), ((W + tw) / 2, 76)], fill=RED)
+    centred(img, 80, 'A  RACING  GAME  FOR  THE  MEGA65', font('Rajdhani-SemiBold.ttf', 18), GREY)
+    centred(img, 370, 'PRESS  FIRE', font('Rajdhani-Bold.ttf', 22), AMBER)
+    cars = title_cars()
+    if not cars:
+        return img
+    # all steps quantized together, below each other, then each into a copy
+    # of the page
+    ch = cars[0].height
+    strip = Image.new('RGBA', (TITLE_CAR_W, ch * len(cars)))
+    for k, car in enumerate(cars):
+        strip.paste(car, (0, k * ch))
+    painted = Image.new('RGB', (W, strip.height), BG)
+    paste_art(painted, strip, ((W - TITLE_CAR_W) // 2, 0), 60)
+    frames = []
+    for k in range(len(cars)):
+        frame = img.copy()
+        frame.paste(painted.crop((0, k * ch, W, (k + 1) * ch)), (0, TITLE_CAR_Y))
+        frames.append(frame)
+    # the rows the headlights take
+    s = TITLE_CAR_W / (TITLE_CAR[2] - TITLE_CAR[0])
+    top = min(y0 for _, y0, _, _ in TITLE_LIGHTS) - TITLE_CAR[1]
+    bottom = max(y1 for _, _, _, y1 in TITLE_LIGHTS) - TITLE_CAR[1]
+    rows = (int(TITLE_CAR_Y + top * s) // CH, -(-int(TITLE_CAR_Y + bottom * s + 2) // CH))
+    return frames[0], Animation(frames, rows)
 
 
 def header(img, title, right=''):
