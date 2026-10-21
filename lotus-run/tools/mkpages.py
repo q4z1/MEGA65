@@ -31,7 +31,7 @@ Writes into GENDIR:
 import os
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mksprites import pack as pack_bytes  # noqa: E402
@@ -385,12 +385,21 @@ ART_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art')
 
 
 def drawing(name, width, fallback):
-    """The drawing art/NAME.png (transparent ground), width pixels wide; if
-    there is none, the one fallback(width) draws"""
+    """The drawing art/NAME.png, width pixels wide; if there is none, the one
+    fallback(width) draws. Its ground is transparent - or, in a drawing
+    without, the colour around it from the corners in"""
     path = os.path.join(ART_DIR, name + '.png')
     if not os.path.exists(path):
         return fallback(width)
     im = Image.open(path).convert('RGBA')
+    if im.getextrema()[3][0] == 255:
+        rgb = im.convert('RGB')
+        filled = rgb.copy()
+        for corner in ((0, 0), (im.width - 1, 0), (0, im.height - 1), (im.width - 1, im.height - 1)):
+            ImageDraw.floodfill(filled, corner, (255, 0, 255), thresh=40)
+        ground = Image.eval(ImageChops.difference(rgb, filled).convert('L'), lambda v: 0 if v else 255)
+        im.putalpha(ground)
+        im = im.crop(im.getbbox())
     return im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
 
 
