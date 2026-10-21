@@ -607,8 +607,8 @@ def page_season():
 # The radio (art/radio.png on black): the game puts the track in with big
 # digits, the time with small ones (a colon between minutes and seconds);
 # the drawing's own digits there are painted out
-RADIO_TRACK = (4, 33)  # col, row of the track's first digit (the second 2 on)
-RADIO_TIME = (9, 34)   # of the minutes' first; then 10, the colon, 12, 13
+RADIO_TRACK = (5, 29)  # col, row of the track's first digit (the second 2 on)
+RADIO_TIME = (10, 30)  # of the minutes' first; then 11, the colon, 13, 14
 
 
 def page_radio():
@@ -619,15 +619,15 @@ def page_radio():
     # they come out exactly
     lcd = ramp(LCD)
     px = img.load()
-    for y in range(240, 312):
-        for x in range(32, 256):
+    for y in range(214, 290):
+        for x in range(60, 256):
             v = px[x, y]
             if v[1] > 60 and 2 * v[0] < v[1] and 2 * v[2] < v[1]:
                 px[x, y] = lcd[max(1, min(15, round(v[1] * 15 / LCD[1])))]
     tc, tr = RADIO_TRACK
     d.rectangle([(tc * CW - 2, tr * CH - 2), ((tc + 2 * DIGIT_BIG[0]) * CW - 1, (tr + DIGIT_BIG[1]) * CH + 1)], fill=BG)
     mc, mr = RADIO_TIME
-    d.rectangle([(mc * CW + 2, mr * CH - 2), ((mc + 5) * CW + 13, (mr + DIGIT_SMALL[1]) * CH - 1)], fill=BG)
+    d.rectangle([(mc * CW + 2, mr * CH), ((mc + 5) * CW - 1, (mr + DIGIT_SMALL[1]) * CH - 1)], fill=BG)
     lit = ramp(LCD)[15]
     x = (mc + 2) * CW + 7
     for y in (mr * CH + 8, mr * CH + 19):
