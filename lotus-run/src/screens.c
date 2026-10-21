@@ -17,28 +17,32 @@
 
 // ---------------------------------------------------------------- input
 
-// The next new press (a bit that was not set the frame before); built
-// with LOTUS_AUTOTEST, fire every second on its own
-MENU static uint8_t key(void) {
+// After the next frame: the presses new since the last (bits not set the
+// frame before); built with LOTUS_AUTOTEST, fire every second on its own
+MENU static uint8_t key_poll(void) {
     static uint8_t last = 0xFF;
+    uint8_t f = video_frame();
+    while (video_frame() == f)
+        ;
 #ifdef LOTUS_AUTOTEST
-    for (uint8_t f = 0; f < 50; f++) {
-        uint8_t v = video_frame();
-        while (video_frame() == v)
-            ;
-    }
+    static uint8_t frames;
+    if (++frames < 50)
+        return 0;
+    frames = 0;
     return IN_BUTTON;
 #endif
-    for (;;) {
-        uint8_t f = video_frame();
-        while (video_frame() == f)
-            ;
-        uint8_t in = input_read();
-        uint8_t pressed = in & (uint8_t)~last;
-        last = in;
-        if (pressed)
-            return pressed;
-    }
+    uint8_t in = input_read();
+    uint8_t pressed = in & (uint8_t)~last;
+    last = in;
+    return pressed;
+}
+
+// The next new press
+MENU static uint8_t key(void) {
+    uint8_t k;
+    while (!(k = key_poll()))
+        ;
+    return k;
 }
 
 MENU void screen_wait_fire(void) {
@@ -133,39 +137,78 @@ MENU static void controls_help(const Controls *c) {
 }
 
 MENU void screen_controls(Controls *c) {
-    static const uint8_t rows[4] = {10, 15, 20, 25};
-    static const char *const radio[MUSIC_SONGS] = {"OFF", "TRACK 01", "TRACK 02", "TRACK 03",
-                                                  "TRACK 04"};
-    uint8_t at = 3;
+    static const uint8_t rows[3] = {12, 18, 24};
+    uint8_t at = 2;
     page_show("PCONTROLS");
     for (;;) {
-        marks(rows, 4, at, 12);
-        put(14, 10, c->automatic ? "AUTOMATIC" : "MANUAL", 20, TEXT_WHITE);
-        put(14, 15, c->fire_accel ? "FIRE BUTTON" : "JOYSTICK FORWARD", 20, TEXT_WHITE);
-        put(14, 20, radio[c->radio], 20, TEXT_WHITE);
-        put(14, 25, "START", 20, TEXT_AMBER);
+        marks(rows, 3, at, 12);
+        put(14, 12, c->automatic ? "AUTOMATIC" : "MANUAL", 20, TEXT_WHITE);
+        put(14, 18, c->fire_accel ? "FIRE BUTTON" : "JOYSTICK FORWARD", 20, TEXT_WHITE);
+        put(14, 24, "START", 20, TEXT_AMBER);
         controls_help(c);
         uint8_t k = key();
         if ((k & IN_UP) && at)
             at--;
-        if ((k & IN_DOWN) && at < 3)
+        if ((k & IN_DOWN) && at < 2)
             at++;
         if (k & (IN_LEFT | IN_RIGHT | IN_BUTTON)) {
             if (at == 0)
                 c->automatic = !c->automatic;
             else if (at == 1)
                 c->fire_accel = !c->fire_accel;
-            else if (at == 2) {
-                // the radio: on to the next song, back with left; the title's
-                // tune for the engines
-                if (k & IN_LEFT)
-                    c->radio = (uint8_t)(c->radio ? c->radio - 1 : MUSIC_SONGS - 1);
-                else
-                    c->radio = (uint8_t)(c->radio + 1 < MUSIC_SONGS ? c->radio + 1 : 0);
-                music_start(c->radio);
-            } else if (k & IN_BUTTON)
+            else if (k & IN_BUTTON)
                 return;
         }
+    }
+}
+
+// ---------------------------------------------------------------- the radio
+
+// Two digits of n on the display, big or small, from col on
+MENU static void two_digits(uint8_t col, uint8_t row, bool big, uint8_t n) {
+    uint8_t w = big ? DIGIT_BIG_W : DIGIT_SMALL_W;
+    page_digit(col, row, big, n == 0xFF ? DIGIT_DASH : n / 10);
+    page_digit((uint8_t)(col + w), row, big, n == 0xFF ? DIGIT_DASH : n % 10);
+}
+
+MENU uint8_t screen_radio(uint8_t track) {
+    page_show("PRADIO");
+    page_digits_in();
+    uint8_t shown = 0xFF, second = 0xFF, frames = 0, f = video_frame();
+    uint16_t seconds = 0;
+    for (;;) {
+        if (track != shown) {
+            // the track from its start (00: none)
+            if (track)
+                music_start(track);
+            else
+                music_stop();
+            two_digits(RADIO_TRACK_COL, RADIO_TRACK_ROW, true, track);
+            shown = track;
+            seconds = frames = 0;
+            second = 0xFE;
+        }
+        // the time it has played, minutes and seconds (--:-- for none)
+        if ((uint8_t)seconds != second) {
+            second = (uint8_t)seconds;
+            uint8_t m = track ? (uint8_t)(seconds / 60 % 100) : 0xFF, s = track ? (uint8_t)(seconds % 60) : 0xFF;
+            two_digits(RADIO_TIME_COL, RADIO_TIME_ROW, false, m);
+            two_digits(RADIO_TIME_COL + 3, RADIO_TIME_ROW, false, s);
+        }
+        uint8_t k = key_poll();
+        uint8_t now = video_frame();
+        frames = (uint8_t)(frames + (uint8_t)(now - f));
+        f = now;
+        if (frames >= 50) {
+            frames -= 50;
+            seconds++;
+        }
+        if (k & IN_BUTTON)
+            return track;
+        if (k & IN_RIGHT)
+            track = (uint8_t)(track + 1 < MUSIC_SONGS ? track + 1 : 0);
+        if (k & IN_LEFT)
+            track = (uint8_t)(track ? track - 1 : MUSIC_SONGS - 1);
     }
 }
 

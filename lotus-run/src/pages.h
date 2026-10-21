@@ -26,4 +26,10 @@ bool page_show(const char *name);
 // rows high) in one of the TEXT_* colours
 void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour);
 
+// The radio's seven-segment digits on the page shown (after page_show):
+// their characters in place, then digit d (0-9, DIGIT_DASH) at a cell, big
+// or small, in the display's green
+void page_digits_in(void);
+void page_digit(uint8_t col, uint8_t row, bool big, uint8_t d);
+
 #endif

@@ -9,7 +9,9 @@ The screen is 40 x 50 characters of 16 x 8 pixels, four bits a pixel.
 Pixel 0 is the background (one colour for the whole screen), 1-15 come
 from the character's palette bank (colour RAM). Banks 0-11 are the page's,
 found here for each page; banks 12-15 are ramps from the background to a
-text colour, for the text the game puts in at run time (pages.h).
+text colour, for the text the game puts in at run time (pages.h). The
+radio's page has its own background and banks 0-14, bank 15 the green of
+its display.
 
 Drawings come from art/NAME.png where there is one (our own artwork, a
 transparent ground), else from tools/art.py.
@@ -47,13 +49,16 @@ CW, CH = 16, 8
 CHAR_BASE = 0x40000 // 64
 PAGE_CHARS = 2000
 
-BG = (16, 18, 24)
+BG_PAGE = (16, 18, 24)  # the pages' background
+BG = BG_PAGE            # this page's (canvas())
 WHITE = (245, 245, 245)
 AMBER = (255, 170, 40)
 GREY = (160, 166, 176)
 RED = (214, 32, 38)
-RAMPS = {12: WHITE, 13: AMBER, 14: GREY, 15: RED}
-PAGE_BANKS = 12
+LCD = (57, 252, 53)     # the radio's display
+TEXT_RAMPS = {12: WHITE, 13: AMBER, 14: GREY, 15: RED}
+RADIO_RAMPS = {15: LCD}  # the radio's page: its display's digits only
+RAMPS = TEXT_RAMPS       # this page's (canvas()); the banks below are its own
 
 GLYPH_SET = ' 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.,:;/-+\'!?()#%&*>'
 
@@ -131,7 +136,7 @@ def pack(img, art):
         if best is not None:
             banks[best[1]] |= cs
             where[key] = best[1]
-        elif len(banks) < PAGE_BANKS - (1 if drawn else 0):
+        elif len(banks) < 16 - len(RAMPS) - (1 if drawn else 0):
             banks.append(cs)
             where[key] = len(banks) - 1
         else:
@@ -145,7 +150,7 @@ def pack(img, art):
             where[key] = i
             print(f'page: cell {key} in bank {i} with nearest colours', file=sys.stderr)
     if drawn:
-        n = PAGE_BANKS - len(banks)
+        n = 16 - len(RAMPS) - len(banks)
         if n < 1:
             sys.exit('page: no bank left for the drawings')
 
@@ -256,7 +261,66 @@ def glyph_font():
             g.paste(crop.resize((nw, 16), Image.LANCZOS), ((8 - nw) // 2, 0))
         px = [round(v * 15 / 255) for v in g.tobytes()]
         out += bytes(px[i] | px[i + 1] << 4 for i in range(0, 128, 2))
-    return pack_bytes(bytes(out))
+    return bytes(out)
+
+
+# ---------------------------------------------------------------- the display's digits
+
+# Seven-segment digits for the radio's display, in the ramp's levels like the
+# glyphs: big ones (DIGIT_BIG cells, the track) and small ones (the time).
+# 0-9, then a dash; per digit its cells, row after row, each a character of
+# DIGITS (behind the glyphs in their file), the same ones shared
+DIGIT_BIG = (2, 5)    # cells across, down
+DIGIT_SMALL = (1, 4)
+DIGIT_DASH = 10
+SEGMENTS = ['abcdef', 'bc', 'abged', 'abgcd', 'fgbc', 'afgcd', 'afgedc', 'abc', 'abcdefg', 'abcdfg', 'g']
+
+
+def seven_segment(segs, box, x0, y0, w, h, t):
+    """A digit's segments in a box of cells (pixels box[0] x box[1]), the
+    digit at x0, y0, w x h, segments t thick: 0-255"""
+    s = 4
+    im = Image.new('L', (box[0] * s, box[1] * s), 0)
+    d = ImageDraw.Draw(im)
+    x0, y0, w, h, t = x0 * s, y0 * s, w * s, h * s, t * s
+    g = t / 3  # the gap between two segments
+    half = t / 2
+    def hseg(y):
+        d.polygon([(x0 + g, y), (x0 + half + g, y - half), (x0 + w - half - g, y - half),
+                   (x0 + w - g, y), (x0 + w - half - g, y + half), (x0 + half + g, y + half)], fill=255)
+    def vseg(x, ya, yb):
+        d.polygon([(x, ya + g), (x + half, ya + half + g), (x + half, yb - half - g),
+                   (x, yb - g), (x - half, yb - half - g), (x - half, ya + half + g)], fill=255)
+    top, mid, bot = y0 + half, y0 + h / 2, y0 + h - half
+    left, right = x0 + half, x0 + w - half
+    for c in segs:
+        {'a': lambda: hseg(top), 'g': lambda: hseg(mid), 'd': lambda: hseg(bot),
+         'f': lambda: vseg(left, top, mid), 'b': lambda: vseg(right, top, mid),
+         'e': lambda: vseg(left, mid, bot), 'c': lambda: vseg(right, mid, bot)}[c]()
+    return im.resize(box, Image.BOX)
+
+
+def digits():
+    """The digits' characters, and per size the cells of each digit"""
+    chars, ids, tables = [], {}, []
+    for (cw, ch), (x0, y0, w, h, t) in ((DIGIT_BIG, (4, 1, 24, 38, 6)), (DIGIT_SMALL, (2, 3, 12, 26, 3))):
+        box = (cw * CW, ch * CH)
+        table = []
+        for segs in SEGMENTS:
+            im = seven_segment(segs, box, x0, y0, w, h, t)
+            px = im.load()
+            cells = []
+            for r in range(ch):
+                for c in range(cw):
+                    lv = [round(px[c * CW + x, r * CH + y] * 15 / 255) for y in range(CH) for x in range(CW)]
+                    data = char_bytes(lv)
+                    if data not in ids:
+                        ids[data] = len(chars)
+                        chars.append(data)
+                    cells.append(ids[data])
+            table.append(cells)
+        tables.append(table)
+    return chars, tables
 
 
 # ---------------------------------------------------------------- the pages
@@ -328,7 +392,9 @@ def paste_art(img, art_img, xy, colours=15):
     ART.update(c for _, c in tile.getcolors(colours + 2) if c != BG)
 
 
-def canvas():
+def canvas(bg=BG_PAGE, ramps=TEXT_RAMPS):
+    global BG, RAMPS
+    BG, RAMPS = bg, ramps
     ART.clear()
     img = Image.new('RGB', (W, H), BG)
     return img, ImageDraw.Draw(img)
@@ -419,9 +485,8 @@ def page_level():
 def page_controls():
     img, _ = canvas()
     header(img, 'CONTROLS', 'JOYSTICK IN PORT 2 OR KEYS')
-    label(img, 10, 'GEARS')
-    label(img, 15, 'ACCELERATE')
-    label(img, 20, 'RADIO')
+    label(img, 12, 'GEARS')
+    label(img, 18, 'ACCELERATE')
     label(img, 30, 'IN THE RACE', fg=GREY)
     footer(img, 'UP / DOWN: CHOOSE    LEFT / RIGHT: CHANGE    FIRE: GO ON')
     return img
@@ -461,8 +526,39 @@ def page_season():
     return img
 
 
+# The radio (art/radio.png on black): the game puts the track in with big
+# digits, the time with small ones (a colon between minutes and seconds);
+# the drawing's own digits there are painted out
+RADIO_TRACK = (4, 33)  # col, row of the track's first digit (the second 2 on)
+RADIO_TIME = (9, 34)   # of the minutes' first; then 10, the colon, 12, 13
+
+
+def page_radio():
+    img, d = canvas((0, 0, 0), RADIO_RAMPS)
+    radio = drawing('radio', W, lambda w: Image.new('RGBA', (w, H), (40, 44, 52, 255)))
+    paste_art(img, radio, (0, 0), 60)
+    # the greens of the track's and time's display onto its ramp, so that
+    # they come out exactly
+    lcd = ramp(LCD)
+    px = img.load()
+    for y in range(240, 312):
+        for x in range(32, 256):
+            v = px[x, y]
+            if v[1] > 60 and 2 * v[0] < v[1] and 2 * v[2] < v[1]:
+                px[x, y] = lcd[max(1, min(15, round(v[1] * 15 / LCD[1])))]
+    tc, tr = RADIO_TRACK
+    d.rectangle([(tc * CW - 2, tr * CH - 2), ((tc + 2 * DIGIT_BIG[0]) * CW - 1, (tr + DIGIT_BIG[1]) * CH + 1)], fill=BG)
+    mc, mr = RADIO_TIME
+    d.rectangle([(mc * CW + 2, mr * CH - 2), ((mc + 5) * CW + 13, (mr + DIGIT_SMALL[1]) * CH - 1)], fill=BG)
+    lit = ramp(LCD)[15]
+    x = (mc + 2) * CW + 7
+    for y in (mr * CH + 8, mr * CH + 19):
+        d.rectangle([(x, y), (x + 2, y + 2)], fill=lit)
+    return img
+
+
 # page_spec1: not shown yet, so not on the disk
-PAGES = {'TITLE': page_title, 'LEVEL': page_level, 'CONTROLS': page_controls,
+PAGES = {'TITLE': page_title, 'LEVEL': page_level, 'CONTROLS': page_controls, 'RADIO': page_radio,
          'COURSE': page_course, 'RESULT': page_result, 'STANDING': page_standing, 'SEASON': page_season}
 
 
@@ -470,10 +566,13 @@ def main():
     gen = sys.argv[1]
     disk = os.path.join(gen, 'pages')
     os.makedirs(disk, exist_ok=True)
+    digit_chars, (big, small) = digits()
     with open(os.path.join(disk, 'glyphs.bin'), 'wb') as f:
-        f.write(glyph_font())
+        f.write(pack_bytes(glyph_font() + b''.join(digit_chars)))
     for name, fn in PAGES.items():
         data, n = page_file(fn())
+        if name == 'RADIO' and n + len(digit_chars) > PAGE_CHARS:
+            sys.exit(f'page RADIO: {n} characters, with the digits at most {PAGE_CHARS - len(digit_chars)}')
         with open(os.path.join(disk, f'p{name.lower()}.bin'), 'wb') as f:
             f.write(data)
     with open(os.path.join(gen, 'pages_gen.h'), 'w') as f:
@@ -484,6 +583,17 @@ def main():
                 f'#define GLYPHS {len(GLYPH_SET)}  // of 8 x 16 pixels, 64 bytes each\n'
                 '// The text banks (ramps from the background to a colour)\n'
                 '#define TEXT_WHITE 12\n#define TEXT_AMBER 13\n#define TEXT_GREY 14\n#define TEXT_RED 15\n'
+                '#define TEXT_LCD 15  // on the radio\'s page: its display\'s green\n'
+                '// The radio\'s seven-segment digits (behind the glyphs, a character each\n'
+                '// cell): 0-9 and a dash, big ones for the track, small ones for the time\n'
+                f'#define DIGIT_CHARS {len(digit_chars)}\n#define DIGIT_DASH {DIGIT_DASH}\n'
+                f'#define DIGIT_BIG_W {DIGIT_BIG[0]}\n#define DIGIT_BIG_H {DIGIT_BIG[1]}\n'
+                f'#define DIGIT_SMALL_W {DIGIT_SMALL[0]}\n#define DIGIT_SMALL_H {DIGIT_SMALL[1]}\n'
+                f'extern const uint8_t digit_big[{len(big)}][{len(big[0])}];\n'
+                f'extern const uint8_t digit_small[{len(small)}][{len(small[0])}];\n'
+                '// Where the radio\'s page has them (col, row)\n'
+                f'#define RADIO_TRACK_COL {RADIO_TRACK[0]}\n#define RADIO_TRACK_ROW {RADIO_TRACK[1]}\n'
+                f'#define RADIO_TIME_COL {RADIO_TIME[0]}\n#define RADIO_TIME_ROW {RADIO_TIME[1]}\n'
                 '// The glyph of a character (its index), 0 (space) for others\n'
                 'uint8_t glyph_of(char c);\n')
     with open(os.path.join(gen, 'pages_gen.c'), 'w') as f:
@@ -493,7 +603,10 @@ def main():
                 '    if (c >= \'a\' && c <= \'z\')\n        c -= 32;\n'
                 f'    for (uint8_t i = 0; i < {len(GLYPH_SET)}; i++)\n'
                 '        if (glyph_set[i] == c)\n            return i;\n'
-                '    return 0;\n}\n')
+                '    return 0;\n}\n\n')
+        for name, table in (('digit_big', big), ('digit_small', small)):
+            f.write(f'const uint8_t {name}[{len(table)}][{len(table[0])}] = {{\n' +
+                    ''.join('    {' + ', '.join(str(v) for v in cells) + '},\n' for cells in table) + '};\n')
 
 
 if __name__ == '__main__':

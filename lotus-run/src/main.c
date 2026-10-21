@@ -241,6 +241,7 @@ int main(void) {
         screen_wait_fire();
         level = screen_level(level);
         screen_controls(&controls);
+        controls.radio = screen_radio(controls.radio);
         season_start(level);
         bool out = false, gave_up = false;
         do {

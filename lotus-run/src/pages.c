@@ -22,7 +22,7 @@
 MENU bool pages_load(void) {
     if (!file_open("GLYPHS", PAGE_LOAD))
         return false;
-    file_unpack(0, GLYPHS_ATTIC, GLYPHS_ATTIC + GLYPHS * 64ul);
+    file_unpack(0, GLYPHS_ATTIC, GLYPHS_ATTIC + (GLYPHS + DIGIT_CHARS) * 64ul);
     return true;
 }
 
@@ -63,7 +63,7 @@ MENU static uint32_t planes(uint32_t off, uint32_t to) {
 // The text rows' characters: from text_base, TEXT_ROW_CHARS per row put in
 // (row_slot: its number + 1, 0: none yet)
 #define TEXT_ROW_CHARS (2 * PAGE_COLS)
-static uint16_t text_base;
+static uint16_t text_base, text_end;
 static uint8_t row_slot[PAGE_ROWS], slots;
 
 MENU bool page_show(const char *name) {
@@ -74,6 +74,7 @@ MENU bool page_show(const char *name) {
         video_rgb((uint8_t)i, file_byte(3 * i), file_byte(3 * i + 1), file_byte(3 * i + 2));
     uint16_t chars = file_byte(768) | (uint16_t)file_byte(769) << 8;
     text_base = (uint16_t)(PAGE_CHAR_BASE + chars);
+    text_end = PAGE_CHAR_END;
     for (uint8_t r = 0; r < PAGE_ROWS; r++)
         row_slot[r] = 0;
     slots = 0;
@@ -88,7 +89,7 @@ MENU void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour) {
     WORK_RAM static uint8_t glyph[2][64], pair[128];
     WORK_RAM static uint8_t top[PAGE_COLS * 2], bottom[PAGE_COLS * 2], attr[PAGE_COLS * 2];
     if (!row_slot[row]) {
-        if (text_base + (slots + 1) * TEXT_ROW_CHARS > PAGE_CHAR_END)
+        if (text_base + (slots + 1) * TEXT_ROW_CHARS > text_end)
             return;  // no characters left
         row_slot[row] = ++slots;
     }
@@ -127,4 +128,33 @@ MENU void page_text(uint8_t col, uint8_t row, const char *s, uint8_t colour) {
     dma_copy((uint16_t)attr, COLOUR_RAM + at, 2u * n);
     dma_copy((uint16_t)attr, COLOUR_RAM + at + PAGE_COLS * 2, 2u * n);
     dma_flush();
+}
+
+// The digits' characters at the end, before the text's
+#define DIGIT_BASE (PAGE_CHAR_END - DIGIT_CHARS)
+
+MENU void page_digits_in(void) {
+    dma_copy(GLYPHS_ATTIC + GLYPHS * 64ul, PAGE_CHARS + (uint32_t)(DIGIT_BASE - PAGE_CHAR_BASE) * 64,
+             DIGIT_CHARS * 64u);
+    dma_flush();
+    text_end = DIGIT_BASE;
+}
+
+MENU void page_digit(uint8_t col, uint8_t row, bool big, uint8_t d) {
+    WORK_RAM static uint8_t cells[DIGIT_BIG_W * 2], attr[DIGIT_BIG_W * 2];
+    const uint8_t *c = big ? digit_big[d] : digit_small[d];
+    uint8_t w = big ? DIGIT_BIG_W : DIGIT_SMALL_W, h = big ? DIGIT_BIG_H : DIGIT_SMALL_H;
+    for (uint8_t r = 0; r < h; r++) {
+        for (uint8_t i = 0; i < w; i++) {
+            uint16_t ch = (uint16_t)(DIGIT_BASE + *c++);
+            cells[2 * i] = (uint8_t)ch;
+            cells[2 * i + 1] = (uint8_t)(ch >> 8);
+            attr[2 * i] = 0x08;
+            attr[2 * i + 1] = TEXT_LCD << 4 | 0x0F;
+        }
+        uint16_t at = (uint16_t)((row + r) * PAGE_COLS + col) * 2;
+        dma_copy((uint16_t)cells, PAGE_SCREEN + at, 2u * w);
+        dma_copy((uint16_t)attr, COLOUR_RAM + at, 2u * w);
+        dma_flush();
+    }
 }

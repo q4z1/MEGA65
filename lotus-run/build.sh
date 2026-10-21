@@ -34,9 +34,27 @@ build/offsets > build/gen/offsets.inc
 
 # src/ref/ holds the C references of what runs in assembly: not built here
 # (tests/)
+#
+# The files that collect and run DMA jobs are compiled on their own, without
+# link-time optimization: with it, llvm-mos got calls into dma.c wrong where
+# they were inlined (pages came out garbled, depending on the rest of the
+# program).
+NO_LTO="dma banks pages"
+mkdir -p build/obj
+set --
+for f in src/*.c; do
+    n=$(basename "$f" .c)
+    case " $NO_LTO " in
+        *" $n "*)
+            # shellcheck disable=SC2086
+            "$CC" -Os -g -Wall $LOTUS_CFLAGS -Isrc -Ibuild/gen -DLOTUS_MENU_OVERLAY -fno-lto -c -o "build/obj/$n.o" "$f"
+            set -- "$@" "build/obj/$n.o" ;;
+        *) set -- "$@" "$f" ;;
+    esac
+done
 # shellcheck disable=SC2086
 "$CC" -Os -g -Wall $LOTUS_CFLAGS -Isrc -Ibuild/gen -o build/lotus-run.prg \
-    -DLOTUS_MENU_OVERLAY -T link.ld -Wl,--no-check-sections -Wl,-Map=build/lotus-run.map src/*.c src/*.s build/gen/*.c
+    -DLOTUS_MENU_OVERLAY -T link.ld -Wl,--no-check-sections -Wl,-Map=build/lotus-run.map "$@" src/*.s build/gen/*.c
 # the pages' code, an overlay (link.ld): on the disk as MENU; the code
 # under $1000: LOWCODE
 OBJCOPY=${MEGA65_OBJCOPY:-../toolchain/llvm-mos/bin/llvm-objcopy}
