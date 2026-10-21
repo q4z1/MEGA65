@@ -435,7 +435,7 @@ def main():
             ims = list(images(unpack(shape)))
         else:
             continue
-        banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, [(w, h) for w, h, _ in ims])
+        banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, ims)
     # each type's colours 8-11 that it uses become colours of its own
     type_colours = list(struct.unpack_from('>176H', code, OBJECT_COLOURS - CODE_BASE))
     for t, slots in mkscenery.COLOURS.items():  # the colours our drawings add

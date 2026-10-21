@@ -539,10 +539,13 @@ def draw_type(t, w, h, rng):
 OUTLINED = {0x87, 0x89, 0x8A, 0x8B, 0x8C, 0x8F, 0x90, 0x95, 0x99, 0x9D, 0x9E, 0xA5, 0xA7}
 
 
-def bank(t, dims):
-    """Type t's images in the bank's sizes, each drawn in its size (the
-    textured kinds pixel by pixel, the others with crisp lines and
-    writing); None if we have no drawing of it"""
+def bank(t, ims):
+    """Type t's images in the sizes of ims (the game's), each drawn in its
+    size (the textured kinds pixel by pixel, the others with crisp lines
+    and writing) or the game's written anew; None if we have none"""
+    if t in BOARDS or t in AS_THEY_ARE:
+        return board(t, ims)
+    dims = [(w, h) for w, h, _ in ims]
     if t in TEXTURED:
         out = []
         for k, (w, h) in enumerate(dims):
@@ -882,3 +885,146 @@ TEXTURED = {
     0x89: lambda w, h, rng: render_rock(w, h, rng, False), 0x8A: lambda w, h, rng: render_rock(w, h, rng, False),
     0x8B: lambda w, h, rng: render_rock(w, h, rng, True), 0x8C: lambda w, h, rng: render_rock(w, h, rng, True),
 }
+
+
+# ------------------------------------------------------------ the game's boards, written anew
+#
+# The boards along the road keep the game's pictures - their colours,
+# frames, shading - in all their sizes, but say something else: what they
+# said (and any maker's mark) is taken out, filled with what is around it,
+# and our writing put in, in the board's colours with a dark edge; most
+# pictures are mirrored. The traffic signs stay as they are.
+
+def _rect(img, x0, y0, x1, y1):
+    h, w = img.shape
+    return (slice(max(0, int(y0 * h)), min(h, int(np.ceil(y1 * h)))),
+            slice(max(0, int(x0 * w)), min(w, int(np.ceil(x1 * w)))))
+
+
+def erase(img, x0, y0, x1, y1, colours, fill=None):
+    """In the rectangle (fractions of the image) the given colours become
+    fill - or the colour most of the rest there has"""
+    area = img[_rect(img, x0, y0, x1, y1)]
+    hit = np.isin(area, list(colours))
+    if fill is None:
+        rest = area[~hit & (area != CLEAR)]
+        fill = np.bincount(rest).argmax() if rest.size else BLACK
+    area[hit] = fill
+
+
+def erase_oval(img, cx, cy, rx, ry, colours, fill_above, fill_below, split):
+    """The same in an ellipse, filled by one colour above row split
+    (fraction) and another below it"""
+    h, w = img.shape
+    yy, xx = np.mgrid[0:h, 0:w] + 0.5
+    m = (((xx / w - cx) / rx) ** 2 + ((yy / h - cy) / ry) ** 2 <= 1) & np.isin(img, list(colours))
+    img[m & (yy / h < split)] = fill_above
+    img[m & (yy / h >= split)] = fill_below
+
+
+def write(img, s, cx, cy, height, fill, edge=BLACK, name='Exo2.ttf'):
+    """Writing centred at (cx, cy), height (fractions); edged with a dark
+    pixel all round where it is large enough"""
+    h, w = img.shape
+    size = int(height * h * 1.35)
+    if size < 4:
+        return
+    im = Image.fromarray(img)
+    d = ImageDraw.Draw(im)
+    d.fontmode = '1'
+    f = font(size, name)
+    if name == 'Exo2.ttf':
+        f.set_variation_by_axes([800])
+    # as wide as there is room: smaller if it would not fit
+    while size > 4 and d.textlength(s, font=f) > w * 0.94:
+        size -= 1
+        f = font(size, name)
+        if name == 'Exo2.ttf':
+            f.set_variation_by_axes([800])
+    x, y = cx * w, cy * h
+    if edge is not None and size >= 7:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1)):
+            d.text((x + dx, y + dy), s, fill=edge, font=f, anchor='mm')
+    d.text((x, y), s, fill=fill, font=f, anchor='mm')
+    img[:] = np.array(im)
+
+
+def disc(img, cx, cy, r, fill, ring):
+    """A round badge: r a fraction of the width"""
+    h, w = img.shape
+    yy, xx = np.mgrid[0:h, 0:w] + 0.5
+    d = np.hypot(xx - cx * w, yy - cy * h)
+    rr = r * w
+    img[d <= rr] = ring
+    img[d <= rr - max(1, rr * 0.15)] = fill
+
+
+BOARDS = {
+    0x84: lambda i: (erase(i, 0.06, 0.07, 0.94, 0.72, {GREY, LIGHT_GREY}, BLACK),
+                     write(i, 'M65', 0.5, 0.4, 0.42, LIGHT_GREY, GREY)),
+    0x85: lambda i: (erase(i, 0.05, 0.12, 0.95, 0.68, set(range(16)) - {CLEAR}, BLACK),
+                     [i.__setitem__(_rect(i, 0.08, y, 0.92, y + 0.025), c)
+                      for y, c in ((0.52, C8), (0.555, RED), (0.59, C10), (0.625, C11))],
+                     write(i, 'SID SOUND', 0.5, 0.33, 0.26, LIGHT_GREY, C11)),
+    0x86: lambda i: (erase_oval(i, 0.5, 0.31, 0.45, 0.26, {DARK_GREY, GREY, LIGHT_GREY, DARK_GREEN}, C8, C9, 0.5),
+                     disc(i, 0.5, 0.32, 0.2, DARK_GREEN, LIGHT_GREY),
+                     write(i, 'P', 0.5, 0.31, 0.2, LIGHT_GREY, None)),
+    0x91: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.04, 0.04, 0.96, 0.4, {BLACK}, LIGHT_GREY),
+                     write(i, 'MEGA', 0.5, 0.13, 0.15, BLACK, None),
+                     write(i, 'BITE', 0.5, 0.3, 0.15, BLACK, None)),
+    0x94: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.0, 0.56, 1.0, 0.97, {LIGHT_GREY}),
+                     write(i, 'FAT TYRES', 0.5, 0.79, 0.12, LIGHT_GREY)),
+    0x96: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.03, 0.1, 0.47, 0.82, {C10, LIGHT_RED, RED, DARK_RED, BLACK}),
+                     write(i, 'MONSTER', 0.255, 0.3, 0.13, C10),
+                     write(i, 'TRUCKS', 0.255, 0.52, 0.13, C10),
+                     write(i, 'LIVE!', 0.255, 0.72, 0.1, RED, BLACK)),
+    0x97: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.12, 0.22, 0.88, 0.62, {LIGHT_GREY, BLACK}),
+                     write(i, 'OUR', 0.5, 0.31, 0.13, LIGHT_GREY),
+                     write(i, 'PLANET', 0.5, 0.49, 0.13, LIGHT_GREY)),
+    0x98: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.12, 0.55, 0.88, 0.93, {C9, BLACK}, DARK_GREEN),
+                     write(i, 'FAST', 0.5, 0.66, 0.15, C9),
+                     write(i, 'LOADER', 0.5, 0.83, 0.1, C9)),
+    0x9B: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.04, 0.06, 0.96, 0.52, {LIGHT_RED, RED, DARK_RED, BLACK}),
+                     write(i, 'Palm Bay', 0.5, 0.2, 0.14, RED, DARK_RED, 'TitilliumWeb-Bold.ttf'),
+                     write(i, 'Hotel', 0.5, 0.39, 0.14, RED, DARK_RED, 'TitilliumWeb-Bold.ttf')),
+    0x9C: lambda i: (erase(i, 0.1, 0.09, 0.9, 0.2, {BLACK, LIGHT_GREY}, GREY),
+                     erase(i, 0.04, 0.68, 0.96, 0.8, {BLACK, LIGHT_GREY}, GREY),
+                     erase_oval(i, 0.5, 0.41, 0.15, 0.2, {BLACK, DARK_RED, DARK_GREY, GREY, LIGHT_GREY, DARK_GREEN},
+                                C8, C9, 0.45),
+                     disc(i, 0.5, 0.41, 0.11, DARK_GREEN, LIGHT_GREY),
+                     write(i, '65', 0.5, 0.41, 0.13, LIGHT_GREY, None),
+                     write(i, 'WEDGE TURBO', 0.5, 0.145, 0.09, LIGHT_GREY, None, 'Rajdhani-Bold.ttf'),
+                     write(i, 'RACING SERIES', 0.5, 0.74, 0.09, LIGHT_GREY, None, 'Rajdhani-Bold.ttf')),
+    0xA9: lambda i: (erase(i, 0.03, 0.05, 0.97, 0.95, {LIGHT_GREY, GREY, BLACK, LIGHT_RED, DARK_RED}, RED),
+                     write(i, 'Max\'s', 0.25, 0.17, 0.13, LIGHT_RED, DARK_RED, 'TitilliumWeb-Bold.ttf'),
+                     write(i, 'TYRE', 0.55, 0.37, 0.22, LIGHT_GREY),
+                     write(i, 'SERVICE', 0.5, 0.63, 0.22, LIGHT_GREY),
+                     write(i, 'DEPOTS', 0.5, 0.84, 0.11, GREY)),
+    0xAA: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.04, 0.0, 0.96, 0.33, {LIGHT_GREY, GREY, BLACK}),
+                     write(i, 'SUNNY', 0.5, 0.11, 0.17, LIGHT_GREY, BLACK, 'TitilliumWeb-Bold.ttf'),
+                     write(i, 'BAY', 0.5, 0.26, 0.1, LIGHT_GREY)),
+    0xAB: lambda i: (i.__setitem__(slice(None), i[:, ::-1]),
+                     erase(i, 0.25, 0.07, 0.8, 0.36, {LIGHT_GREY, BLACK}),
+                     write(i, 'TEE', 0.52, 0.15, 0.12, LIGHT_GREY),
+                     write(i, 'TIME', 0.52, 0.29, 0.12, LIGHT_GREY)),
+}
+# the traffic signs: as the game has them
+AS_THEY_ARE = {0x80, 0x81, 0x83, 0x9A, 0x9F, 0xA0, 0xA1, 0xA2, 0xA3}
+
+
+def board(t, ims):
+    """The game's images of type t, written anew"""
+    out = []
+    for w, h, px in ims:
+        img = np.frombuffer(px, np.uint8).reshape(h, w).copy()
+        if t in BOARDS:
+            BOARDS[t](img)
+        out.append((w, h, img.tobytes()))
+    return out
