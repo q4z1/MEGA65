@@ -35,11 +35,9 @@ _Static_assert(TRACK_SIZE <= TRACK_BUF_SIZE, "the largest course does not fit in
 #include "video.h"
 
 
-// The player's car's paint (CAR_PAINT): green, light to dark; the
-// opponents' (OPP_PAINT): white, blue, yellow, anthracite, orange, violet,
-// each light and dark
-static const uint16_t car_paint[3] = {0x4D1, 0x091, 0x040};
-static const uint16_t opp_paint[2 * OPP_COLOURS] = {0xCCC, 0x666, 0x59E, 0x236, 0xED3, 0x870,
+// The opponents' paint (OPP_PAINT): white, blue, yellow, anthracite,
+// orange, violet, each light and dark (the player's: car_paint, as drawn)
+static const uint16_t opp_paint[2 * OPP_COLOURS] = {0xDDD, 0x888, 0x59E, 0x236, 0xED3, 0x870,
                                                     0x555, 0x222, 0xF94, 0x942, 0xB7D, 0x535};
 
 // The race view's colours 1-7 (those of 12-15 change down the screen,
