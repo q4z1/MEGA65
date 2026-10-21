@@ -51,6 +51,7 @@ int main(void) {
            (unsigned long)(uintptr_t)DMA_LIST + DMA_LIST_SIZE);
     printf("PICTURE          = $%05lX\nATTIC            = $%07lX\n", PICTURE, ATTIC);
     printf("MUSIC_ATTIC      = $%07lX\n", MUSIC_ATTIC);
+    printf("PAGE_SCREEN      = $%05lX\n", PAGE_SCREEN);
     printf("ROAD_RUNS_MAX    = %d\nROAD_EDGE_BASE   = $%04X\nROAD_MIX         = %d\n", ROAD_RUNS_MAX,
            (uint16_t)ROAD_EDGE_BASE, ROAD_MIX);
     printf("ROADIDX          = $%05lX\nROADPIX          = $%07lX\nROADPIX_B        = $%05lX\n", ROADIDX, ROADPIX,

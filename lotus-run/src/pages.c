@@ -5,8 +5,8 @@
 // (16-colour mode, its palette bank). A page from the disk is the palette,
 // then screen RAM, colour RAM and its characters, each packed
 // (tools/mkpages.py), then its animation: frame count, first row, rows,
-// and per frame its rows of screen RAM and colour RAM as they are, put in
-// by DMA from the file (in attic RAM while the page is shown). Text put in
+// and per frame its rows of screen RAM, then of colour RAM, as they are -
+// put in by DMA from the file (in attic RAM while the page is shown). Text put in
 // at run time gets characters of its own
 // behind the page's: each text row its 2 x PAGE_COLS, two glyphs of 8 x 16
 // pixels side by side making a character's top and bottom.
@@ -67,7 +67,12 @@ MENU static uint32_t planes(uint32_t off, uint32_t to) {
 // (row_slot: its number + 1, 0: none yet)
 #define TEXT_ROW_CHARS (2 * PAGE_COLS)
 static uint16_t text_base, text_end;
-static uint32_t frames_at;  // the page's animation in its file
+// The page's animation (page_frame, pages.s): its frames, the first one's
+// rows in the file (in attic RAM), how long a frame's rows of screen RAM
+// are, where they go
+LOW_RAM uint8_t anim_frames;
+LOW_RAM uint32_t anim_src;
+LOW_RAM uint16_t anim_len, anim_at;
 static uint8_t row_slot[PAGE_ROWS], slots;
 
 MENU bool page_show(const char *name) {
@@ -84,7 +89,11 @@ MENU bool page_show(const char *name) {
     slots = 0;
     uint32_t off = planes(770, PAGE_SCREEN);
     off = planes(off, COLOUR_RAM);
-    frames_at = file_unpack(off, PAGE_CHARS, PAGE_CHARS + chars * 64ul);
+    uint32_t at = file_unpack(off, PAGE_CHARS, PAGE_CHARS + chars * 64ul);
+    anim_frames = file_byte(at);
+    anim_at = (uint16_t)file_byte(at + 1) * (PAGE_COLS * 2);
+    anim_len = (uint16_t)file_byte(at + 2) * (PAGE_COLS * 2);
+    anim_src = PAGE_LOAD + at + 3;
     POKE(0xD011, 0x1B);
     return true;
 }
@@ -163,19 +172,3 @@ MENU void page_digit(uint8_t col, uint8_t row, bool big, uint8_t d) {
     }
 }
 
-uint8_t page_frames(void) {
-    return file_byte(frames_at);
-}
-
-void page_frame(uint8_t f) {
-    uint8_t row = file_byte(frames_at + 1), rows = file_byte(frames_at + 2);
-    uint32_t src = PAGE_LOAD + frames_at + 3 + (uint32_t)f * rows * (PAGE_COLS * 4);
-    uint16_t at = (uint16_t)row * (PAGE_COLS * 2);
-    for (uint8_t r = 0; r < rows; r++, at += PAGE_COLS * 2) {
-        dma_copy(src, PAGE_SCREEN + at, PAGE_COLS * 2);
-        src += PAGE_COLS * 2;
-        dma_copy(src, COLOUR_RAM + at, PAGE_COLS * 2);
-        src += PAGE_COLS * 2;
-    }
-    dma_flush();
-}

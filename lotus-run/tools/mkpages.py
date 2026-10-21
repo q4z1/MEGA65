@@ -242,16 +242,15 @@ def page_file(page):
             s, a = cell(r, c)
             screen += s
             colour += a
-    # the animation: frame count, first row, rows; then per frame and row its
-    # screen RAM, then its colour RAM (a frame's rows each in turn)
+    # the animation: frame count, first row, rows; then per frame its rows'
+    # screen RAM, then their colour RAM
     frames = bytearray([0])
     if anim:
         frames = bytearray([len(anim.frames), r0, r1 - r0])
         for f in range(len(anim.frames)):
-            for r in range(r0, r1):
-                at = r if f == 0 else ROWS + (f - 1) * (r1 - r0) + r - r0
-                row = [cell(at, c) for c in range(COLS)]
-                frames += b''.join(s for s, _ in row) + b''.join(a for _, a in row)
+            rows = [[cell(r if f == 0 else ROWS + (f - 1) * (r1 - r0) + r - r0, c) for c in range(COLS)]
+                    for r in range(r0, r1)]
+            frames += b''.join(s for row in rows for s, _ in row) + b''.join(a for row in rows for _, a in row)
     if len(chars) > PAGE_CHARS:
         sys.exit(f'page: {len(chars)} characters, at most {PAGE_CHARS}')
     pal = bytes(v for bank in palette for col in bank for v in col)

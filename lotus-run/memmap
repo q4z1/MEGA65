@@ -4,7 +4,7 @@
 # Bank 0
 ram  $0400+1024      the projection's depth steps (render.c)
 ram  $00F8+8        the music player's pointers, in the KERNAL's zero page (music.s)
-ram  $0800+512       DMA list being collected (dma.c)
+ram  $0800+256       DMA list being collected (dma.c)
 
 ram  $E000+4352      the course, under the KERNAL (main.c, TRACK_BUF)
 
@@ -47,7 +47,7 @@ file PANEL           @$40000     the panel, unpacked to attic RAM (tools/mksprit
 file LAPBAR          @$40000     the lap bar, unpacked to attic RAM (tools/mksprites.py)
 file TEXTS           @$8140000   names from the game program (tools/mkdata.py)
 file SOUNDS          @$8148000   the race's sound samples (tools/mkdata.py)
-file LOWCODE         @$0A00      code that stays in bank 0: link.ld's .lowcode (build.sh)
+file LOWCODE         @$0900      code that stays in bank 0: link.ld's .lowcode (build.sh)
 file MUSIC           @$8160000   the music, arranged (tools/mkmusic.py)
 file MENU            @$8154000   the pages' code: link.ld's .menu (build.sh)
 file TRACK??         @$8158000   the course coming next (main.c)

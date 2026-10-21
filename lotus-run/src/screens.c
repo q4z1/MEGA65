@@ -64,7 +64,7 @@ MENU void screen_wait_fire(void) {
 // (the page's animation) - a frame every TITLE_STEP frames, held at either
 // end
 #define TITLE_STEP 3
-void screen_title(void) {
+LOW_CODE void screen_title(void) {
 #ifdef LOTUS_AUTOTEST
     static const uint8_t keys[] = {KEY_NONE, KEY_NONE, KEY_NONE, KEY_NONE, IN_BUTTON, 0};
     auto_keys = keys;
