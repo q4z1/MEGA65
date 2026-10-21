@@ -1037,14 +1037,16 @@ def board(t, ims):
 # A sign's or board's drawing in art/signs/NN-name.png (NN its type in hex)
 # takes its place: any size, its ground transparent - or a plain colour all
 # round it, the colour at the corners. Cropped to what is not ground, it is
-# brought down to each of the type's sizes, edge to edge (undistorted if its
-# shape is not theirs - a plain margin inside its frame made longer where it
-# has one), and its colours to the race view's 0-7 and colours of the
-# drawings' own, shared by all of them.
+# brought down to each of the type's sizes, edge to edge (if its shape is
+# not theirs, a plain margin inside its frame is made longer where it has
+# one, else it is stretched by at most 15 % and fitted in), and its colours
+# to the race view's 0-7 and colours of the drawings' own, shared by all of
+# them.
 
 ART_SIGNS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'signs')
 SIGN_WEIGHT = np.array([3.0, 4.0, 2.0])  # how much red, green, blue tell colours apart
-SIGN_STRETCH = 0.03  # how far a drawing's shape may be from its sizes' to be stretched to them
+SIGN_EXACT = 0.03  # how far a drawing's shape may be from its sizes' to count as theirs
+SIGN_STRETCH = 0.15  # how far a drawing is stretched at most towards its sizes' shape
 SIGN_PLAIN = 6  # how little a margin's line may differ from its neighbours (per channel)
 STRAY_W, STRAY_AREA = 0.08, 0.1  # a neighbour's piece at the side: how narrow, how small
 
@@ -1162,11 +1164,13 @@ def sign_margin(im, w, h):
 
 def sign_fit(im, w, h):
     """The drawing in w x h: stretched to it if its shape is near enough
-    (3 %), else as large as it fits undistorted, centred, on the ground
+    (SIGN_STRETCH), else stretched that far towards it and fitted in
+    undistorted as large as it then goes, centred, on the ground
     (sign_banks has brought it to that shape first where it could)"""
     ratio = im.width / im.height / (w / h)
-    if abs(ratio - 1) <= SIGN_STRETCH:
+    if 1 / (1 + SIGN_STRETCH) <= ratio <= 1 + SIGN_STRETCH:
         return im.resize((w, h), Image.LANCZOS)
+    ratio /= 1 + SIGN_STRETCH if ratio > 1 else 1 / (1 + SIGN_STRETCH)  # what is left after stretching
     fw, fh = (w, max(1, round(h / ratio))) if ratio > 1 else (max(1, round(w * ratio)), h)
     out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
     out.paste(im.resize((fw, fh), Image.LANCZOS), ((w - fw) // 2, h - fh))
@@ -1188,7 +1192,7 @@ def sign_banks(dims_of, view, first, room):
     for t, dims in dims_of.items():
         if t in art:
             im = sign_art(art[t])
-            if abs(im.width / im.height / (dims[0][0] / dims[0][1]) - 1) > SIGN_STRETCH:
+            if abs(im.width / im.height / (dims[0][0] / dims[0][1]) - 1) > SIGN_EXACT:
                 im = sign_margin(im, *dims[0]) or im
             smalls[t] = [np.asarray(sign_fit(im, w, h), float) for w, h in dims]
     if not smalls:
