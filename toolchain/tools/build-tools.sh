@@ -4,6 +4,9 @@
 #   bin/cabextract   from source (tools/src), for the CABs in the C64 Forever MSI
 #   python/olefile   Python module for reading the MSI (OLE compound file)
 #   python/capstone  disassembler module, used by bin/m68k-dis.py
+#   python/PIL       Pillow: images for the build tools (e.g. Lotus Run's
+#                    tools/mkpages.py, tools/mkcars.py)
+#   python/numpy     arrays for the analysis scripts (sound, pictures)
 #   bin/amiga-run    script-driven Amiga emulator (amiga-run/, on the vAmiga
 #                    core from tools/src/vAmiga) for running Amiga programs
 #
@@ -38,6 +41,15 @@ fi
 
 if [ ! -f "$HERE/python/capstone/__init__.py" ]; then
     python3 -m pip install -q --target "$HERE/python" capstone
+fi
+
+# for the build tools and the analysis scripts, at fixed versions
+if [ ! -f "$HERE/python/PIL/__init__.py" ]; then
+    python3 -m pip install -q --target "$HERE/python" Pillow==12.3.0
+fi
+
+if [ ! -f "$HERE/python/numpy/__init__.py" ]; then
+    python3 -m pip install -q --target "$HERE/python" numpy==2.3.4
 fi
 
 if [ ! -x "$HERE/bin/amiga-run" ]; then

@@ -16,6 +16,9 @@ set -e
 cd "$(dirname "$0")"
 CC=${MEGA65_CC:-../toolchain/llvm-mos/bin/mos-mega65-clang}
 LOTUS_ZIP=${LOTUS_ZIP:-../lotus-data.zip}
+# the Python modules the tools use (Pillow), as toolchain/setup.sh installs them
+PYTHONPATH="$(pwd)/../toolchain/tools/python${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH
 VERSION=$(cat VERSION)
 
 # build/gen and build/disk are made anew each time
