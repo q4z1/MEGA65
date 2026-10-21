@@ -12,9 +12,12 @@
 // ---------------------------------------------------------------- bank 0
 
 // The projection's depth steps (render.c): in what was the KERNAL's and
-// BASIC's work area; the KERNAL is switched out from video_init on
+// BASIC's work area; the KERNAL is switched out from video_init on. Before
+// the first race code that runs once at the start lies here (link.ld's
+// .bootcode, loaded from the disk as BOOT)
 #define ROAD_STEPS_AT      0x0400
 #define ROAD_STEPS_AT_SIZE 0x0400u
+#define BOOT_CODE_AT       ROAD_STEPS_AT
 
 // The DMA list being collected (dma.c): below the program, where BASIC had
 // its screen; the game never goes back to BASIC.
@@ -42,8 +45,10 @@ _Static_assert(LOW_CODE_AT + LOW_CODE_SIZE <= LOW_RAM_AT, "LOW_CODE reaches LOW_
 #define MENU_SIZE 0x1FFAu
 #if defined(__mos__) && defined(WEDGE_MENU_OVERLAY)
 #define MENU __attribute__((section(".menu")))
+#define BOOT_CODE __attribute__((section(".bootcode"), noinline))  // not copied into callers
 #else
 #define MENU
+#define BOOT_CODE
 #endif
 #ifdef __mos__
 #define LOW_CODE __attribute__((section(".lowcode")))
@@ -73,17 +78,24 @@ _Static_assert(0xE000 + TRACK_BUF_SIZE <= HIGH_RAM_AT, "the course reaches HIGH_
 // The DMA list that turns the picture into the characters (video.c):
 // 8 jobs per pixel row
 #define CONV_LIST      0x10800ul
-#define CONV_JOB       25u  // 13 bytes of options, end, 11 of the job
+#define CONV_JOB       17u  // 5 bytes of options, end, 11 of the job
 #define CONV_LIST_SIZE (200 * 8 * CONV_JOB + 1)
 _Static_assert(SCREEN + SCREEN_SIZE <= CONV_LIST, "the screen reaches the conversion list");
 _Static_assert(CONV_LIST + CONV_LIST_SIZE <= 0x1F800, "the conversion list reaches the colour RAM at $1F800");
+
+// The player's car near as the hardware sprites (carsprite.c): the eight
+// sprites' pointers, then the image shown (one of CARHI's, copied in)
+#define CARSPR_PTRS 0x17280ul
+#define CARSPR_DATA 0x17300ul
+#define CARSPR_SIZE 0x1400u  // 8 sprites of up to 80 rows
+_Static_assert(CONV_LIST + CONV_LIST_SIZE <= CARSPR_PTRS, "the conversion list reaches the car's sprites");
 
 // The race's sound samples (sound.c, from SOUNDS in attic RAM): the audio
 // DMA reads chip RAM only. They share the room with the pages' screen, so
 // they are copied here at the start of every race.
 #define SOUND_CHIP      0x1A500ul
 #define SOUND_CHIP_SIZE 0x5300u
-_Static_assert(CONV_LIST + CONV_LIST_SIZE <= SOUND_CHIP, "the conversion list reaches the sound samples");
+_Static_assert(CARSPR_DATA + CARSPR_SIZE <= SOUND_CHIP, "the car's sprites reach the sound samples");
 _Static_assert(SOUND_CHIP + SOUND_CHIP_SIZE <= 0x1F800, "the sound samples reach the colour RAM at $1F800");
 
 // The screen of the 640 x 400 pages (pages.c): 40 x 50 characters of 2 bytes
@@ -139,6 +151,9 @@ _Static_assert(PAGE_SCREEN >= SOUND_CHIP, "the pages' screen is part of the soun
 #define TRACK_ATTIC  (ATTIC + 0x158000ul)
 // the music (music.s, MUSIC), read through a 32-bit pointer
 #define MUSIC_ATTIC  (ATTIC + 0x160000ul)
+// the player's car near for the hardware sprites (CARHI, carsprite.c):
+// 18 images of CARHI_IMAGE bytes
+#define CARHI_ATTIC  (ATTIC + 0x170000ul)
 // The road line patterns as pixels (road_pixels.c), from 2M on: in the
 // colours of stripe set A, from ROADPIX + ROADPIX_B on in those of set B
 #define ROADPIX      (ATTIC + 0x200000ul)

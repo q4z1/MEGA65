@@ -26,7 +26,7 @@ _Static_assert((ROADPIX & 0xFFFF) == 0 && (ROADPIX_B & 0xFFFF) == 0, "ROADPIX mu
 // Each shade's colour in stripe set A, B
 static uint8_t colours_a[ROAD_SHADES], colours_b[ROAD_SHADES];
 
-MENU void road_pixels_init(void) {
+BOOT_CODE void road_pixels_init(void) {
     static uint8_t entry[8];
     for (uint8_t s = 0; s < ROAD_SHADES; s++) {
         colours_a[s] = (uint8_t)(s < ROAD_MIX ? COL_GRASS + s : COL_MIX + s - ROAD_MIX);

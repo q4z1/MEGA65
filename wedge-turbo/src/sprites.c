@@ -8,6 +8,7 @@
 
 #include "sprites.h"
 
+#include "carsprite.h"
 #include "mem.h"
 #include "progdata.h"
 #include "race.h"
@@ -278,8 +279,18 @@ static void own_car(void) {
     int16_t size = tab_car_size[car.depth];
     if (size < 0)
         return;
+    uint8_t placed = sprite_count;
     place(SPR_CARS, KIND_CAR, p->steer_view, (uint16_t)car.depth, car.x, car.frac, size);
     int16_t x = sprite_state.last_x;
+    if (size == 0 && sprite_count != placed) {
+        // near: the hardware sprites show it (carsprite.h), plate and
+        // brake lights included
+        sprite_count = placed;
+        car_sprite_image = (uint8_t)(sprite_state.angle + (p->joy & JOY_DOWN ? 9 : 0));
+        car_sprite_x = (int16_t)(2 * x + sprite_state.last_w);
+        car_sprite_row = (int16_t)(view_y0 + sprite_state.last_y);
+        return;
+    }
     if (sprite_state.last_y != BOTTOM(0x5E))
         return;
     // the number plate's digit, the brake lights (tools/mkcars.py: where
@@ -343,6 +354,7 @@ static void message(void) {
 void sprites_place(const RoadStep *s, uint8_t count) {
     const Player *p = &race.p[0];
     sprite_count = 0;
+    car_sprite_image = CAR_SPRITE_OFF;
     if (p->in_pits_shown)
         return;
     steps = s;

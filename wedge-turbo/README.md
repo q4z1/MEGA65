@@ -52,7 +52,9 @@ season.
   ([sound.c](src/sound.c)), the music ([music.s](src/music.s), played by
   a timer interrupt; arranged at build time by
   [tools/mkmusic.py](tools/mkmusic.py)),
-  scenery and cars ([sprites.c](src/sprites.c)),
+  scenery and cars ([sprites.c](src/sprites.c); the player's car near
+  as the hardware sprites, twice as fine both ways:
+  [carsprite.c](src/carsprite.c)),
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.

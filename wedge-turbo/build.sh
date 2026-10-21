@@ -61,14 +61,15 @@ done
 "$CC" -Os -g -Wall $WEDGE_CFLAGS -Isrc -Ibuild/gen -o build/wedge-turbo.prg \
     -DWEDGE_MENU_OVERLAY -T link.ld -Wl,--no-check-sections -Wl,-Map=build/wedge-turbo.map "$@" src/*.s build/gen/*.c
 # the pages' code, an overlay (link.ld): on the disk as MENU; the code
-# under $1000: LOWCODE
+# under $1000: LOWCODE; the code run at the start: BOOT
 OBJCOPY=${MEGA65_OBJCOPY:-../toolchain/llvm-mos/bin/llvm-objcopy}
 "$OBJCOPY" -O binary --only-section=.menu build/wedge-turbo.prg.elf build/gen/menu.bin
 "$OBJCOPY" -O binary --only-section=.lowcode build/wedge-turbo.prg.elf build/gen/lowcode.bin
+"$OBJCOPY" -O binary --only-section=.bootcode build/wedge-turbo.prg.elf build/gen/boot.bin
 
 # The data files, each behind two bytes of (unused) load address
 set --
-for f in build/gen/menu.bin build/gen/lowcode.bin build/gen/texts.bin build/gen/sounds.bin build/gen/music.bin build/gen/track*.bin build/gen/spr*.bin build/gen/back*.bin build/gen/panel.bin build/gen/lapbar.bin build/gen/pages/*.bin; do
+for f in build/gen/menu.bin build/gen/lowcode.bin build/gen/boot.bin build/gen/texts.bin build/gen/sounds.bin build/gen/music.bin build/gen/track*.bin build/gen/spr*.bin build/gen/back*.bin build/gen/panel.bin build/gen/lapbar.bin build/gen/carhi.bin build/gen/pages/*.bin; do
     name=$(basename "$f" .bin | tr a-z A-Z)
     { printf '\000\000'; cat "$f"; } > "build/disk/$name"
     set -- "$@" "build/disk/$name=$name"

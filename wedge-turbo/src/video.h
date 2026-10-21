@@ -12,6 +12,11 @@
 #include <stdint.h>
 
 void video_init(void);
+// The screen (bank 1): once, from the code run at the start (mem.h's
+// BOOT_CODE); the list that shows a picture: once, with the pages' code
+// (mem.h's MENU) - both before the first race
+void video_screen(void);
+void video_list(void);
 
 // Back to the race's screen (after pages.h's 640 x 400): black until there
 // is a picture

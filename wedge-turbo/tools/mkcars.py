@@ -239,3 +239,61 @@ def overlay(car):
     bw, bh = x1 - x0 + 1, y1 - y0 + 1
     img = bytes(lit.get(px[(y0 + y) * w + x0 + x], CLEAR) for y in range(bh) for x in range(bw))
     return centre, (bw, bh, img), (x0, y0)
+
+
+# The player's car near, for the MEGA65's hardware sprites: eight of 16
+# colours, each 16 pixels across (640 to the screen's width) and HW_ROWS
+# high (400 to its height) - twice as fine both ways as the race's picture.
+# Side by side 128 pixels: the car's widest view fits that, the others are
+# as large. Per sprite its rows (8 bytes, two pixels a byte, the left one
+# in the high nybble) padded to a multiple of 64 bytes (the pointers' unit).
+HW_SPRITES, HW_W = 8, 128
+NYBBLE = {CLEAR: 0, BLACK: 1, LIGHT_RED: 2, RED: 3, DARK_RED: 4, DARK_GREY: 5, GREY: 6, LIGHT_GREY: 7}
+HW_PAINT = 8  # the paint's three shades: nybbles 8-10
+
+
+def hardware(height, player_paint, digit):
+    """The images for angles 0-8, without and with the brake lights lit:
+    (rows, bytes per sprite, the 18 images' bytes one after the other).
+    height: the largest car image's (the race's rows); digit: the number
+    plate's (an image of the race's columns, drawn on at the plate)"""
+    d = drawings()
+    paint = paint_shades(d[VIEWS[4][0]])
+    details = {i: rgb12(c) for i, c in enumerate(FIXED)}
+    shades = [(p, rgb12(c)) for p, c in zip(player_paint, paint)]
+    nybble = dict(NYBBLE)
+    nybble.update({p: HW_PAINT + k for k, p in enumerate(player_paint)})
+    views = [(coloured(d[v], shades, details), flip) for v, flip in VIEWS]
+    aspect = max(view.shape[1] / view.shape[0] for view, _ in views)
+    rows = min(2 * height, int(HW_W / aspect))
+    block = -(-rows * 8 // 64) * 64
+    out = bytearray()
+    for lit in (False, True):
+        for angle in range(9):
+            turn = angle - 4
+            view, flip = views[4 - abs(turn)]
+            w = min(HW_W, round(rows * view.shape[1] / view.shape[0]))
+            px = bytearray(thinned(shrink(view, w, rows, (turn > 0) != flip), w, rows))
+            (cx, cy), _, _ = overlay((w, rows, bytes(px)))
+            dw, dh, dpx = digit  # twice as large, its middle at the plate's
+            for y in range(2 * dh):
+                for x in range(2 * dw):
+                    v = dpx[(y // 2) * dw + x // 2]
+                    tx, ty = cx - dw + x, cy - dh + y
+                    if v != CLEAR and 0 <= tx < w and 0 <= ty < rows:
+                        px[ty * w + tx] = v
+            if lit:
+                light = {RED: LIGHT_RED, DARK_RED: RED}
+                px = bytearray(light.get(v, v) for v in px)
+            left = (HW_W - w) // 2
+            for s in range(HW_SPRITES):
+                spr = bytearray(block)
+                for y in range(rows):
+                    for b in range(8):
+                        pair = []
+                        for k in range(2):
+                            x = s * 16 + b * 2 + k - left
+                            pair.append(nybble.get(px[y * w + x], 0) if 0 <= x < w else 0)
+                        spr[y * 8 + b] = pair[0] << 4 | pair[1]
+                out += spr
+    return rows, block, bytes(out)

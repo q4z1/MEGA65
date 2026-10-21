@@ -10,6 +10,7 @@
 #include <string.h>
 
 #include "banks.h"
+#include "carsprite.h"
 #include "disk.h"
 #include "dma.h"
 #include "hw.h"
@@ -171,6 +172,7 @@ static bool race_run(uint8_t n, const Controls *c) {
     Track *t = (Track *)TRACK_BUF;
     pages_off();
     view_colours();
+    car_sprite_race();
     render_palette(t);
     race_track = t;
     race.course = n;
@@ -196,6 +198,7 @@ static bool race_run(uint8_t n, const Controls *c) {
     while (race.over_timer != 150) {
         if (input_read() & IN_RESTART) {
             sound_off();
+            car_sprite_off();
             return false;
         }
         // a picture every second frame at most
@@ -210,18 +213,22 @@ static bool race_run(uint8_t n, const Controls *c) {
         render_view(&v);
         panel_draw();
         video_show();
+        car_sprite_show();
     }
     sound_off();
+    car_sprite_off();
     return true;
 }
 
 int main(void) {
     memset(&race, 0, sizeof race);  // LOW_RAM: not cleared at the start
     video_init();
-    if (!disk_load("MENU", MENU_ATTIC) || !disk_load("LOWCODE", LOW_CODE_AT))
+    if (!disk_load("BOOT", BOOT_CODE_AT) || !disk_load("MENU", MENU_ATTIC) || !disk_load("LOWCODE", LOW_CODE_AT))
         halt(7);
+    video_screen();
     menu_in();
-    if (!panel_load() || !lapbar_load() || !pages_load() || !season_load() || !sound_load() ||
+    video_list();
+    if (!car_sprite_load() || !panel_load() || !lapbar_load() || !pages_load() || !season_load() || !sound_load() ||
         !music_load())
         halt(7);
     music_init();
