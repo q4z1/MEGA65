@@ -282,13 +282,14 @@ static void own_car(void) {
     int16_t x = sprite_state.last_x;
     if (sprite_state.last_y != BOTTOM(0x5E))
         return;
+    // the number plate's digit, the brake lights (tools/mkcars.py: where
+    // they are on our car), from the car image's top left
     uint8_t a = (uint8_t)sprite_state.angle;
+    int16_t top = (int16_t)(BOTTOM(0x5E) - sprite_height(SPR_CARS, a) + 1);
     clip = BOTTOM(0x5F);
-    put(SPR_HUD, 18, (int16_t)(tab_brake[36 + a] + x), BOTTOM(0x54));
-    if (p->joy & JOY_DOWN) {
-        put(SPR_HUD, (uint8_t)tab_brake[a], (int16_t)(tab_brake[18 + a] + x), BOTTOM(0x4C));
-        put(SPR_HUD, (uint8_t)tab_brake[9 + a], (int16_t)(tab_brake[27 + a] + x), BOTTOM(0x4C));
-    }
+    put(SPR_HUD, 18, (int16_t)(x + car_plate[a][0] - 2), (int16_t)(top + car_plate[a][1] - 2));
+    if (p->joy & JOY_DOWN)
+        put(SPR_HUD, (uint8_t)(CAR_BRAKES + a), (int16_t)(x + car_brake[a][0]), (int16_t)(top + car_brake[a][1]));
 }
 
 // the other player's car

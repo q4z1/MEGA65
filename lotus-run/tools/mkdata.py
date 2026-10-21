@@ -209,7 +209,6 @@ PROGRAM_TABLES = [
     # the pictures (sprites.c)
     ('tab_car_image', 'uint8_t', 0xC21C00, 17 * 9, 'B'),
     ('tab_gate', 'int8_t', 0xC20B1E, 28, 'h'),
-    ('tab_brake', 'int8_t', 0xC20E30, 45, 'h'),
     ('tab_countdown', 'int8_t', 0xC237F0, 12, 'h'),
 ]
 
