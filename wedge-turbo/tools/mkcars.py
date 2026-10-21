@@ -12,10 +12,10 @@ rows; VIEWS says which are which. Turned to the right is the drawing
 turned as far to the left, mirrored. Each image takes the drawing of its
 angle, brought down to its size - as high as the game's image, as wide as
 the drawing is then, so that the car keeps its size as it turns - and into
-the race's colours: the paint in three shades (the player's, from the
-drawing: CAR_PAINT) or two (the opponents' - the same car, its paint made
-white and grey: the game colours them six ways), the rest black, reds and
-greys.
+the race's colours: where it is mostly paint, the paint - in three shades
+(the player's, from the drawing: CAR_PAINT) or two (the opponents': the
+same car, which the game colours six ways) - as light as the drawing's;
+the rest (glass, lights, wheels, plate) black, reds and greys.
 
 render() gives the bank's images; with them, for the player's largest
 size, where the number plate's digit and the brake lights go, and the
@@ -100,47 +100,53 @@ def drawings():
     return out
 
 
+def is_paint(col):
+    """Where a drawing is paint: green above all"""
+    return (col[:, :, 1] > col[:, :, 0] + 30) & (col[:, :, 1] > col[:, :, 2] + 30)
+
+
 def shrink(drawing, w, h, mirror):
-    """A drawing down to w x h: the colour of each pixel's area (where it is
-    the car), how much of it is the car"""
+    """A drawing down to w x h: per pixel how much of its area is the car,
+    how much of that paint, the paint's colour, the rest's colour"""
     col, alpha = drawing
     if mirror:
         col, alpha = col[:, ::-1], alpha[:, ::-1]
-    a = Image.fromarray((alpha * 255).astype(np.uint8)).resize((w, h), Image.BOX)
-    pre = Image.fromarray((col * alpha[:, :, None]).astype(np.uint8)).resize((w, h), Image.BOX)
-    a = np.asarray(a, float) / 255
-    c = np.asarray(pre, float) / np.maximum(a, 1e-6)[:, :, None]
-    return c, a
+    paint = is_paint(col) * alpha
+
+    def box(v):
+        return np.asarray(Image.fromarray(np.clip(v, 0, 255).astype(np.uint8)).resize((w, h), Image.BOX), float)
+
+    a = box(alpha * 255) / 255
+    p = box(paint * 255) / 255
+    rest = alpha - paint
+    r = box(rest * 255) / 255
+    c_paint = box(col * paint[:, :, None]) / np.maximum(p, 1e-6)[:, :, None]
+    c_rest = box(col * rest[:, :, None]) / np.maximum(r, 1e-6)[:, :, None]
+    return a, p / np.maximum(a, 1e-6), c_paint, c_rest
 
 
-def quantise(c, a, palette):
-    """Per pixel the nearest of palette ({index: rgb}), clear where it is
-    mostly not the car"""
-    idx = list(palette)
-    pal = np.array([palette[i] for i in idx])
-    wgt = np.array([0.3, 0.59, 0.11]) * 3  # nearness as the eye sees it
-    d = (((c[:, :, None, :] - pal[None, None, :, :]) ** 2) * wgt).sum(3)
-    near = np.array(idx)[d.argmin(2)]
-    near[a < 0.5] = CLEAR
-    return bytes(near.astype(np.uint8).flatten())
-
-
-def whitened(drawing):
-    """A drawing with its paint (green) white and grey, as light as it was"""
-    col, alpha = drawing
-    col = col.copy()
-    paint = (col[:, :, 1] > col[:, :, 0] + 30) & (col[:, :, 1] > col[:, :, 2] + 30)
-    lum = np.clip(col @ np.array([0.3, 0.59, 0.11]) * 2.2 + 40, 0, 255)
-    col[paint] = lum[paint][:, None]
-    return col, alpha
+def quantise(shrunk, shades, details):
+    """Per pixel: clear where it is mostly not the car; paint where it is
+    mostly paint - the shade (shades: [(index, rgb)], light to dark) as
+    light as the paint there; else the nearest of details ({index: rgb})"""
+    a, share, c_paint, c_rest = shrunk
+    lum = np.array([0.3, 0.59, 0.11])
+    shade_lum = np.array([rgb @ lum for _, rgb in shades])
+    paint = np.array([i for i, _ in shades])[np.abs((c_paint @ lum)[:, :, None] - shade_lum).argmin(2)]
+    idx = list(details)
+    pal = np.array([details[i] for i in idx])
+    d = (((c_rest[:, :, None, :] - pal[None, None, :, :]) ** 2) * lum * 3).sum(3)
+    rest = np.array(idx)[d.argmin(2)]
+    out = np.where(share >= 0.5, paint, rest)
+    out[a < 0.5] = CLEAR
+    return bytes(out.astype(np.uint8).flatten())
 
 
 def paint_shades(drawing):
     """The player's paint: three shades of the drawing's green, light to
     dark"""
     col, alpha = drawing
-    px = col[alpha > 0]
-    green = px[(px[:, 1] > px[:, 0] + 30) & (px[:, 1] > px[:, 2] + 30)]
+    green = col[is_paint(col) & (alpha > 0)]
     lum = green @ np.array([0.3, 0.59, 0.11])
     order = np.sort(lum)
     cuts = [order[len(order) // 3], order[2 * len(order) // 3]]
@@ -156,27 +162,26 @@ def render(dims, car_table, player_paint, opp_paint):
     colours, light to dark)"""
     d = drawings()
     paint = paint_shades(d[VIEWS[4]])
-    player = {i: rgb12(c) for i, c in enumerate(FIXED)}
-    player.update({p: rgb12(c) for p, c in zip(player_paint, paint)})
-    # the opponents: their paint white and grey, as the white colouring
-    # (main.c) has it
-    opp = {i: rgb12(c) for i, c in enumerate(FIXED) if i != GREY}
-    opp.update({opp_paint[0]: rgb12(0xDDD), opp_paint[1]: rgb12(0x888)})
+    details = {i: rgb12(c) for i, c in enumerate(FIXED)}
+    # the player's paint in its three shades; the opponents' in two, as
+    # light as the white colouring's (main.c) - the same car, painted so
+    player = [(p, rgb12(c)) for p, c in zip(player_paint, paint)]
+    opp = [(opp_paint[0], rgb12(paint[0])), (opp_paint[0], rgb12(paint[1])), (opp_paint[1], rgb12(paint[2]))]
 
     angles = {}
     for k, i in enumerate(car_table):
         angles.setdefault(i, []).append((k // 9, k % 9))
     images = [None] * 126
     marks = []
-    for base, views, palette in ((0, [d[v] for v in VIEWS], player), (63, [whitened(d[v]) for v in VIEWS], opp)):
+    for base, shades in ((0, player), (63, opp)):
         for i in range(63):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            view = views[4 - round(abs(turn))]
+            view = d[VIEWS[4 - round(abs(turn))]]
             h = dims[i][1]
             w = max(1, round(h * view[0].shape[1] / view[0].shape[0]))
-            images[base + i] = (w, h, quantise(*shrink(view, w, h, turn > 0), palette))
+            images[base + i] = (w, h, quantise(shrink(view, w, h, turn > 0), shades, details))
             if base == 0 and size == 0:
                 marks.append(overlay(images[i]))
     return images, marks, paint

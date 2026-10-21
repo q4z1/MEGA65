@@ -207,77 +207,147 @@ def puddle(p, c):
 
 # ------------------------------------------------------------ plants and rocks
 
+def clumps(p, cx, cy, rx, ry, r, lit, shade, dense=1.0):
+    """Leaves as many small clumps on a crown round (cx, cy): the crown in
+    shade, each clump with a lit top left (lit) - the light from the upper
+    left, more lit up there, more shade down on the right, a few dark
+    holes there"""
+    pts = []
+    for k in range(48):
+        a = 2 * math.pi * k / 48
+        f = 0.92 + 0.08 * math.sin(7 * a + p.rng.uniform(0, 1))
+        pts.append((cx + math.cos(a) * rx * f, cy + math.sin(a) * ry * f))
+    p.poly(pts, shade)
+    n = int(dense * 1.6 * rx * ry / (r * r))
+    spots = []
+    for _ in range(n):
+        a = p.rng.uniform(0, 2 * math.pi)
+        d = math.sqrt(p.rng.random())
+        spots.append((cx + math.cos(a) * rx * d, cy + math.sin(a) * ry * d, r * p.rng.uniform(0.75, 1.1)))
+    spots.sort(key=lambda s: s[1])
+    for x, y, rr in spots:
+        u, v = (x - cx) / rx, (y - cy) / ry
+        if u + v > 0.9 and p.rng.random() < 0.35:
+            p.blob(x, y, rr * 0.55, BLACK, lumps=5, rough=0.3)
+            continue
+        p.blob(x, y, rr, shade, lumps=6, rough=0.3)
+        t = 0.55 - 0.45 * u - 0.5 * v
+        if t > 0.12:
+            p.blob(x - rr * 0.25, y - rr * 0.3, rr * min(0.85, t + 0.1), lit, lumps=5, rough=0.3)
+
+
 def fir(p):
-    """A fir in tiers, the leaves (10) darker underneath (DARK_GREEN)"""
+    """A fir: tiers of drooping branches, their ends jagged, lit (10) on the
+    left, in shade (DARK_GREEN) on the right, black under each tier"""
     w, h = p.w, p.h
-    p.rect(w * 0.45, h * 0.82, w * 0.55, h - 1, C11)
-    tiers = 5
+    p.rect(w * 0.46, h * 0.8, w * 0.54, h - 1, C11)
+    p.rect(w * 0.5, h * 0.8, w * 0.54, h - 1, C9)
+    tiers = 7
     for k in range(tiers):
-        top = h * (0.02 + 0.16 * k)
-        half = w * (0.18 + 0.08 * k)
-        bottom = top + h * 0.26
-        p.poly([(w / 2, top), (w / 2 + half, bottom), (w / 2 - half, bottom)], C10)
-        p.poly([(w / 2 + half * 0.1, top + h * 0.06), (w / 2 + half, bottom), (w / 2 + half * 0.2, bottom)],
-               DARK_GREEN)
-        for _ in range(int(half / 6)):  # needles in shade on the lit side
-            x = w / 2 - p.rng.uniform(0.1, 0.8) * half
-            y = p.rng.uniform(top + h * 0.1, bottom - h * 0.02)
-            p.line([(x, y), (x - w * 0.03, y + h * 0.02)], DARK_GREEN, max(2, w // 60))
+        top = h * (0.0 + 0.105 * k)
+        bottom = h * (0.2 + 0.105 * k) if k < tiers - 1 else h * 0.86
+        half = w * (0.1 + 0.058 * k)
+        teeth = 5 + k
+        edge = []
+        for j in range(teeth * 2 + 1):
+            x = w / 2 - half + 2 * half * j / (teeth * 2)
+            sag = (1 - ((x - w / 2) / half) ** 2) * h * 0.02  # the branch ends hang
+            y = bottom - (h * 0.035 if j % 2 else 0) + sag * 0
+            edge.append((x, y - sag))
+        apex = (w / 2, top)
+        p.poly([apex] + [(x, y + h * 0.012) for x, y in edge], BLACK)
+        p.poly([apex] + edge, DARK_GREEN)
+        lit = [(x, y) for x, y in edge if x <= w / 2 + half * 0.1]
+        p.poly([(w / 2 + half * 0.1, top + h * 0.02)] + [(x, y - h * 0.008) for x, y in lit], C10)
+        for _ in range(int(teeth * 1.5)):  # needles
+            x = p.rng.uniform(w / 2 - half * 0.9, w / 2 + half * 0.9)
+            y = p.rng.uniform(top + (bottom - top) * 0.35, bottom - h * 0.03)
+            if abs(x - w / 2) > half * (y - top) / (bottom - top):
+                continue
+            c = DARK_GREEN if x < w / 2 else C10
+            p.line([(x, y), (x + (w * 0.025 if x > w / 2 else -w * 0.025), y + h * 0.018)], c, max(2, w // 70))
 
 
 def oak(p, crown=0.7, leaf=C10, shade=DARK_GREEN, trunk=C11, light=None):
-    """A broad tree: lumps of leaves with shade on a trunk"""
+    """A broad tree: a trunk forking into branches under a round crown of
+    clumps of leaves (leaf lit, shade underneath; light: lit the most)"""
     w, h = p.w, p.h
-    p.poly([(w * 0.42, h - 1), (w * 0.47, h * (1 - crown) + h * 0.2), (w * 0.53, h * (1 - crown) + h * 0.2),
-            (w * 0.58, h - 1)], trunk)
-    cy = h * (1 - crown * 0.62)
-    for k in range(7):
-        a = k * 0.9
-        cx = w / 2 + math.cos(a) * w * 0.22
-        y = cy + math.sin(a) * h * 0.14 * crown
-        p.blob(cx, y + h * 0.04, w * 0.2, shade)
-    for k in range(7):
-        a = k * 0.9
-        cx = w / 2 + math.cos(a) * w * 0.2
-        y = cy + math.sin(a) * h * 0.13 * crown
-        p.blob(cx - w * 0.03, y - h * 0.02, w * 0.17, leaf)
-    if light is not None:
-        for k in range(5):
-            p.blob(w * (0.3 + 0.08 * k), cy - h * crown * (0.2 + 0.03 * (k % 2)), w * 0.07, light, lumps=5)
+    top = h * (1 - crown)
+    bottom = h * (1 - crown * 0.22)
+    p.poly([(w * 0.42, h - 1), (w * 0.47, bottom - h * 0.1), (w * 0.53, bottom - h * 0.1), (w * 0.58, h - 1)],
+           trunk)
+    if light is None:
+        clumps(p, w / 2, (top + bottom) / 2, w * 0.45, (bottom - top) / 2, w * 0.08, leaf, shade)
+    else:  # autumn: the leaves lit (light), the rest in leaf, the darkest shade
+        clumps(p, w / 2, (top + bottom) / 2, w * 0.46, (bottom - top) / 2, w * 0.075, light, leaf)
+        for _ in range(int(w / 20)):
+            x = p.rng.uniform(w * 0.3, w * 0.85)
+            y = p.rng.uniform((top + bottom) / 2, bottom - h * 0.02)
+            p.blob(x, y, w * 0.035, shade, lumps=5)
+    # the trunk and two branches where the crown opens below
+    p.rect(w * 0.47, bottom - h * 0.06, w * 0.53, h * 0.9, trunk)
+    for dx in (-0.12, 0.12):
+        p.line([(w / 2, bottom - h * 0.02), (w / 2 + dx * w, bottom - h * 0.08)], trunk, max(3, w // 30))
 
 
 def shrub(p):
+    """A bush: clumps of leaves on the ground"""
     w, h = p.w, p.h
-    for k in range(4):
-        p.blob(w * (0.25 + 0.17 * k), h * 0.62, w * 0.22, DARK_GREEN)
-    for k in range(4):
-        p.blob(w * (0.25 + 0.17 * k), h * 0.55, w * 0.18, C10)
-    p.rect(w * 0.1, h - h * 0.08, w * 0.9, h - 1, C11)
+    clumps(p, w / 2, h * 0.52, w * 0.46, h * 0.4, w * 0.09, C10, DARK_GREEN)
+    p.rect(w * 0.12, h * 0.9, w * 0.88, h - 1, C11)
 
 
 def poplar(p):
-    """A slim, tall tree"""
+    """A slim, tall tree: a column of small clumps"""
     w, h = p.w, p.h
-    p.rect(w * 0.46, h * 0.85, w * 0.54, h - 1, C11)
-    p.ellipse(w * 0.18, 0, w * 0.82, h * 0.9, DARK_GREEN)
-    p.ellipse(w * 0.2, 0, w * 0.7, h * 0.86, C10)
-    for k in range(6):
-        y = h * (0.12 + 0.12 * k)
-        p.line([(w * 0.5, y), (w * 0.66, y + h * 0.05)], DARK_GREEN, max(2, w // 20))
+    p.rect(w * 0.46, h * 0.8, w * 0.54, h - 1, C11)
+    clumps(p, w / 2, h * 0.43, w * 0.3, h * 0.42, w * 0.1, C10, DARK_GREEN, dense=1.2)
 
 
 def palm(p):
-    """A palm: a bent trunk, fronds hanging"""
+    """A palm: a bent trunk in rings (10), fronds (11) arching out and
+    hanging, their leaflets in shade (DARK_GREEN) underneath"""
     w, h = p.w, p.h
-    pts = [(w * 0.5 + math.sin(t * 1.6) * w * 0.12, h - 1 - t * h * 0.75) for t in [k / 10 for k in range(11)]]
-    p.line(pts, C10, max(4, w // 10))
+    pts = [(w * 0.5 + math.sin(t * 1.5) * w * 0.1, h - 1 - t * h * 0.72) for t in [k / 16 for k in range(17)]]
+    for k in range(len(pts) - 1):
+        width = w * (0.1 - 0.04 * k / 16)
+        p.line([pts[k], pts[k + 1]], C10, max(3, int(width)))
+        if k % 2:
+            x, y = pts[k]
+            p.line([(x - width / 2, y), (x + width / 2, y + h * 0.006)], DARK_GREY, max(2, w // 60))
     tx, ty = pts[-1]
-    for a in range(0, 360, 40):
-        r = math.radians(a)
-        end = (tx + math.cos(r) * w * 0.42, ty + math.sin(r) * h * 0.12 + h * 0.08)
-        mid = (tx + math.cos(r) * w * 0.25, ty - h * 0.06 + math.sin(r) * h * 0.05)
-        p.line([(tx, ty), (mid[0], mid[1] + h * 0.01), (end[0], end[1] + h * 0.02)], DARK_GREEN, max(3, w // 14))
-        p.line([(tx, ty), mid, end], C11, max(3, w // 16))
+    fronds = []
+    for k in range(12):
+        a = 2 * math.pi * k / 12 + p.rng.uniform(-0.15, 0.15)  # round the top, seen from aside
+        side = math.cos(a)  # how far out to the side, -1 left .. 1 right
+        depth = math.sin(a)  # towards (> 0) or away from us
+        reach = w * 0.44 * (0.35 + 0.65 * abs(side))
+        lift = h * (0.1 - 0.05 * abs(side) - 0.03 * depth)
+        droop = h * (0.1 + 0.06 * abs(side) + 0.04 * depth)
+        fronds.append((depth, side, reach, lift, droop))
+    for depth, side, reach, lift, droop in sorted(fronds):  # those away first
+        arc = []
+        for j in range(13):
+            t = j / 12
+            arc.append((tx + side * reach * t, ty - lift * 4 * t * (1 - t) + droop * t * t))
+        # the frond: a leaf along the arc, its lower edge jagged (leaflets)
+        upper, lower, lit = [], [], []
+        for j, (x, y) in enumerate(arc):
+            t = j / 12
+            x2, y2 = arc[min(12, j + 1)] if j < 12 else (2 * x - arc[11][0], 2 * y - arc[11][1])
+            dx, dy = x2 - x, y2 - y
+            n = math.hypot(dx, dy) or 1
+            nx, ny = -dy / n, dx / n
+            if ny < 0:
+                nx, ny = -nx, -ny  # the normal pointing down
+            wf = h * 0.06 * math.sin(math.pi * min(1, 0.15 + t * 0.95))
+            jag = 1.0 if j % 2 else 0.55
+            upper.append((x - nx * wf * 0.35, y - ny * wf * 0.35))
+            lower.append((x + nx * wf * jag, y + ny * wf * jag))
+            lit.append((x + nx * wf * 0.2, y + ny * wf * 0.2))
+        p.poly(upper + lower[::-1], DARK_GREEN)
+        p.poly(upper + lit[::-1], C11)
+    p.blob(tx, ty + h * 0.01, w * 0.035, DARK_GREY, lumps=5)
 
 
 def cactus(p, arms):
@@ -405,7 +475,7 @@ def draw_type(t, w, h, rng):
                                 C9, frame=C11, pic=pizza),              # 880 420 686 464
         0x94: lambda: billboard(p, [('TURBO', 0.34, 0.28, LIGHT_GREY), ('CUP', 0.64, 0.3, C10)], C9, C10,
                                 frame=LIGHT_GREY, round_=True),         # 000 02E 08F 444
-        0x95: lambda: oak(p, 0.8, leaf=C8, shade=C10, trunk=C11, light=C9),  # C62 942 632 422
+        0x95: lambda: oak(p, 0.8, leaf=C9, shade=C10, trunk=C11, light=C8),  # C62 942 632 422
         0x96: lambda: billboard(p, [('RALLY', 0.3, 0.36, C11), ('8 BIT', 0.7, 0.24, RED)], C10, C11, frame=C8,
                                 pic=wave_car),                          # 444 08F CC1 00C
         0x97: lambda: billboard(p, [('ORBIT', 0.8, 0.18, LIGHT_GREY)], BLACK, LIGHT_GREY, frame=C11, pic=planet,
