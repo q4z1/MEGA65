@@ -10,9 +10,13 @@ before, so that everything around them stays).
 art/cars.png holds the drawings on magenta - each in a box of its own, or
 all on one magenta ground, in rows (the first used). Each image takes the
 view turned as the game's car at its angle (TURNS; turned to the right:
-one turned to the left, mirrored), in the race's colours, brought to the
-game's image's size - so the car is as wide and as high as the game's,
-however wide the drawing. The colours first, on the drawing as large as it
+one turned to the left, mirrored), in the race's colours, as high as the
+game's image and as wide as the drawing then is, times one factor for all
+views: the one that makes the straight view as wide as the game's - so
+the car is as large as the game's however wide the drawing, and a view
+has the same width at every angle it serves (the angle changes all the
+time on a straight: the car does not grow and shrink); none narrower than
+the straight one (a drawing narrower turned than straight is widened). The colours first, on the drawing as large as it
 is: where it is paint, the paint - in three shades (the player's, from the
 drawing: CAR_PAINT) or two (the opponents': the same car, which the game
 colours six ways) - as light as the paint around there, so the shades lie
@@ -223,13 +227,29 @@ def face_shift(view):
     return (face - (w - 1) / 2) / h
 
 
-def pick(views, aspect, turn):
-    """The view (index, mirrored) that, brought to the aspect (width /
-    height), is turned most nearly by turn (heights, > 0 the nose to the
-    left)"""
+def widen(views, aspect):
+    """The factor for the views' widths that makes the straight one aspect
+    (width / height) wide"""
+    return aspect / aspect_of(min(views, key=lambda v: abs(face_shift(v))))
+
+
+def aspect_of(view):
+    return view.shape[1] / view.shape[0]
+
+
+def width(views, k, widening, h):
+    """The width of view k at height h: as wide as it is drawn, widened,
+    and no narrower than the straight view"""
+    least = aspect_of(min(views, key=lambda v: abs(face_shift(v))))
+    return max(1, round(h * widening * max(aspect_of(views[k]), least)))
+
+
+def pick(views, widening, turn):
+    """The view (index, mirrored) that, widened so, is turned most nearly by
+    turn (heights, > 0 the nose to the left)"""
     best = None
     for k, v in enumerate(views):
-        shift = face_shift(v) * aspect / (v.shape[1] / v.shape[0])
+        shift = face_shift(v) * widening
         for flip in (False, True):
             err = abs((-shift if flip else shift) - turn)
             if best is None or err < best[0]:
@@ -264,14 +284,17 @@ def render(dims, car_table, player_paint, opp_paint):
         angles.setdefault(i, []).append((k // 9, k % 9))
     images = [None] * 126
     marks = []
+    straight = dims[car_table[4]]
     for base, shades in ((0, player), (63, opp)):
         views = [coloured(v, shades, details) for v in d]
+        widening = widen(views, straight[0] / straight[1])
         for i in range(63):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            w, h = dims[i]
-            k, flip = pick(views, w / h, TURNS[4 - round(abs(turn))] * (-1 if turn > 0 else 1))
+            h = dims[i][1]
+            k, flip = pick(views, widening, TURNS[4 - round(abs(turn))] * (-1 if turn > 0 else 1))
+            w = width(views, k, widening, h)
             images[base + i] = (w, h, thinned(shrink(views[k], w, h, flip), w, h))
             if base == 0 and size == 0:
                 marks.append(overlay(images[i]))
@@ -320,6 +343,7 @@ def hardware(images, player_paint, digit):
     nybble = dict(NYBBLE)
     nybble.update({p: HW_PAINT + k for k, p in enumerate(player_paint)})
     views = [coloured(v, shades, details) for v in d]
+    widening = widen(views, images[4][0] / images[4][1])
     rows = 2 * images[4][1]
     block = -(-rows * 8 // 64) * 64
     out = bytearray()
@@ -328,7 +352,7 @@ def hardware(images, player_paint, digit):
             lw, lh, low = images[angle]
             w = 2 * lw
             turn = angle - 4
-            k, flip = pick(views, lw / lh, TURNS[4 - abs(turn)] * (-1 if turn > 0 else 1))
+            k, flip = pick(views, widening, TURNS[4 - abs(turn)] * (-1 if turn > 0 else 1))
             px = bytearray(thinned(shrink(views[k], w, rows, flip), w, rows))
             for y in range(rows):  # where the image beneath has a pixel
                 for x in range(w):
