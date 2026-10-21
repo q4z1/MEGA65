@@ -8,11 +8,11 @@ the player's car 0-62, the opponents' 63-125, as many and as large as
 before, so that everything around them stays).
 
 art/cars.png holds the drawings on magenta - each in a box of its own, or
-all on one magenta ground, in rows; VIEWS says which are which. Turned to the right is the drawing
-turned as far to the left, mirrored. Each image takes the drawing of its
-angle, in the race's colours and brought down to its size - as high as
-the game's image, as wide as the drawing is then, so that the car keeps
-its size as it turns. The colours first, on the drawing as large as it
+all on one magenta ground, in rows (the first used). Each image takes the
+view turned as the game's car at its angle (TURNS; turned to the right:
+one turned to the left, mirrored), in the race's colours, brought to the
+game's image's size - so the car is as wide and as high as the game's,
+however wide the drawing. The colours first, on the drawing as large as it
 is: where it is paint, the paint - in three shades (the player's, from the
 drawing: CAR_PAINT) or two (the opponents': the same car, which the game
 colours six ways) - as light as the paint around there, so the shades lie
@@ -22,7 +22,7 @@ greys. Then down to the size, each pixel the colour most of its area has
 
 render() gives the bank's images; with them, for the player's largest
 size, where the number plate's digit and the brake lights go, and the
-player's paint.
+player's paint; hardware() the player's car near, twice as fine.
 """
 import os
 
@@ -34,14 +34,11 @@ BLACK, LIGHT_RED, RED, DARK_RED, DARK_GREY, GREY, LIGHT_GREY = 0, 1, 2, 3, 4, 5,
 FIXED = [0x000, 0xC44, 0xA00, 0x600, 0x222, 0x666, 0xCCC]
 
 ART = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'art', 'cars.png')
-# the drawings for angles 0-4 (the nose to the left, most first, then
-# straight on): their places in art/cars.png, in reading order (scraps not
-# counted), and whether the drawing is turned the other way (then
-# mirrored). Picked by how far each is turned, measured against the game's
-# turns (the rear face's shift, local/car-spec): the drawings turn faster
-# than the game's angles, so the least turned serves angles 2 and 3 and
-# the most turned one is not used
-VIEWS = ((3, False), (2, False), (1, False), (1, False), (0, False))
+# How far the game's car is turned at angles 0-4 (the nose to the left,
+# most first, then straight on): the rear face's shift from the middle of
+# the whole car, to the right, in heights (local/car-spec, measured on the
+# game's largest images). The drawings' views are picked by it.
+TURNS = (0.228, 0.146, 0.082, 0.026, 0.0)
 
 
 def rgb12(c):
@@ -99,15 +96,15 @@ def spans(v, least):
 
 def drawings():
     """The drawings in art/cars.png: per magenta box (but the smallest) -
-    or, all on one magenta ground, per car in rows - the car (RGB, and how
-    much each pixel is the car), cut to its bounds"""
+    or, all on one magenta ground, per car of the first row - the car (RGB,
+    and how much each pixel is the car), cut to its bounds"""
     im = np.asarray(Image.open(ART).convert('RGB')).astype(int)
     # magenta, and where the car's edge took on some of it
     mag = (im[:, :, 0] - im[:, :, 1] > 40) & (im[:, :, 2] - im[:, :, 1] > 40)
     out = []
     if mag[0, 0] and mag[-1, -1]:  # one ground: the cars apart by rows, then columns
         car = ~mag
-        for y0, y1 in spans(car.sum(1) > 2, 40):
+        for y0, y1 in spans(car.sum(1) > 2, 40)[:1]:  # the first row (a second: brake lights lit)
             for x0, x1 in spans(car[y0:y1].sum(0) > 2, 40):
                 c = car[y0:y1, x0:x1]
                 ys, xs = np.nonzero(c)
@@ -216,35 +213,66 @@ def paint_shades(drawing):
     return [to12(s.mean(0)) for s in shades]
 
 
-def render(dims, car_table, player_paint, opp_paint):
-    """The bank's 126 images, as high as dims[i]; car_table: per size and
-    angle the image (as the race picks them). Returns the images; per angle
-    of the largest size the plate's centre and the lit brake lights (image,
-    x, y from the car image's top left); the player's paint (three 12-bit
-    colours, light to dark)"""
-    d = drawings()
-    paint = paint_shades(d[VIEWS[4][0]])
+def face_shift(view):
+    """How far a coloured drawing is turned: the rear face's (its lights')
+    middle right of the middle of the whole car, in heights"""
+    h, w = view.shape
+    ys, xs = np.nonzero(np.isin(view, (LIGHT_RED, RED, DARK_RED)))
+    mid = (xs.min() + xs.max()) / 2
+    face = (xs[xs < mid].mean() + xs[xs >= mid].mean()) / 2
+    return (face - (w - 1) / 2) / h
+
+
+def pick(views, aspect, turn):
+    """The view (index, mirrored) that, brought to the aspect (width /
+    height), is turned most nearly by turn (heights, > 0 the nose to the
+    left)"""
+    best = None
+    for k, v in enumerate(views):
+        shift = face_shift(v) * aspect / (v.shape[1] / v.shape[0])
+        for flip in (False, True):
+            err = abs((-shift if flip else shift) - turn)
+            if best is None or err < best[0]:
+                best = (err, k, flip)
+    return best[1], best[2]
+
+
+def palettes(d, player_paint, opp_paint):
+    """The views' colours: the paint (from the straight view), the
+    player's shades, the opponents', the rest"""
     details = {i: rgb12(c) for i, c in enumerate(FIXED)}
+    plain = [coloured(v, [(BLACK, rgb12(0))], details) for v in d]
+    paint = paint_shades(d[min(range(len(d)), key=lambda k: abs(face_shift(plain[k])))])
     # the player's paint in its three shades; the opponents' in two, as
     # light as the white colouring's (main.c) - the same car, painted so
     player = [(p, rgb12(c)) for p, c in zip(player_paint, paint)]
     opp = [(opp_paint[0], rgb12(paint[0])), (opp_paint[0], rgb12(paint[1])), (opp_paint[1], rgb12(paint[2]))]
+    return paint, player, opp, details
 
+
+def render(dims, car_table, player_paint, opp_paint):
+    """The bank's 126 images in the sizes dims[i] (the game's: so the car
+    is as wide as the game's, however wide the drawing); car_table: per
+    size and angle the image (as the race picks them). Returns the images;
+    per angle of the largest size the plate's centre and the lit brake
+    lights (image, x, y from the car image's top left); the player's paint
+    (three 12-bit colours, light to dark)"""
+    d = drawings()
+    paint, player, opp, details = palettes(d, player_paint, opp_paint)
     angles = {}
     for k, i in enumerate(car_table):
         angles.setdefault(i, []).append((k // 9, k % 9))
     images = [None] * 126
     marks = []
     for base, shades in ((0, player), (63, opp)):
-        views = [(coloured(d[v], shades, details), flip) for v, flip in VIEWS]
+        views = [coloured(v, shades, details) for v in d]
         for i in range(63):
             size = angles[i][0][0]
             a = [angle for s, angle in angles[i] if s == size]
             turn = sum(a) / len(a) - 4  # < 0: the nose to the left
-            view, flip = views[4 - round(abs(turn))]
-            h = dims[i][1]
-            w = max(1, round(h * view.shape[1] / view.shape[0]))
-            images[base + i] = (w, h, thinned(shrink(view, w, h, (turn > 0) != flip), w, h))
+            w, h = dims[i]
+            k, flip = pick(views, w / h, TURNS[4 - round(abs(turn))] * (-1 if turn > 0 else 1))
+            images[base + i] = (w, h, thinned(shrink(views[k], w, h, flip), w, h))
             if base == 0 and size == 0:
                 marks.append(overlay(images[i]))
     return images, marks, paint
@@ -267,38 +295,45 @@ def overlay(car):
 
 
 # The player's car near, for the MEGA65's hardware sprites: eight of 16
-# colours, each 16 pixels across (640 to the screen's width) and HW_ROWS
-# high (400 to its height) - twice as fine both ways as the race's picture.
-# Side by side 128 pixels: the car's widest view fits that, the others are
-# as large. Per sprite its rows (8 bytes, two pixels a byte, the left one
-# in the high nybble) padded to a multiple of 64 bytes (the pointers' unit).
+# colours, each 16 pixels across (640 to the screen's width) - side by side
+# 128 pixels - and twice the game's image's height (400 to the screen's
+# height): twice as fine both ways as the race's picture, as large as the
+# game's image. The game's image is drawn beneath; the sprites cover its
+# middle 128 pixels (a view wider than that shows its outer edges from the
+# image beneath), and where the image beneath has a pixel the sprites'
+# is not clear (so nothing of it shows through at their edges). Per sprite
+# its rows (8 bytes, two pixels a byte, the left one in the high nybble)
+# padded to a multiple of 64 bytes (the pointers' unit).
 HW_SPRITES, HW_W = 8, 128
 NYBBLE = {CLEAR: 0, BLACK: 1, LIGHT_RED: 2, RED: 3, DARK_RED: 4, DARK_GREY: 5, GREY: 6, LIGHT_GREY: 7}
 HW_PAINT = 8  # the paint's three shades: nybbles 8-10
 
 
-def hardware(height, player_paint, digit):
+def hardware(images, player_paint, digit):
     """The images for angles 0-8, without and with the brake lights lit:
     (rows, bytes per sprite, the 18 images' bytes one after the other).
-    height: the largest car image's (the race's rows); digit: the number
-    plate's (an image of the race's columns, drawn on at the plate)"""
+    images: the game's largest images of the player's car per angle (as
+    render() made them); digit: the number plate's (an image of the race's
+    columns, drawn on at the plate)"""
     d = drawings()
-    paint = paint_shades(d[VIEWS[4][0]])
-    details = {i: rgb12(c) for i, c in enumerate(FIXED)}
-    shades = [(p, rgb12(c)) for p, c in zip(player_paint, paint)]
+    _, shades, _, details = palettes(d, player_paint, (0, 0))
     nybble = dict(NYBBLE)
     nybble.update({p: HW_PAINT + k for k, p in enumerate(player_paint)})
-    views = [(coloured(d[v], shades, details), flip) for v, flip in VIEWS]
-    aspect = max(view.shape[1] / view.shape[0] for view, _ in views)
-    rows = min(2 * height, int(HW_W / aspect))
+    views = [coloured(v, shades, details) for v in d]
+    rows = 2 * images[4][1]
     block = -(-rows * 8 // 64) * 64
     out = bytearray()
     for lit in (False, True):
         for angle in range(9):
+            lw, lh, low = images[angle]
+            w = 2 * lw
             turn = angle - 4
-            view, flip = views[4 - abs(turn)]
-            w = min(HW_W, round(rows * view.shape[1] / view.shape[0]))
-            px = bytearray(thinned(shrink(view, w, rows, (turn > 0) != flip), w, rows))
+            k, flip = pick(views, lw / lh, TURNS[4 - abs(turn)] * (-1 if turn > 0 else 1))
+            px = bytearray(thinned(shrink(views[k], w, rows, flip), w, rows))
+            for y in range(rows):  # where the image beneath has a pixel
+                for x in range(w):
+                    if px[y * w + x] == CLEAR:
+                        px[y * w + x] = low[(y // 2) * lw + x // 2]
             (cx, cy), _, _ = overlay((w, rows, bytes(px)))
             dw, dh, dpx = digit  # twice as large, its middle at the plate's
             for y in range(2 * dh):
@@ -310,14 +345,14 @@ def hardware(height, player_paint, digit):
             if lit:
                 light = {RED: LIGHT_RED, DARK_RED: RED}
                 px = bytearray(light.get(v, v) for v in px)
-            left = (HW_W - w) // 2
+            left = (HW_W - w) // 2  # < 0: the outer edges left to the image beneath
             for s in range(HW_SPRITES):
                 spr = bytearray(block)
                 for y in range(rows):
                     for b in range(8):
                         pair = []
-                        for k in range(2):
-                            x = s * 16 + b * 2 + k - left
+                        for i in range(2):
+                            x = s * 16 + b * 2 + i - left
                             pair.append(nybble.get(px[y * w + x], 0) if 0 <= x < w else 0)
                         spr[y * 8 + b] = pair[0] << 4 | pair[1]
                 out += spr

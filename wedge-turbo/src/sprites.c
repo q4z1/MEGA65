@@ -283,9 +283,8 @@ static void own_car(void) {
     place(SPR_CARS, KIND_CAR, p->steer_view, (uint16_t)car.depth, car.x, car.frac, size);
     int16_t x = sprite_state.last_x;
     if (size == 0 && sprite_count != placed) {
-        // near: the hardware sprites show it (carsprite.h), plate and
-        // brake lights included
-        sprite_count = placed;
+        // near: the hardware sprites show it over its image (carsprite.h),
+        // plate and brake lights included
         car_sprite_image = (uint8_t)(sprite_state.angle + (p->joy & JOY_DOWN ? 9 : 0));
         car_sprite_x = (int16_t)(2 * x + sprite_state.last_w);
         car_sprite_row = (int16_t)(view_y0 + sprite_state.last_y);

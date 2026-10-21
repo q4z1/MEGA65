@@ -470,8 +470,8 @@ def main():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
             f.write(bank_file(ims))
 
-    hw_rows, hw_block, hw_data = mkcars.hardware(game_cars[car_table[4]][1], (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2),
-                                                 banks[SPR_HUD][18])
+    hw_rows, hw_block, hw_data = mkcars.hardware([banks[SPR_CARS][car_table[a]] for a in range(9)],
+                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2), banks[SPR_HUD][18])
     with open(os.path.join(gen, 'carhi.bin'), 'wb') as f:
         f.write(pack(hw_data))
     with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:

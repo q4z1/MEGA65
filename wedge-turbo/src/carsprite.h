@@ -3,9 +3,10 @@
 // The race's picture is 320 x 200; the player's car, the nearest and
 // largest thing in it, is shown finer: by the eight hardware sprites of 16
 // colours side by side, in 640 x 400 pixels (CARHI, tools/mkcars.py's
-// hardware()). sprites.c says when and where; the image is copied to
-// chip RAM when it changes, and the sprites are placed when a picture is
-// shown.
+// hardware()), over its image in the picture - which shows the outer
+// edges of a view wider than the sprites' 128 pixels. sprites.c says when
+// and where; the image is copied to chip RAM when it changes, and the
+// sprites are placed when a picture is shown.
 
 #ifndef CARSPRITE_H
 #define CARSPRITE_H
