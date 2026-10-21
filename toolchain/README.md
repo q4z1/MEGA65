@@ -81,6 +81,24 @@ same data. It also sets `GDK_BACKEND=x11` whenever X11 is available
 (`DISPLAY`): Xemu's right-click menu is a GTK popup, and under Wayland GTK
 does not open it over the SDL window.
 
+### Our changes to Xemu
+
+The submodule is our fork, with changes of our own on top of upstream (each
+on a branch of its own, for a pull request upstream):
+
+- `-recvideo`, `-recaudio`: recording, used by `mega65-cast` (branch
+  `recorder`)
+- `-screenshot` saves the last complete frame (`recorder`)
+- the temporary file of a saved setting is named per process, so that
+  several Xemus can start at once (`save-file-race`)
+- the sound is rendered line by line in step with the emulated time, into a
+  buffer the audio device plays from - what a program writes to the SIDs is
+  heard when it wrote it, not up to a buffer's length (some 23 ms) later or
+  earlier; `-audiocallback` renders it the old way (`audio-sync`)
+- a raster interrupt's flag stays set until it is acknowledged, as on the
+  real VIC, also when the line went by while a DMA job held the CPU
+  (`audio-sync`)
+
 ### Gamepads
 
 Xemu uses SDL2's plain joystick interface and treats every joystick as the
