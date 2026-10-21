@@ -293,8 +293,8 @@ MAX_YAW = 14.0
 
 
 def yaw_of(angle):
-    """Angle 0-8 (4: straight on) as degrees"""
-    return (4 - angle) * MAX_YAW / 4
+    """Angle 0-8 (0: nose to the left, 4: straight on) as degrees"""
+    return (angle - 4) * MAX_YAW / 4
 
 
 def render(dims, car_table, player_paint, opp_paint):
