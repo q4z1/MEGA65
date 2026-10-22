@@ -435,9 +435,12 @@ void video_big_text(uint8_t col, uint8_t y, const char *text) {
     for (; *text; text++, col += 2) {
         const uint8_t *b = font_bits + font_index((uint8_t)*text) * 16;
         uint8_t *g = glyph;
-        for (uint8_t half = 0; half < 2; half++)
+        // x counts from a start fixed per strip: a loop bound of
+        // half * 8 + 8 was miscompiled (its counter never went up)
+        for (uint8_t x0 = 0; x0 < 16; x0 += 8)
             for (uint8_t r = 0; r < 32; r++)
-                for (uint8_t x = half * 8; x < half * 8 + 8; x++) {
+                for (uint8_t i = 0; i < 8; i++) {
+                    uint8_t x = x0 + i;
                     uint8_t on = b[r >> 1] & (0x80 >> (x >> 1));
                     uint8_t sh = r >= 2 && x >= 2 && (b[(r - 2) >> 1] & (0x80 >> ((x - 2) >> 1)));
                     *g++ = on ? title_row[r >> 1] : sh ? FONT_SHADOW : 0;
