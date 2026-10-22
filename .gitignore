@@ -36,3 +36,5 @@ __pycache__/
 
 # Game archives (copyrighted; build scripts read them in place)
 /*.zip
+# Disks made with smaragd-dash/tools/cavekit.py disks (caves from GDash: not for the repository)
+/disks/
