@@ -74,10 +74,17 @@ if [ ! -x "$HERE/bin/gdash-oracle" ]; then
     git -C "$HERE/src/gdash" checkout -q "$GDASH_COMMIT"
     # its cave code only: no user interface, no autotools (gdash-oracle/config.h)
     G="$HERE/src/gdash/src"
-    set --
+    # one fix: GDash saves a part of the cave above 1 (an amoeba threshold
+    # bigger than the cave, as its C64 imports have) but refuses it when it
+    # loads the file again; Smaragd Dash's cavekit.py takes it
+    P="$HERE/src/gdash-oracle-build"
+    mkdir -p "$P"
+    sed '/GdInt &i, double conversion_ratio/,/^}/s/read <= 1)/read * conversion_ratio <= 16383)/' \
+        "$G/cave/cavetypes.cpp" >"$P/cavetypes.cpp"
+    set -- "$P/cavetypes.cpp"
     for f in "$G"/cave/*.cpp "$G"/cave/helper/*.cpp "$G"/cave/object/*.cpp; do
         case "$f" in
-            */gamecontrol.cpp | */gamerender.cpp | */titleanimation.cpp) ;;
+            */gamecontrol.cpp | */gamerender.cpp | */titleanimation.cpp | */cavetypes.cpp) ;;
             *) set -- "$@" "$f" ;;
         esac
     done
@@ -85,7 +92,8 @@ if [ ! -x "$HERE/bin/gdash-oracle" ]; then
         $(pkg-config --cflags glib-2.0) -o "$HERE/bin/gdash-oracle" \
         "$HERE/gdash-oracle/oracle.cpp" "$HERE/gdash-oracle/stubs.cpp" "$@" \
         "$G/fileops/bdcffload.cpp" "$G/fileops/bdcffsave.cpp" "$G/fileops/bdcffhelper.cpp" \
-        "$G/fileops/c64import.cpp" "$G/misc/logger.cpp" "$G/misc/printf.cpp" "$G/misc/util.cpp" \
+        "$G/fileops/c64import.cpp" "$G/fileops/loadfile.cpp" "$G/fileops/binaryimport.cpp" \
+        "$G/fileops/brcimport.cpp" "$G/misc/logger.cpp" "$G/misc/printf.cpp" "$G/misc/util.cpp" \
         $(pkg-config --libs glib-2.0)
 fi
 

@@ -91,7 +91,8 @@ not saved. H shows the keys:
 The own caves play by GDash's rules (see below): what walks off an edge
 comes back on the other side, unless the edge is steel, as in a new cave.
 There is one inbox: putting a new one turns the old one to dirt. A cave can
-be tried and saved when it has an inbox and an exit. What would lose changes
+be tried and saved when it has an inbox (or, from GDash, Rockford himself)
+and an exit. What would lose changes
 not saved - another slot, Run/Stop - and the keys C and D want to be pressed
 twice. On the values page up and down choose a line, left and right change
 it (held: faster after a while), and the name is typed (Del goes back);
@@ -151,7 +152,8 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 and so do the tests of `tools/cavekit.py`, `python3 tests/test_cavekit.py`.
 `tests/test_gdengine.sh` plays caves of GDash's own collection with the
 game's GDash engine on the host, step by step beside GDash's own code (see
-[below](#own-caves-and-gdash); `--all` for all of them). `tests/test_editor.sh`
+[below](#own-caves-and-gdash); `--all` for all of them, `--gds` for the C64
+games GDash imports). `tests/test_editor.sh`
 tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
 game takes its keys from a script (`test_script` in `src/main.c`) and stops
 at its n-th stop; the screens of the eleven stops land in `build/test/`,
@@ -195,14 +197,26 @@ its properties with GDash's defaults and those of the C64 engines
 test oracle (`toolchain/tools/gdash-oracle`, see `tests/test_gdengine.sh`):
 of GDash's collection (200 `.bd` files, 5016 caves) every cave starts as in
 GDash in all five levels - every value, every cell - and plays as there,
-step by step for 400 steps with the same input, in all 24764 cave-levels
+step by step for 400 steps with the same input, in all 24940 cave-levels
 that are not random anew in every game. On the MEGA65 the game takes its
 own random numbers for them, as GDash takes new ones in every game.
 
 Mazes are carved as GDash carves them; one that GDash makes anew in every
-game gets a maze of its own. GDash's elements that have no graphics of
-their own in the game yet show as a grey square, and GDash's `.gds` files
-(imported C64 games) cannot be read by `cavekit.py` yet.
+game gets a maze of its own. Each of GDash's elements has a tile of its own
+(115 more of them, after the game's own), animated where GDash's are; the
+switches show whether they are on, and a cave's "looks like" effects (dirt,
+expanding walls, the second amoeba) are drawn as in GDash.
+
+GDash's `.gds` files - the C64 games it imports, about 1850 of its
+collection - go through GDash: open one there and save it (*File → Save
+as*), which writes BDCFF for `cavekit.py`. That way is checked too
+(`tests/test_gdengine.sh --gds`): of their 33411 caves 33409 play as GDash
+plays the original for 200 steps. In one GDash saves a probability rounded
+to four places; in the other the amoeba starts as "already scanned", which
+a slot cannot hold, so it grows a step later. GDash saves an amoeba
+threshold bigger than the cave (as these games have it) as a part above 1,
+but refuses that when it loads the file again; `cavekit.py` takes it (and
+so does the test oracle, which has this one fix).
 
 ### Screencast
 
@@ -351,7 +365,7 @@ the cave, `moved[]`, the engine's state, the cave file - lies at $C000
 The engine has the KERNAL's zero page from $90 for its own.
 
 **The title logo** (288x144 pixels, 41K) lies in bank 3, from where DMA
-copies it into both framebuffers for the title screen. The tiles (85 of 256
+copies it into both framebuffers for the title screen. The tiles (200 of 256
 bytes) have bank 1 to themselves, from $10000 up to the colour RAM at
 $1F800 - room for 248: they are only ever copied by DMA, so they need not
 lie in bank 0, which keeps its room for code. `mem.h` checks at compile

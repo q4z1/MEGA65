@@ -703,7 +703,9 @@ class GdStored:
         if t in (GD_INT, GD_INT_LEVELS):
             if p.flags & GD_RATIO:
                 d = c_double(s)
-                return int(d * ratio + 0.5) if d is not None and 0 <= d <= 1 else None
+                # GDash refuses more than 1 here, but saves it (an amoeba
+                # threshold bigger than the cave, as in its C64 imports)
+                return int(d * ratio + 0.5) if d is not None and 0 <= d and d * ratio <= 16383 else None
             return c_int(s)
         if t in (GD_PROB, GD_PROB_LEVELS):
             d = c_double(s)
@@ -1359,7 +1361,7 @@ class Maze:
 # (build/gen/gdcave.h). All of it little-endian; time 0 is an empty slot.
 GD_FIELDS = [  # name, C type, struct format
     ("time", "uint16_t", "H"), ("diamonds_needed", "int16_t", "h"), ("diamond_value", "uint16_t", "H"),
-    ("extra_diamond_value", "uint16_t", "H"), ("max_time", "uint16_t", "H"), ("time_bonus", "int8_t", "b"),
+    ("extra_diamond_value", "uint16_t", "H"), ("max_time", "uint16_t", "H"), ("time_bonus", "int16_t", "h"),
     ("time_penalty", "uint8_t", "B"), ("timevalue", "uint8_t", "B"),
     ("w", "uint8_t", "B"), ("h", "uint8_t", "B"), ("x1", "uint8_t", "B"), ("y1", "uint8_t", "B"),
     ("x2", "uint8_t", "B"), ("y2", "uint8_t", "B"),

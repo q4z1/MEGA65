@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Compares Smaragd Dash's GDash with GDash itself (tests/test_gdengine.sh):
 
-  gdcompare.py <oracle> <gdplay> <levels> <steps> <file.bd>...
+  gdcompare.py <oracle> <gdplay> <levels> <steps> <file.bd or .gds>...
+
+A .gds file (a C64 game GDash imports) goes the way a player takes it:
+GDash saves it as a .bd file, which cavekit.py reads; GDash itself plays the
+original.
 
 For each cave of the files in each level (1-5, as "1,2"): the cave as
 tools/cavekit.py makes it of the file and src/gdengine.c starts it must be
@@ -60,8 +64,19 @@ def main():
     total = same = skipped = 0
     bad = []
     for path in sys.argv[5:]:
-        bd = ck.BdcffFile(path)
         name = os.path.relpath(path)
+        bd_path = path
+        if not path.lower().endswith(".bd"):
+            # a file GDash imports (.gds: a C64 game): as GDash saves it in
+            # BDCFF for cavekit.py, and GDash itself plays the original
+            bd_path = os.path.join(tmp, "imported.bd")
+            if os.path.exists(bd_path):
+                os.remove(bd_path)
+            run([oracle, "save", path, bd_path])
+            if not os.path.exists(bd_path):
+                bad.append(f"{name}: GDash cannot read it")
+                continue
+        bd = ck.BdcffFile(bd_path)
         for level in levels:
             want_start = per_cave(run([oracle, "cave", path, str(level)]))
             want_play = per_cave(run([oracle, "play", path, str(level), steps]))

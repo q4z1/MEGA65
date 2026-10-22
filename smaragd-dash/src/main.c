@@ -325,11 +325,16 @@ static void draw_trails(void) {
 // Each emerald sparkles at its own moment
 static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4};
 
-// GDash's elements in this frame: their tiles (gd_tile), the animated ones
-// as the game's own (etile, just set)
+// GDash's elements in this frame: their tiles (gd_tile) and frames
+// (gd_anim), the ones the game has too as its own (etile, just set), and
+// what GDash shows of the switches and the "looks like" effects
 static void update_gtiles(void) {
+    uint8_t f = frame;
     for (uint8_t e = 0; e < O_COUNT; e++) {
         uint8_t t = gd_tile[e];
+        uint8_t a = gd_anim[e];
+        if (a & 3)
+            t += (f >> (a >> 2)) & ((1 << (a & 3)) - 1);
         switch (t) {
         case T_FIREFLY0:
             t = etile[E_FIREFLY];
@@ -355,6 +360,34 @@ static void update_gtiles(void) {
         }
         gtile[e] = t;
     }
+    uint32_t fl = gd.flags;
+    if (fl & GDF_CREATURES_BACKWARDS)
+        gtile[O_CREATURE_SWITCH] = T_CREATURE_SWITCH_ON;
+    if (fl & GDF_EXPANDING_WALL_CHANGED)
+        gtile[O_EXPANDING_WALL_SWITCH] = T_EXPANDING_WALL_SWITCH_ON;
+    if (fl & GDF_GRAVITY_SWITCH_ACTIVE)
+        gtile[O_GRAVITY_SWITCH] = T_GRAVITY_SWITCH_ON;
+    if (fl & GDF_REPLICATORS_ACTIVE)
+        gtile[O_REPLICATOR_SWITCH] = T_REPLICATOR_SWITCH_ON;
+    else
+        gtile[O_REPLICATOR] = T_REPLICATOR0;
+    uint8_t left = T_CONVEYOR_L0, right = T_CONVEYOR_R0;
+    if (fl & GDF_CONVEYOR_BELTS_DIRECTION_CHANGED) {
+        left = T_CONVEYOR_R0;
+        right = T_CONVEYOR_L0;
+        gtile[O_CONVEYOR_DIR_SWITCH] = T_CONVEYOR_DIR_SWITCH_ON;
+    }
+    if (fl & GDF_CONVEYOR_BELTS_ACTIVE) {  // running: both frames
+        gtile[O_CONVEYOR_SWITCH] = T_CONVEYOR_SWITCH_ON;
+        left += (f >> 2) & 1;
+        right += (f >> 2) & 1;
+    }
+    gtile[O_CONVEYOR_LEFT] = left;
+    gtile[O_CONVEYOR_RIGHT] = right;
+    gtile[O_DIRT] = gtile[file.own.dirt_looks_like];
+    gtile[O_EXPANDING_WALL] = gtile[O_V_EXPANDING_WALL] = gtile[O_H_EXPANDING_WALL] =
+        gtile[file.own.expanding_wall_looks_like];
+    gtile[O_AMOEBA_2] = gtile[file.own.amoeba_2_looks_like];
     if (show_cursor)  // the editor shows the closed exit as an exit
         gtile[O_PRE_OUTBOX] = gtile[O_PRE_INVIS_OUTBOX] = T_OUTBOX0;
 }
@@ -1533,9 +1566,9 @@ static EDITOR const char *edit_check(void) {
     bool inbox = false, exit = false;
     for (uint16_t i = 0; i < CAVE_SIZE; i++) {
         uint8_t e = file.own.map[i];
-        if (e == O_INBOX)
+        if (e == O_INBOX || (e >= O_PLAYER && e <= O_PLAYER_STIRRING))  // or GDash's player at once
             inbox = true;
-        if (e == O_PRE_OUTBOX || e == O_PRE_INVIS_OUTBOX)
+        if (e >= O_PRE_OUTBOX && e <= O_INVIS_OUTBOX)
             exit = true;
     }
     return !inbox ? "THE CAVE NEEDS AN INBOX" : exit ? 0 : "THE CAVE NEEDS AN EXIT";

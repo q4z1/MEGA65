@@ -8,6 +8,14 @@
 #
 #   tests/test_gdengine.sh           a few of them, level 1, 300 steps
 #   tests/test_gdengine.sh --all     all 200 files, all five levels (an hour)
+#   tests/test_gdengine.sh --gds     the ~1850 C64 games (.gds) GDash imports,
+#                                    as GDash saves them as .bd, level 1,
+#                                    200 steps (hours). Two caves differ:
+#                                    Bilder_Dash cave 16 (GDash saves a
+#                                    probability rounded to 4 places) and
+#                                    Crazy_Dream_7 cave 3 (its amoeba starts
+#                                    "scanned", which a slot cannot hold: it
+#                                    grows a step later)
 
 set -e
 cd "$(dirname "$0")/.."
@@ -20,6 +28,8 @@ cc -O2 -Wall -Wno-array-bounds -DGD_EXACT -Isrc -Ibuild/gen -o build/gdplay \
     tests/gdplay.c src/gdengine.c src/engine.c build/gen/gdcave.c
 if [ "$1" = --all ]; then
     find $CAVES -name "*.bd" | sort | xargs python3 tests/gdcompare.py $ORACLE build/gdplay 1,2,3,4,5 400
+elif [ "$1" = --gds ]; then
+    find $CAVES -name "*.gds" | sort | xargs python3 tests/gdcompare.py $ORACLE build/gdplay 1 200
 else
     python3 tests/gdcompare.py $ORACLE build/gdplay 1 300 \
         $CAVES/First_Star_Software/Boulder_Dash_1.bd $CAVES/First_Star_Software/Boulder_Dash_2.bd \

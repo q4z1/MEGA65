@@ -7,3 +7,5 @@ bool gd_particle_effects = false;
 bool gd_alternate_vertical_animation = false;
 gboolean gd_param_debug = FALSE;
 int gd_c64_palette = 0, gd_c64dtv_palette = 0, gd_atari_palette = 0;
+#include <string>
+std::string gd_last_cave_file;  // settings.cpp's

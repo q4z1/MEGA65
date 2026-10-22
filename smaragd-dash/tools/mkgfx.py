@@ -828,39 +828,750 @@ SEP_ROWS = [None, hexc("4a2c10"), hexc("a07020"), hexc("ffd860"), hexc("c08828")
 
 # ---------------------------------------------------------------- GDash's elements
 
-# The tile of each of GDash's elements (tools/cavekit.py, src/gdengine.c) for
-# the own caves: GDash's name (O_...) as a pattern, the tile. Animated ones
-# get their first tile, which main.c animates (fireflies, butterflies,
-# amoeba, magic wall, inbox, exit, the player as RF_VIEW4); SPARKLE is an
-# emerald sparkling on its own. What is not here yet shows as COVER0.
+# The elements of GDash's caves (the own caves, src/gdengine.c) that the
+# game's own caves do not have, drawn in the same way. They may bring only
+# a few colours of their own (GD_NEW_COLOURS): the palette has room for 254,
+# most of them taken by the game's own tiles, which keep theirs.
+
+def lum(c):
+    return (0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]) / 255
+
+
+def by_lum(t, stops, levels=6, lo=0.0, hi=1.0):
+    """The tile in other colours: each pixel by its brightness along stops"""
+    return [[None if c is None else steps(stops, (lum(c) - lo) / (hi - lo), levels) for c in row] for row in t]
+
+
+def overlay(base, top):
+    out = [list(row) for row in base]
+    for y in range(T):
+        for x in range(T):
+            if top[y][x] is not None:
+                out[y][x] = top[y][x]
+    return out
+
+
+def sphere(t, cx, cy, r, stops, levels=6, rim=0.55, squash=1.0, noise=None):
+    """A shaded ball, lit from the top left, into t"""
+    L = norm(LIGHT)
+    for y in range(T):
+        for x in range(T):
+            dx, dy = (x + 0.5 - cx) / r, (y + 0.5 - cy) / (r * squash)
+            d2 = dx * dx + dy * dy
+            if d2 > 1:
+                continue
+            nz = math.sqrt(1 - d2)
+            v = 0.12 + 0.8 * max(0, dx * L[0] + dy * L[1] + nz * L[2])
+            if noise:
+                v += 0.2 * (noise(x, y) - 0.5)
+            if d2 > 0.8:
+                v *= rim
+            t[y][x] = steps(stops, v, levels)
+    return t
+
+
+def plot(t, pts, c):
+    for x, y in pts:
+        if 0 <= x < T and 0 <= y < T:
+            t[y][x] = c
+
+
+def from_pic(rows, pal, t=None):
+    """A tile from a picture in characters (pal: character -> colour; '.'
+    and ' ' stay as they are)"""
+    t = t or new_tile()
+    oy = (T - len(rows)) // 2
+    for y, row in enumerate(rows):
+        ox = (T - len(row)) // 2
+        for x, ch in enumerate(row):
+            if ch not in ". ":
+                t[oy + y][ox + x] = pal[ch]
+    return t
+
+
+def liquid(seed, stops, frame, bubbles=True):
+    """Water, acid, lava, slime: a surface that moves with the frames"""
+    t = new_tile()
+    n = Noise(seed, 4)
+    for y in range(T):
+        for x in range(T):
+            v = 0.55 * n(x, y) + 0.3 * math.sin((x + frame * 4) * 0.8 + y * 0.35) * 0.5 + 0.25
+            t[y][x] = steps(stops, v, 5)
+    if bubbles:
+        for bx, by in ((4, 11), (11, 5), (8, 13)):
+            by = (by - frame * 3) % T
+            plot(t, [(bx, by)], stops[-1])
+            plot(t, [(bx + 1, by + 1)], stops[-2])
+    return t
+
+
+def draw_slime(frame):
+    t = liquid(70, [hexc("0c2410"), hexc("1c5a1c"), hexc("3c9a2c"), hexc("8cd84c"), hexc("e0ffa0")], frame)
+    # a gooey edge on the top, dripping
+    for x in range(T):
+        plot(t, [(x, 0)], hexc("e0ffa0") if (x + frame) % 5 else hexc("3c9a2c"))
+    return t
+
+
+def draw_acid(frame):
+    return liquid(72, [hexc("202808"), hexc("5a6c08"), hexc("a8c010"), hexc("e0f040"), hexc("fffcc0")], frame)
+
+
+def draw_lava(frame):
+    return liquid(74, [hexc("400800"), hexc("b02008"), hexc("f07010"), hexc("ffc840"), hexc("fffce8")], frame)
+
+
+def draw_water(frame):
+    return liquid(76, [hexc("081828"), hexc("104878"), hexc("3090e0"), hexc("a0f0ff"), hexc("e4fff0")], frame)
+
+
+def draw_box():
+    """Sokoban's box: planks with a brace"""
+    wood = [hexc("2a170c"), hexc("6b4322"), hexc("8a5a30"), hexc("b08050"), hexc("e09070")]
+    t = new_tile()
+    for y in range(1, 15):
+        for x in range(1, 15):
+            v = 0.5 + 0.12 * math.sin(y * 1.7 + x * 0.2) + (0.15 if y % 4 == 1 else 0)
+            if x in (1, 14) or y in (1, 14):
+                v = 0.2
+            elif abs(x - y) <= 1 or abs(x - (15 - y)) <= 1:
+                v = 0.75
+            t[y][x] = steps(wood, v, 5)
+    for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        t[y][x] = hexc("c8d4e8")
+    return t
+
+
+def draw_key(col):
+    """A key in its colour: bit, shaft, ring"""
+    stops = [mix(col, hexc("000000"), 0.7), mix(col, hexc("000000"), 0.35), col, mix(col, hexc("ffffff"), 0.6)]
+    t = new_tile()
+    for y in range(T):
+        for x in range(T):
+            d = math.hypot(x + 0.5 - 5, y + 0.5 - 8)
+            if 1.6 < d < 4.2:
+                t[y][x] = steps(stops, 0.9 - (d - 1.6) / 3 + (0.2 if y < 8 else -0.1), 4)
+    for x in range(8, 15):
+        t[7][x] = stops[3]
+        t[8][x] = stops[2]
+        t[9][x] = stops[1]
+    for x, h in ((11, 3), (13, 2)):
+        for y in range(10, 10 + h):
+            t[y][x] = stops[1]
+            t[y][x + 1] = stops[0]
+    return t
+
+
+def draw_lock_door(col):
+    """A locked door in its colour, in a steel frame"""
+    t = draw_steel()
+    stops = [mix(col, hexc("000000"), 0.7), mix(col, hexc("000000"), 0.4), col, mix(col, hexc("ffffff"), 0.5)]
+    for y in range(2, 14):
+        for x in range(3, 13):
+            edge = x in (3, 12) or y in (2, 13)
+            t[y][x] = stops[0] if edge else steps(stops, 0.45 + 0.4 * (1 - (x + y) / 26), 4)
+    for (x, y) in ((7, 6), (8, 6), (7, 7), (8, 7), (7, 8), (7, 9), (8, 9), (7, 10)):
+        t[y][x] = hexc("101010")
+    return t
+
+
+KEY_COLOURS = [hexc("ffd040"), hexc("40a0ff"), hexc("ff3060")]  # GDash's keys and doors 1-3
+
+
+def draw_trapped_diamond():
+    """An emerald behind bars, until the key comes"""
+    t = draw_emerald(2)
+    for x in (3, 7, 11):
+        for y in range(T):
+            t[y][x] = hexc("c8d4e8")
+            t[y][x + 1] = hexc("5c6880")
+    for x in range(T):
+        t[0][x] = t[15][x] = hexc("7c88a0")
+    return t
+
+
+def draw_clock():
+    t = new_tile()
+    face = [hexc("301808"), hexc("a07020"), hexc("ffd860"), hexc("fff8c0")]
+    for y in range(T):
+        for x in range(T):
+            d = math.hypot(x + 0.5 - 8, y + 0.5 - 8)
+            if d < 7.3:
+                t[y][x] = face[0] if d > 6.2 else (face[1] if d > 5.4 else face[3])
+    for i in range(12):
+        a = i * math.pi / 6
+        plot(t, [(int(round(7.5 + 4.6 * math.cos(a))), int(round(7.5 + 4.6 * math.sin(a))))], face[1])
+    plot(t, [(8, y) for y in range(4, 9)], hexc("301808"))
+    plot(t, [(x, 8) for x in range(8, 12)], hexc("301808"))
+    return t
+
+
+def draw_bomb(lit, frame=0):
+    t = sphere(new_tile(), 7.5, 9.0, 6.2, [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0"),
+                                           hexc("c8d4e8")], 5)
+    plot(t, [(9, 3), (10, 2), (11, 2)], hexc("8a5a30"))
+    if lit:
+        spark = [(12, 1), (12, 2), (11, 1), (13, 1)] if frame else [(12, 1), (13, 0), (11, 0), (13, 2)]
+        plot(t, spark[1:], hexc("ffc840"))
+        plot(t, spark[:1], hexc("fffce8"))
+    return t
+
+
+def draw_sweet():
+    """A wrapped sweet"""
+    t = new_tile()
+    stops = [hexc("400828"), hexc("a01c60"), hexc("f070e0"), hexc("ffd0f0")]
+    sphere(t, 8, 8, 4.4, stops, 4)
+    for y in range(4, 12):
+        w = abs(y - 7.5) / 1.5
+        for x in range(0, 4):
+            if x >= w - 1:
+                t[y][x] = stops[2] if (x + y) % 2 else stops[1]
+                t[y][15 - x] = stops[2] if (x + y) % 2 else stops[1]
+    plot(t, [(x, 7) for x in range(5, 11, 2)], stops[3])
+    return t
+
+
+def draw_bladder(frame):
+    """A bubble that rises"""
+    t = new_tile()
+    r = 6.0 + 0.5 * frame
+    for y in range(T):
+        for x in range(T):
+            d = math.hypot(x + 0.5 - 8, (y + 0.5 - 8) * (1.08 - 0.08 * frame))
+            if d < r:
+                t[y][x] = hexc("a0f0ff") if d > r - 1 else (hexc("104878") if d > r - 2.2 else None)
+    plot(t, [(5, 4), (4, 5), (5, 5)], hexc("ffffff"))
+    return t
+
+
+def draw_bladder_spender():
+    t = draw_steel()
+    for y in range(T):
+        for x in range(T):
+            d = math.hypot(x + 0.5 - 8, y + 0.5 - 6)
+            if d < 3.5:
+                t[y][x] = hexc("08080c") if d < 2.5 else hexc("a0f0ff")
+    return t
+
+
+def draw_switch(col, on=False):
+    """A lever on a steel plate, the plate in the switch's colour; switched
+    on, the lever leans the other way"""
+    t = draw_steel()
+    for y in range(9, 14):
+        for x in range(3, 13):
+            t[y][x] = col if y > 9 else mix(col, hexc("ffffff"), 0.5)
+    lever = new_tile()
+    for i in range(6):
+        plot(lever, [(5 + i, 9 - i)], hexc("e8f0ff"))
+        plot(lever, [(6 + i, 9 - i)], hexc("5c6880"))
+    plot(lever, [(11, 3), (12, 3), (11, 2), (12, 2)], hexc("ff3060"))
+    for y in range(T):
+        for x in range(T):
+            c = lever[y][T - 1 - x if on else x]
+            if c is not None:
+                t[y][x] = c
+    return t
+
+
+SWITCH_COLOURS = {"CREATURE_SWITCH": hexc("f06414"), "EXPANDING_WALL_SWITCH": hexc("a45434"),
+                  "BITER_SWITCH": hexc("8c30a0"), "REPLICATOR_SWITCH": hexc("3cc870"),
+                  "CONVEYOR_SWITCH": hexc("ffd040"), "CONVEYOR_DIR_SWITCH": hexc("30b0f0"),
+                  "GRAVITY_SWITCH": hexc("2850c8")}
+# the switches that show whether they are on (GDash's caverendered.cpp)
+SWITCHES_ON = ("CREATURE_SWITCH", "EXPANDING_WALL_SWITCH", "REPLICATOR_SWITCH", "CONVEYOR_SWITCH",
+               "CONVEYOR_DIR_SWITCH", "GRAVITY_SWITCH")
+
+
+def draw_biter(frame):
+    """A round thing that eats its way through: open and shut"""
+    t = sphere(new_tile(), 8, 8, 6.6, [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"),
+                                       hexc("f4c0ff")], 5)
+    gape = 1 + 2 * frame
+    for y in range(8 - gape, 8 + gape):
+        for x in range(8, 16):
+            if t[y][x] is not None and abs(y + 0.5 - 8) < gape * (x - 7) / 8:
+                t[y][x] = None
+    for x in range(9, 14, 2):
+        plot(t, [(x, 8 - gape), (x, 7 + gape)], hexc("ffffff"))
+    plot(t, [(6, 4), (7, 4)], hexc("101010"))
+    return t
+
+
+def draw_amoeba_2(frame):
+    return by_lum(draw_amoeba(frame), [hexc("0c2410"), hexc("1c5a1c"), hexc("3c9a2c"), hexc("8cd84c"),
+                                       hexc("e0ffa0")], 5)
+
+
+def draw_falling_wall():
+    t = draw_brick()
+    plot(t, [(5, 1), (6, 2), (6, 3), (7, 4), (9, 8), (9, 9), (10, 10), (4, 11), (5, 12)], hexc("200808"))
+    return t
+
+
+def draw_alt_firefly(frame):
+    return by_lum(draw_firefly(frame), [hexc("101850"), hexc("2850c8"), hexc("30b0f0"), hexc("a0f0ff"),
+                                        hexc("ffffff")], 5)
+
+
+def draw_alt_butterfly(frame):
+    return by_lum(draw_butterfly(frame), [hexc("400804"), hexc("a01c08"), hexc("f06414"), hexc("ffb030"),
+                                          hexc("fff4c0")], 5)
+
+
+def draw_stonefly(frame):
+    return by_lum(draw_butterfly(frame), [hexc("1e1a18"), hexc("4a423c"), hexc("78685a"), hexc("a8968a"),
+                                          hexc("d8cabc")], 5)
+
+
+def draw_dragonfly(frame):
+    """Long body, two pairs of wings beating"""
+    t = new_tile()
+    body = [hexc("0c5a30"), hexc("16904a"), hexc("3cc870")]
+    for y in range(2, 15):
+        t[y][7] = body[1]
+        t[y][8] = body[2] if y < 6 else body[0]
+    plot(t, [(7, 2), (8, 2), (6, 3), (9, 3)], hexc("8cf0b0"))
+    span = [7, 4][frame]
+    for i in range(1, span):
+        for dy in (0, 1):
+            for side in (-1, 1):
+                plot(t, [(int(7.5 + side * (i + 0.5)), 5 + dy + (i // 3)), (int(7.5 + side * (i + 0.5)), 8 + dy + (i // 3))],
+                     hexc("a0f0ff") if dy == 0 else hexc("30b0f0"))
+    return t
+
+
+def draw_mega_boulder():
+    t = draw_boulder()
+    t = by_lum(t, [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0"), hexc("a8b4c8")], 6)
+    plot(t, [(5, 6), (6, 7), (7, 7), (10, 4), (11, 5)], hexc("08080c"))
+    return t
+
+
+def draw_nut():
+    t = sphere(new_tile(), 8, 8.5, 6.0, [hexc("2a170c"), hexc("4a2c16"), hexc("6b4322"), hexc("8a5a30"),
+                                         hexc("b08050")], 5, squash=0.95)
+    for y in range(3, 14):
+        if t[y][8] is not None:
+            t[y][8] = hexc("2a170c")
+    plot(t, [(8, 1), (8, 2)], hexc("1c5a1c"))
+    return t
+
+
+def draw_teleporter(frame):
+    t = new_tile()
+    stops = [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"), hexc("f4c0ff")]
+    for y in range(T):
+        for x in range(T):
+            dx, dy = x + 0.5 - 8, y + 0.5 - 8
+            d = math.hypot(dx, dy)
+            if d > 7.4:
+                continue
+            a = math.atan2(dy, dx) + d * 0.6 + frame * math.pi / 2
+            t[y][x] = steps(stops, 0.5 + 0.45 * math.sin(a * 2) * (1 - d / 9), 5)
+    return t
+
+
+def glued(t):
+    """With drops of glue: it cannot be moved"""
+    t = [list(row) for row in t]
+    for x, y in ((3, 2), (3, 3), (11, 1), (11, 2), (11, 3), (6, 12), (12, 11), (12, 12)):
+        t[y][x] = hexc("fff8c0")
+    for x, y in ((3, 4), (11, 4), (6, 13), (12, 13)):
+        t[y][x] = hexc("ffd860")
+    return t
+
+
+def eyes(t, shut):
+    t = [list(row) for row in t]
+    for ex in (5, 9):
+        if shut:
+            plot(t, [(ex, 7), (ex + 1, 7)], hexc("101010"))
+        else:
+            plot(t, [(ex, 6), (ex + 1, 6), (ex, 7), (ex + 1, 7)], hexc("ffffff"))
+            plot(t, [(ex + 1, 7)], hexc("101010"))
+    return t
+
+
+def draw_replicator(frame):
+    t = draw_steel()
+    for y in range(4, 12):
+        for x in range(4, 12):
+            t[y][x] = hexc("1c2030") if x in (4, 11) or y in (4, 11) else \
+                (hexc("3cc870") if (x + y + frame * 2) % 4 < 2 else hexc("16904a"))
+    return t
+
+
+def draw_steel_explodable():
+    t = draw_steel()
+    plot(t, [(4, 2), (5, 3), (5, 4), (6, 5), (9, 8), (10, 9), (10, 10), (11, 11), (7, 12), (8, 13)], hexc("1c2030"))
+    return t
+
+
+def draw_eatable(base):
+    """A wall that Rockford can dig through: dirt shows through it"""
+    t = [list(row) for row in base]
+    d = draw_dirt()
+    for y in range(T):
+        for x in range(T):
+            if (x * 3 + y * 5) % 7 < 2:
+                t[y][x] = d[y][x]
+    return t
+
+
+def draw_pot():
+    t = new_tile()
+    stops = [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0")]
+    sphere(t, 8, 9.5, 6.0, stops, 4, squash=0.9)
+    for y in range(T):
+        for x in range(T):
+            if y < 6:
+                t[y][x] = None
+    for x in range(2, 14):
+        t[5][x] = stops[3]
+        t[6][x] = stops[2]
+    plot(t, [(5, 3), (7, 2), (10, 3)], hexc("c8d4e8"))  # steam
+    return t
+
+
+def draw_skeleton():
+    t = new_tile()
+    bone = [hexc("4e463e"), hexc("a09484"), hexc("e8e0d0")]
+    for y in range(T):
+        for x in range(T):
+            if math.hypot(x + 0.5 - 8, (y + 0.5 - 6) * 1.1) < 5.2:
+                t[y][x] = bone[2] if (x + y) % 5 else bone[1]
+    for x, y in ((6, 5), (6, 6), (5, 6), (10, 5), (10, 6), (11, 6), (8, 8)):
+        t[y][x] = hexc("101010")
+    for y in range(10, 14):
+        for x in range(5, 12):
+            t[y][x] = bone[1] if x % 2 else bone[2]
+    return t
+
+
+def draw_gravestone():
+    t = new_tile()
+    stone = [hexc("1c2030"), hexc("3c4456"), hexc("7c88a0"), hexc("a8b4c8")]
+    for y in range(2, 15):
+        for x in range(3, 13):
+            if y < 6 and math.hypot(x + 0.5 - 8, y - 6) > 5:
+                continue
+            t[y][x] = steps(stone, 0.7 - 0.4 * (x - 3) / 10 - (0.2 if y == 14 else 0), 4)
+    for y in range(5, 11):
+        t[y][8] = stone[0]
+    for x in range(6, 11):
+        t[7][x] = stone[0]
+    return t
+
+
+def winged(t):
+    """Flies up: small wings at the sides"""
+    t = [list(row) for row in t]
+    for i, x in enumerate((0, 1, 2)):
+        plot(t, [(x, 4 + i), (15 - x, 4 + i)], hexc("fff8c0"))
+        plot(t, [(x, 5 + i), (15 - x, 5 + i)], hexc("a0f0ff"))
+    return t
+
+
+def draw_nitro():
+    t = new_tile()
+    red = [hexc("400804"), hexc("a01c08"), hexc("f06414")]
+    for y in range(2, 15):
+        for x in range(3, 13):
+            t[y][x] = red[0] if x in (3, 12) else red[1] if (x + y) % 6 else red[2]
+    for x in range(3, 13):
+        t[5][x] = t[11][x] = hexc("ffd040")
+    plot(t, [(8, 0), (8, 1), (9, 0)], hexc("fff8c0"))
+    return t
+
+
+def draw_ghost(frame):
+    t = new_tile()
+    for y in range(T):
+        for x in range(T):
+            if y < 9 and math.hypot(x + 0.5 - 8, y + 0.5 - 8) < 6.5 or 8 <= y < 14 and 1.5 < x < 14.5:
+                if y >= 13 and (x + frame * 2) % 4 < 2:
+                    continue
+                t[y][x] = hexc("e4fff0") if x < 9 else hexc("a8b4c8")
+    for ex in (5, 9):
+        plot(t, [(ex, 6), (ex + 1, 6), (ex, 7), (ex + 1, 7)], hexc("1c2030"))
+    return t
+
+
+def draw_hammer(active=False, frame=0):
+    t = new_tile()
+    head = [hexc("3c4456"), hexc("7c88a0"), hexc("c8d4e8")]
+    top = 2 + (3 * frame if active else 0)
+    for y in range(top, top + 4):
+        for x in range(3, 13):
+            t[y][x] = head[2] if y == top else head[1] if y < top + 3 else head[0]
+    for y in range(top + 4, 15):
+        t[y][7] = hexc("8a5a30")
+        t[y][8] = hexc("4a2c16")
+    if active:
+        plot(t, [(2, 15), (13, 15), (4, 14), (11, 14)], hexc("ffc840"))
+    return t
+
+
+def draw_rocket_launcher():
+    t = new_tile()
+    for y in range(6, 10):
+        for x in range(2, 14):
+            t[y][x] = hexc("1c5a1c") if y in (6, 9) else hexc("3c9a2c")
+    for y in range(10, 14):
+        t[y][5] = hexc("4a2c16")
+    plot(t, [(13, 7), (13, 8)], hexc("08080c"))
+    return t
+
+
+def draw_rocket(direction):
+    """A rocket flying right (0), up, left, down"""
+    t = new_tile()
+    for x in range(3, 12):
+        for y in (7, 8):
+            t[y][x] = hexc("c8d4e8") if y == 7 else hexc("7c88a0")
+    plot(t, [(12, 7), (12, 8), (13, 7)], hexc("ff3060"))
+    plot(t, [(3, 5), (4, 6), (3, 10), (4, 9)], hexc("7c88a0"))
+    plot(t, [(1, 7), (2, 8), (0, 8), (2, 7)], hexc("ffc840"))
+    for _ in range(direction):  # turn a quarter left
+        t = [[t[x][T - 1 - y] for x in range(T)] for y in range(T)]
+    return t
+
+
+def walled(item):
+    """Something walled in: a brick wall with it inside"""
+    t = draw_brick()
+    small = item
+    for y in range(4, 12):
+        for x in range(4, 12):
+            c = small[(y - 4) * 2][(x - 4) * 2]
+            t[y][x] = c if c is not None else hexc("2a2224")
+    return t
+
+
+def sloped(base, corner):
+    """A wall sloped so that what falls rolls off: the triangle without the
+    corner up-right ('ur'), up-left, down-left, down-right"""
+    t = [list(row) for row in base]
+    for y in range(T):
+        for x in range(T):
+            cut = {"ur": x > y, "ul": x + y < T - 1, "dl": x < y, "dr": x + y > T - 1}[corner]
+            if cut:
+                t[y][x] = None
+    return t
+
+
+def draw_conveyor(left, frame):
+    t = new_tile()
+    for y in range(4, 12):
+        for x in range(T):
+            t[y][x] = hexc("1c2030") if y in (4, 11) else hexc("3c4456")
+    for x in range(T):
+        if (x + (frame if left else -frame) * 2) % 4 == 0:
+            for y in range(5, 11):
+                t[y][x] = hexc("a8b4c8")
+    for x in (2, 13):
+        for y in range(6, 10):
+            t[y][x] = hexc("ffd040")
+    return t
+
+
+def draw_cow(frame):
+    t = new_tile()
+    for y in range(5, 12):
+        for x in range(2, 13):
+            t[y][x] = hexc("e8e0d0") if (x * 7 + y * 3) % 11 > 3 else hexc("1e1a18")
+    for y in range(3, 8):
+        for x in range(11, 15):
+            t[y][x] = hexc("e8e0d0")
+    plot(t, [(13, 5)], hexc("101010"))
+    plot(t, [(12, 2), (14, 2)], hexc("a09484"))
+    for x in (3, 5, 9, 11):
+        for y in range(12, 15):
+            t[y][x + (frame if x in (3, 9) else 0)] = hexc("4e463e")
+    return t
+
+
+def draw_dirt2():
+    return by_lum(draw_dirt(), [hexc("1c1414"), hexc("3c3030"), hexc("5c5050"), hexc("7a6e62"),
+                                hexc("a09484")], 5)
+
+
+def draw_voodoo():
+    """A doll of Rockford"""
+    rf = draw_rockford_set()["RF_VIEW4"]
+    return by_lum(rf, [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"), hexc("f4c0ff")], 5)
+
+
+def draw_unknown():
+    t = draw_steel()
+    q = ["  ####  ", " ##  ## ", "     ## ", "    ##  ", "   ##   ", "   ##   ", "        ", "   ##   "]
+    return from_pic(q, {"#": hexc("ff3060")}, t)
+
+
+def gd_tiles():
+    """The tiles of GDash's elements: (name, picture)"""
+    out = [("DIRT2", draw_dirt2()), ("STEEL_EXPL", draw_steel_explodable()),
+           ("STEEL_EAT", draw_eatable(draw_steel())), ("BRICK_EAT", draw_eatable(draw_brick())),
+           ("FALLING_WALL", draw_falling_wall())]
+    for name, base in (("BRICK", draw_brick()), ("STEEL", draw_steel()), ("DIRT", draw_dirt())):
+        for corner in ("ur", "ul", "dl", "dr"):
+            out.append((f"{name}_SLOPE_{corner.upper()}", sloped(base, corner)))
+    out += [(f"SLIME{i}", draw_slime(i)) for i in range(2)]
+    out += [(f"ACID{i}", draw_acid(i)) for i in range(2)]
+    out += [(f"LAVA{i}", draw_lava(i)) for i in range(2)]
+    out += [(f"WATER{i}", draw_water(i)) for i in range(4)]
+    out += [("BOX", draw_box()), ("DIAMOND_KEY", draw_key(hexc("3cc870"))),
+            ("TRAPPED_DIAMOND", draw_trapped_diamond()), ("CLOCK", draw_clock()), ("BOMB", draw_bomb(False))]
+    out += [(f"BOMB_LIT{i}", draw_bomb(True, i)) for i in range(2)]
+    out += [(f"KEY{i + 1}", draw_key(c)) for i, c in enumerate(KEY_COLOURS)]
+    out += [(f"DOOR{i + 1}", draw_lock_door(c)) for i, c in enumerate(KEY_COLOURS)]
+    out += [("SWEET", draw_sweet())]
+    out += [(f"BLADDER{i}", draw_bladder(i)) for i in range(2)]
+    out += [("BLADDER_SPENDER", draw_bladder_spender())]
+    out += [(name, draw_switch(c)) for name, c in SWITCH_COLOURS.items()]
+    out += [(name + "_ON", draw_switch(c, True)) for name, c in SWITCH_COLOURS.items() if name in SWITCHES_ON]
+    out += [(f"BITER{i}", draw_biter(i)) for i in range(2)]
+    out += [(f"AMOEBA2_{i}", draw_amoeba_2(i)) for i in range(4)]
+    out += [(f"ALT_FIREFLY{i}", draw_alt_firefly(i)) for i in range(4)]
+    out += [(f"ALT_BUTTERFLY{i}", draw_alt_butterfly(i)) for i in range(4)]
+    out += [(f"STONEFLY{i}", draw_stonefly(i * 2)) for i in range(2)]
+    out += [(f"DRAGONFLY{i}", draw_dragonfly(i)) for i in range(2)]
+    out += [("MEGA_BOULDER", draw_mega_boulder()), ("NUT", draw_nut())]
+    out += [(f"TELEPORTER{i}", draw_teleporter(i)) for i in range(2)]
+    out += [("BOULDER_GLUED", glued(draw_boulder())), ("DIAMOND_GLUED", glued(draw_emerald(0))),
+            ("DIRT_GLUED", glued(draw_dirt())), ("RF_GLUED", glued(draw_rockford_set()["RF_VIEW4"])),
+            ("BOULDER_WAITING", eyes(draw_boulder(), True)), ("BOULDER_CHASING", eyes(draw_boulder(), False))]
+    out += [(f"REPLICATOR{i}", draw_replicator(i)) for i in range(2)]
+    out += [("POT", draw_pot()), ("SKELETON", draw_skeleton()), ("GRAVESTONE", draw_gravestone()),
+            ("BOULDER_FLYING", winged(draw_boulder())), ("DIAMOND_FLYING", winged(draw_emerald(0))),
+            ("NITRO", draw_nitro())]
+    out += [(f"GHOST{i}", draw_ghost(i)) for i in range(2)]
+    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(2)]
+    out += [("ROCKET_LAUNCHER", draw_rocket_launcher())]
+    out += [(f"ROCKET{i}", draw_rocket(i)) for i in range(4)]
+    out += [("WALLED_DIAMOND", walled(draw_emerald(0)))]
+    out += [(f"WALLED_KEY{i + 1}", walled(draw_key(c))) for i, c in enumerate(KEY_COLOURS)]
+    out += [(f"CONVEYOR_L{i}", draw_conveyor(True, i)) for i in range(2)]
+    out += [(f"CONVEYOR_R{i}", draw_conveyor(False, i)) for i in range(2)]
+    out += [(f"COW{i}", draw_cow(i)) for i in range(2)]
+    out += [("VOODOO", draw_voodoo()), ("UNKNOWN", draw_unknown())]
+    return out
+
+
+# The tile of each of GDash's elements: GDash's name (O_...) as a pattern,
+# the tile, and for one that moves on its own the number of its frames (2
+# or 4) and how many screen frames each shows (a power of two, as its
+# exponent). The first match counts. Some get their first tile and main.c
+# animates them as the game's own (fireflies, butterflies, amoeba, magic
+# wall, inbox, exit, the player as RF_VIEW4); SPARKLE is an emerald
+# sparkling on its own.
 GD_TILES = [
-    (r"SPACE|LAVA", "SPACE"),
+    (r"SPACE", "SPACE"),
+    (r"DIRT2", "DIRT2"),
+    (r"DIRT_GLUED", "DIRT_GLUED"),
+    (r"(BRICK|STEEL|DIRT)_SLOPED_(UP|DOWN)_(LEFT|RIGHT)", "SLOPE"),
     (r"DIRT.*", "DIRT"),
-    (r"BRICK.*|(H_|V_)?EXPANDING_WALL|FALLING_WALL(_F)?", "BRICK"),
-    (r"STEEL.*|(H_|V_)?EXPANDING_STEEL_WALL|PRE_OUTBOX|PRE_INVIS_OUTBOX|PRE_STEEL_\d", "STEEL"),
-    (r"(MEGA_|FLYING_)?STONE(_F)?|WAITING_STONE|CHASING_STONE|STONE_GLUED", "BOULDER"),
-    (r"(FLYING_)?DIAMOND(_F)?|DIAMOND_GLUED", "SPARKLE"),
-    (r"(ALT_)?FIREFLY_\d|STONEFLY_\d|DRAGONFLY_\d", "FIREFLY0"),
-    (r"(ALT_)?BUTTER_\d", "BUTTERFLY0"),
-    (r"AMOEBA(_2)?", "AMOEBA0"),
-    (r"MAGIC_WALL", "MAGIC0"),
+    (r"BRICK_EATABLE", "BRICK_EAT"),
+    (r"BRICK.*|(H_|V_)?EXPANDING_WALL", "BRICK"),
+    (r"FALLING_WALL(_F)?", "FALLING_WALL"),
+    (r"STEEL_EXPLODABLE", "STEEL_EXPL"),
+    (r"STEEL_EATABLE", "STEEL_EAT"),
+    (r"STEEL|(H_|V_)?EXPANDING_STEEL_WALL|PRE_OUTBOX|PRE_INVIS_OUTBOX|INVIS_OUTBOX|PRE_STEEL_\d", "STEEL"),
+    (r"STONE(_F)?", "BOULDER"),
+    (r"MEGA_STONE(_F)?", "MEGA_BOULDER"),
+    (r"FLYING_STONE(_F)?", "BOULDER_FLYING"),
+    (r"WAITING_STONE", "BOULDER_WAITING"),
+    (r"CHASING_STONE", "BOULDER_CHASING"),
+    (r"STONE_GLUED", "BOULDER_GLUED"),
+    (r"DIAMOND(_F)?", "SPARKLE"),
+    (r"FLYING_DIAMOND(_F)?", "DIAMOND_FLYING"),
+    (r"DIAMOND_GLUED", "DIAMOND_GLUED"),
+    (r"DIAMOND_KEY", "DIAMOND_KEY"),
+    (r"TRAPPED_DIAMOND", "TRAPPED_DIAMOND"),
+    (r"WALLED_DIAMOND", "WALLED_DIAMOND"),
+    (r"NUT(_F)?", "NUT"),
     (r"INBOX", "INBOX0"),
-    (r"(INVIS_)?OUTBOX", "OUTBOX0"),
+    (r"OUTBOX", "OUTBOX0"),
+    (r"MAGIC_WALL", "MAGIC0"),
+    (r"(CREATURE|EXPANDING_WALL|BITER|REPLICATOR|CONVEYOR|CONVEYOR_DIR|GRAVITY)_SWITCH", "SWITCH"),
+    (r"ACID", "ACID0", 2, 3),
+    (r"BOX", "BOX"),
+    (r"TIME_PENALTY|GRAVESTONE", "GRAVESTONE"),
+    (r"CLOCK", "CLOCK"),
+    (r"KEY_(\d)", "KEY"),
+    (r"DOOR_(\d)", "DOOR"),
+    (r"WALLED_KEY_(\d)", "WALLED_KEY"),
+    (r"POT", "POT"),
+    (r"PNEUMATIC_HAMMER", "HAMMER"),
+    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER_ACTIVE0", 2, 1),
+    (r"TELEPORTER", "TELEPORTER0", 2, 2),
+    (r"SKELETON", "SKELETON"),
+    (r"WATER(_\d+)?", "WATER0", 4, 2),
+    (r"COW_\d|COW_ENCLOSED_\d", "COW0", 2, 3),
+    (r"AMOEBA", "AMOEBA0"),
+    (r"AMOEBA_2", "AMOEBA2_0", 4, 3),
+    (r"REPLICATOR", "REPLICATOR0", 2, 3),
+    (r"CONVEYOR_LEFT", "CONVEYOR_L0", 2, 2),
+    (r"CONVEYOR_RIGHT", "CONVEYOR_R0", 2, 2),
+    (r"LAVA", "LAVA0", 2, 3),
+    (r"SWEET", "SWEET"),
+    (r"VOODOO", "VOODOO"),
+    (r"SLIME", "SLIME0", 2, 3),
+    (r"BLADDER_SPENDER", "BLADDER_SPENDER"),
+    (r"BLADDER(_\d)?", "BLADDER0", 2, 3),
+    (r"GHOST", "GHOST0", 2, 2),
+    (r"FIREFLY_\d", "FIREFLY0"),
+    (r"ALT_FIREFLY_\d", "ALT_FIREFLY0", 4, 1),
+    (r"BUTTER_\d", "BUTTERFLY0"),
+    (r"ALT_BUTTER_\d", "ALT_BUTTERFLY0", 4, 2),
+    (r"STONEFLY_\d", "STONEFLY0", 2, 2),
+    (r"BITER_\d", "BITER0", 2, 2),
+    (r"DRAGONFLY_\d", "DRAGONFLY0", 2, 1),
+    (r"PLAYER_GLUED", "RF_GLUED"),
     (r"PLAYER.*", "RF_VIEW4"),
+    (r"ROCKET_LAUNCHER", "ROCKET_LAUNCHER"),
+    (r"ROCKET_(\d)", "ROCKET"),
+    (r"BOMB", "BOMB"),
+    (r"BOMB_TICK_\d", "BOMB_LIT0", 2, 1),
+    (r"NITRO_PACK(_F|_EXPLODE)?", "NITRO"),
 ] + [(f"PRE_PL_{i + 1}", f"BIRTH{i}") for i in range(3)] + [
     (f"(EXPLODE|PRE_DIA|PRE_STONE|PRE_CLOCK|GHOST_EXPL|BOMB_EXPL|NITRO_EXPL|AMOEBA_2_EXPL|NUT_CRACK)_{i + 1}",
-     f"EXPLODE{i}") for i in range(5)]
+     f"EXPLODE{i}") for i in range(5)] + [
+    (r".*", "UNKNOWN"),
+]
+
+SLOPE_CORNER = {"UP_RIGHT": "UR", "UP_LEFT": "UL", "DOWN_LEFT": "DL", "DOWN_RIGHT": "DR"}
+SWITCH_TILE = {"CREATURE": "CREATURE_SWITCH", "EXPANDING_WALL": "EXPANDING_WALL_SWITCH",
+               "BITER": "BITER_SWITCH", "REPLICATOR": "REPLICATOR_SWITCH", "CONVEYOR": "CONVEYOR_SWITCH",
+               "CONVEYOR_DIR": "CONVEYOR_DIR_SWITCH", "GRAVITY": "GRAVITY_SWITCH"}
 
 
 def gd_tile_table(tile_index):
-    """gd_tile[]: the tile of each of GDash's elements"""
+    """gd_tile[], gd_anim[]: the tile of each of GDash's elements, and how
+    it moves on its own (frames: low two bits as 0, 1 or 2 for 1, 2 or 4;
+    above them the exponent of the screen frames per frame)"""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from cavekit import GD_EL
-    out = []
+    tiles, anims = [], []
     for e in GD_EL:
-        tile = next((t for pat, t in GD_TILES if re.fullmatch(pat, e.name)), "COVER0")
-        out.append(255 if tile == "SPARKLE" else tile_index[tile])
-    return out
+        for pat, tile, *anim in GD_TILES:
+            m = re.fullmatch(pat, e.name)
+            if m:
+                break
+        if tile == "SLOPE":
+            tile = f"{m.group(1)}_SLOPE_{SLOPE_CORNER[m.group(2) + '_' + m.group(3)]}"
+        elif tile == "SWITCH":
+            tile = SWITCH_TILE[m.group(1)]
+        elif tile in ("KEY", "DOOR", "WALLED_KEY"):
+            tile += m.group(1)
+        elif tile == "ROCKET":
+            tile = f"ROCKET{int(m.group(1)) - 1}"
+        tiles.append(255 if tile == "SPARKLE" else tile_index[tile])
+        frames, shift = (anim + [1, 0])[:2]
+        anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2)
+    return tiles, anims
 
 
 # ---------------------------------------------------------------- assembly
@@ -885,6 +1596,7 @@ def build_tiles():
     tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
     tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]
     tiles += [("CURSOR", draw_cursor())]
+    tiles += gd_tiles()
     return tiles
 
 
@@ -935,6 +1647,29 @@ def quantise(images, maxcol=254):
     return out
 
 
+def gd_colours(gd, have, maxcol):
+    """GDash's tiles (gd) in the colours of the game's own (have) and as
+    many new ones as there is room for up to maxcol, the most used first;
+    the others become the nearest colour there is"""
+    have = set(have)
+    count = {}
+    for _, t in gd:
+        for row in t:
+            for c in row:
+                if c is not None and c not in have:
+                    count[c] = count.get(c, 0) + 1
+    room = maxcol - len(have)
+    have |= set(sorted(count, key=lambda c: -count[c])[:room])
+    pal = list(have)
+    near = {}
+
+    def nearest(c):
+        if c not in near:
+            near[c] = c if c in have else min(pal, key=lambda p: sum((p[i] - c[i]) ** 2 for i in range(3)))
+        return near[c]
+    return [(n, [[None if c is None else nearest(c) for c in row] for row in t]) for n, t in gd]
+
+
 def make_logo(ui_entries):
     """Scale the logo down and give it the palette entries the status font
     does not use. Returns the strip data and palette 1."""
@@ -982,19 +1717,31 @@ def main():
     icons = [("EMERALD", draw_icon_emerald()), ("CLOCK", draw_icon_clock()), ("LIFE", draw_icon_life())]
     font_cols = font_row_colours()
     extra = [[font_cols + [FONT_SHADOW] + [c for c in SEP_ROWS if c]]]
+    # GDash's tiles take what colours are left; the game's own keep theirs
+    own = [n for n, _ in tiles].index("CURSOR") + 1
+    gd = tiles[own:]
+    tiles = tiles[:own]
     images = quantise([t for _, t in tiles] + [i for _, i in icons] + extra)
     tiles = [(n, img) for (n, _), img in zip(tiles, images[:len(tiles)])]
     icons = [(n, img) for (n, _), img in zip(icons, images[len(tiles):len(tiles) + len(icons)])]
+    have = {c for img in images for row in img for c in row if c is not None}
+    later = 1 + len(title_colours()) + len(set(rank_colours()) - have)  # entry 0, the shine, the ranks
+    tiles += gd_colours(gd, have, 255 - later)
     font_cols = images[-1][0][:16]
     shadow = images[-1][0][16]
     sep_cols = images[-1][0][17:]
 
     pal = Palette()
-    tile_bytes = []
-    for _, t in tiles:
-        for half in (0, 8):
-            for y in range(T):
-                tile_bytes += [pal(t[y][half + x]) for x in range(8)]
+
+    def tile_data(ts):
+        out = []
+        for _, t in ts:
+            for half in (0, 8):
+                for y in range(T):
+                    out += [pal(t[y][half + x]) for x in range(8)]
+        return out
+    # GDash's tiles get their palette entries last: the others keep theirs
+    tile_bytes = tile_data(tiles[:own])
     icon_bytes = []
     for _, t in icons:
         for y in range(16):
@@ -1011,6 +1758,7 @@ def main():
         sep += [pal(next(it)) if c else 0] * 8
     title_row = [pal.unique(c) for c in title_colours()]
     rank_row = [pal(c) for c in rank_colours()]
+    tile_bytes += tile_data(tiles[own:])
 
     ui_entries = set(font_row) | {font_shadow} | set(icon_bytes) | set(sep)
     logo, pal1, logo_pix = make_logo(ui_entries)
@@ -1022,7 +1770,7 @@ def main():
         f.write(bytes([0x00, 0x00]) + bytes(tile_bytes))  # $10000, as video.h
 
     cols = pal.colours
-    gd_tiles = gd_tile_table({n: i for i, (n, _) in enumerate(tiles)})
+    gd_tiles, gd_anims = gd_tile_table({n: i for i, (n, _) in enumerate(tiles)})
     with open(f"{outdir}/gfx.h", "w") as f:
         f.write("// Generated by tools/mkgfx.py - do not edit\n#ifndef GFX_H\n#define GFX_H\n#include <stdint.h>\n\n")
         for i, (n, _) in enumerate(tiles):
@@ -1042,6 +1790,7 @@ def main():
         f.write("extern const uint8_t sep_gfx[64];\n")
         f.write(f"#define T_SPARKLE 255  // gd_tile: an emerald, sparkling\n")
         f.write(f"extern const uint8_t gd_tile[{len(gd_tiles)}];  // the tile of each of GDash's elements\n")
+        f.write(f"extern const uint8_t gd_anim[{len(gd_tiles)}];  // its frames: 1 << (low 2 bits), each 1 << (the rest) screen frames\n")
         f.write(f"\n#define LOGO_W {LOGO_W}\n#define LOGO_H {LOGO_H}\n")
         f.write("extern const uint8_t pal1_r[256], pal1_g[256], pal1_b[256];\n\n#endif\n")
     with open(f"{outdir}/gfx.c", "w") as f:
@@ -1056,6 +1805,7 @@ def main():
         f.write(c_array("icon_gfx", icon_bytes))
         f.write(c_array("sep_gfx", sep))
         f.write(c_array("gd_tile", gd_tiles))
+        f.write(c_array("gd_anim", gd_anims))
         f.write(c_array("pal1_r", [swap(c[0]) for c in pal1]))
         f.write(c_array("pal1_g", [swap(c[1]) for c in pal1]))
         f.write(c_array("pal1_b", [swap(c[2]) for c in pal1]))

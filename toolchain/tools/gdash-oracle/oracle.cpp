@@ -7,6 +7,7 @@
 //   gdash-oracle scanned                  the names of the scanned twins
 //   gdash-oracle props                    the cave properties, their defaults
 //   gdash-oracle engines                  what each engine's defaults set
+//   gdash-oracle save <file> <out.bd>     the file as GDash saves it (.gds too)
 //   gdash-oracle cave <file.bd> <level>   each cave's values after the start
 //   gdash-oracle play <file.bd> <level> <steps> [cave]
 //                                         playing with pseudo-random input: a
@@ -30,6 +31,7 @@
 #undef protected
 #include "cave/elementproperties.hpp"
 #include "fileops/bdcffload.hpp"
+#include "fileops/loadfile.hpp"
 #include "cave/cavetypes.hpp"
 #include "misc/logger.hpp"
 #include "fileops/c64import.hpp"
@@ -48,11 +50,9 @@ static void codes() {
             code_of[i] = code_of[gd_element_properties[i].pair];
 }
 
+// A .bd file, or any other GDash reads (.gds: imported C64 games)
 static CaveSet load(const char *path) {
-    std::ifstream f(path, std::ios::binary);
-    std::stringstream ss;
-    ss << f.rdbuf();
-    return load_from_bdcff(ss.str().c_str());
+    return load_caveset_from_file(path);
 }
 
 static unsigned lcg;
@@ -174,7 +174,11 @@ int main(int argc, char **argv) {
         return 0;
     }
     CaveSet cs = load(argv[2]);
-    int level = atoi(argv[3]);
+    int level = argc > 3 ? atoi(argv[3]) : 0;
+    if (!strcmp(argv[1], "save")) {  // as GDash saves it: save <in> <out.bd>
+        cs.save_to_file(argv[3]);
+        return 0;
+    }
     if (!strcmp(argv[1], "cave")) {
         for (unsigned n = 0; n < cs.caves.size(); n++) {
             CaveRendered r(cs.caves[n], level, 0);
@@ -248,6 +252,9 @@ int main(int argc, char **argv) {
                 printf("%d %08x st=%d dia=%d time=%d score=%d speed=%d px=%d py=%d\n", t, hash,
                        (int)r.player_state, (int)r.diamonds_collected, (int)r.time, (int)r.score,
                        (int)r.speed, (int)r.player_x, (int)r.player_y);
+                if (getenv("REFDUMP_STATE"))
+                    printf("  amoeba=%d,%d,%d\n", (int)r.amoeba_state, (int)r.amoeba_time,
+                           (int)r.amoeba_growth_prob);
                 if (getenv("REFDUMP_MAP")) {
                     for (int y = 0; y < r.h; y++) {
                         for (int x = 0; x < r.w; x++)

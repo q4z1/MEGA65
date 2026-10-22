@@ -56,6 +56,8 @@ int main(int argc, char **argv) {
         gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
         printf("%d %08x st=%d dia=%d time=%d score=%d speed=%d px=%d py=%d\n", t, hash_map(), gd.player_state,
                gd.diamonds_collected, (int)gd.time, gd.score, gd.speed, gd.player_x, gd.player_y);
+        if (getenv("REFDUMP_STATE"))
+            printf("  amoeba=%d,%d,%d\n", gd.amoeba_state, (int)gd.amoeba_time, (int)gd.amoeba_growth_prob);
         if (getenv("REFDUMP_MAP"))
             for (int y = 0; y < gd.h; y++) {
                 for (int x = 0; x < gd.w; x++)
