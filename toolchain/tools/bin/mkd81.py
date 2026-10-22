@@ -22,7 +22,9 @@ DIR_TRACK = 40
 
 
 def petscii_name(s, n=16):
-    b = s.upper().encode("ascii")[:n]
+    b = s.upper().encode("ascii")
+    if len(b) > n:
+        raise SystemExit(f"mkd81: name '{s}' is longer than {n} characters")
     return b + b"\xa0" * (n - len(b))
 
 

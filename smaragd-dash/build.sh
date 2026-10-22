@@ -8,7 +8,7 @@
 # high scores (SMARAGD.SCORES); the screencast build (-DSCREENCAST) gets
 # its moves as well (demoNN.bin as DEMONN). The game loads them from that
 # disk. The version is in the file VERSION: on the title and in the disk's
-# name.
+# name ("SMARAGD 1.0.1": a disk name has at most 16 characters).
 # Called by .vscode/run-current.sh with the compiler in $MEGA65_CC.
 
 set -e
@@ -48,7 +48,7 @@ done
 # default table and overwrites (src/hiscore.c); a new build keeps the one
 # on the old disk.
 head -c 254 /dev/zero > build/gen/scores.bin
-../toolchain/tools/bin/mkd81.py --keep SMARAGD.SCORES build/smaragd-dash.d81 "SMARAGD DASH $VERSION" \
+../toolchain/tools/bin/mkd81.py --keep SMARAGD.SCORES build/smaragd-dash.d81 "SMARAGD $VERSION" \
     "build/smaragd-dash.prg=SMARAGD DASH" "build/gen/tiles.bin=SMARAGD.TILES" \
     "build/gen/logo.bin=SMARAGD.LOGO" \
     "build/gen/scores.bin=SMARAGD.SCORES" "$@"
