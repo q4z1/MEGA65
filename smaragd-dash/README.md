@@ -68,6 +68,7 @@ before building.
 
 ## Cave editor
 
+**[The editor's guide: EDITOR.md](EDITOR.md)**, step by step, with pictures.
 **[Video: the editor](screenshots/cave-editor.mp4)** (1¼ minutes: loading
 slots, putting and drawing elements, values and name, trying the changed
 cave to its exit, saving it and loading it again)
@@ -267,6 +268,8 @@ there. `tools/record-editor.sh` records `screenshots/cave-editor.mp4` as
 `build/cave-editor.mp4`: built with `-DEDITDEMO`, the game plays the
 editor's video script (in `src/main.c`, beside the editor's test script) on
 a disk with the caves of `tools/editor-demo/` in its slots.
+`tools/record-editor.sh --shots` takes the pictures of `EDITOR.md`
+(`screenshots/editor-*.png`) at the script's stops.
 
 ## How it works
 

@@ -131,8 +131,8 @@ static bool have_gdash;             // GDash's engine is there (bank 2)
 static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
 #endif
 
-#ifdef EDITDEMO
-#define EDITTEST 1  // the editor's video: its script, to its first stop
+#if defined(EDITDEMO) && !defined(EDITTEST)
+#define EDITTEST 255  // the editor's video: its script to the end
 #endif
 #ifdef EDITTEST
 // The editor's test (tests/test_editor.sh builds with -DEDITTEST=n): keys
@@ -140,19 +140,27 @@ static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/sol
 // these IN_* held, the key typed in the first of them. A step of 0 frames
 // is a stop: at the n-th, Xemu (with -testing) is told to exit and writes
 // its screenshot. Built with -DEDITDEMO, the script is the one of the
-// editor's video (tools/record-editor.sh), which ends at its stop.
+// editor's video (tools/record-editor.sh): it plays to its end, or with
+// -DEDITTEST=n to its n-th stop, a picture for EDITOR.md (SHOT).
 #ifndef TRY_WAIT
 #define TRY_WAIT 200  // frames from T until Rockford can walk
 #endif
 #define STEP1(key) {1, key, 0}, {10, 0, 0}  // a key and a short look
 #define MOVE(in)   {2, 0, in}, {10, 0, 0}   // the cursor one cell on
 #define PUT        {3, 0, IN_BUTTON}, {16, 0, 0}
+#define SHOT       {0, 0, 0}
 static const uint8_t test_script[][3] = {
 #ifdef EDITDEMO
     {150, 0, 0}, {1, 'E', 0}, {120, 0, 0},                // the title, E: the editor on slot 1
+    SHOT,                                                 // 1: editor-cave
     {1, '+', 0}, {120, 0, 0}, {1, '+', 0}, {150, 0, 0},   // loading slots 2 and 3
-    {1, '-', 0}, {60, 0, 0}, {1, '-', 0}, {100, 0, 0},    // and slot 1 again
-    {1, 'H', 0}, {250, 0, 0}, {1, ' ', 0}, {40, 0, 0},    // the help page
+    SHOT,                                                 // 2: editor-gdash
+    {1, '+', 0}, {120, 0, 0},                             // slot 4, empty: a new cave
+    SHOT,                                                 // 3: editor-new
+    {1, '-', 0}, {60, 0, 0}, {1, '-', 0}, {60, 0, 0}, {1, '-', 0}, {100, 0, 0},  // slot 1 again
+    {1, 'H', 0}, {150, 0, 0},                             // the help page
+    SHOT,                                                 // 4: editor-help
+    {100, 0, 0}, {1, ' ', 0}, {40, 0, 0},
     {1, '6', 0}, {45, 0, 0},                              // three emeralds
     MOVE(IN_RIGHT), PUT, MOVE(IN_RIGHT), PUT, MOVE(IN_RIGHT), PUT,
     {1, 'X', 0}, {45, 0, 0},                              // an exit
@@ -162,20 +170,27 @@ static const uint8_t test_script[][3] = {
     {1, '3', 0}, {45, 0, 0},                              // a wall, drawn
     MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
     {36, 0, IN_BUTTON | IN_DOWN}, {80, 0, 0},
+    SHOT,                                                 // 5: editor-changed
     {1, 'V', 0}, {60, 0, 0}, MOVE(IN_DOWN), {20, 0, 0},   // values: 3 emeralds to open the exit
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT),
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), {40, 0, 0},
     MOVE(IN_UP), MOVE(IN_UP), {20, 0, 0},                 // the name: OLD TUNNEL
     STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14),
     STEP1('T'), STEP1('U'), STEP1('N'), STEP1('N'), STEP1('E'), STEP1('L'), {60, 0, 0},
+    SHOT,                                                 // 6: editor-values
     {1, '\r', 0}, {80, 0, 0},
-    {1, 'T', 0}, {TRY_WAIT, 0, 0}, {120, 0, IN_RIGHT},     // trying it: to the exit
-    {250, 0, 0}, {150, 0, 0},
-    {1, 'S', 0}, {120, 0, 0},                             // saved
+    {1, 'T', 0}, {TRY_WAIT, 0, 0}, {75, 0, IN_RIGHT},     // trying it: to the exit
+    SHOT,                                                 // 7: editor-try
+    {45, 0, IN_RIGHT}, {250, 0, 0}, {150, 0, 0},
+    {1, 'S', 0}, {60, 0, 0},                              // saved
+    SHOT,                                                 // 8: editor-saved
+    {60, 0, 0},
     {1, '+', 0}, {80, 0, 0}, {1, '-', 0}, {150, 0, 0},    // loaded again: as saved
     {2, 0, IN_RESTART}, {100, 0, 0},                      // the title, the own caves
     {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {150, 0, 0},
+    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {60, 0, 0},
+    SHOT,                                                 // 9: editor-title
+    {90, 0, 0},
     {0, 0, 0},
 #else
     {60, 0, 0}, {1, 'E', 0}, {90, 0, 0},                  // title, E: the editor
