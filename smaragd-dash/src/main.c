@@ -9,6 +9,11 @@
 // in the table, as in the arcades. The rules are in engine.c, the display
 // in video.c, the table and its file in hiscore.c.
 //
+// E on the title opens the cave editor: it edits the own caves, which lie
+// in slots on the disk (OWN01, OWN02, ...; tools/cavekit.py puts caves from
+// GDash there), tries them out and saves them. The title offers them to
+// play after the game's caves.
+//
 // Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
 // itself: the title runs for a while, then the caves play the moves that
 // tools/solve.c found for them (DEMO01, DEMO02, ... on the disk, loaded with
@@ -88,13 +93,18 @@ static uint8_t flash;               // frames left of the exit flash
 
 static uint8_t lives;
 static uint8_t cave_no, level;      // from 0
-static uint8_t start_cave, start_level;  // picked on the title
+static uint8_t start_cave, start_level;  // picked on the title; CAVE_COUNT: the own caves
+enum { PLAY_CAVES, PLAY_OWN, PLAY_TEST };  // the game's caves, the own ones, one in the editor
+static uint8_t play_mode;
+static bool show_cursor;            // the editor's, at cur_x, cur_y
+static uint8_t cur_x, cur_y;
 static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static bool have_logo;              // the logo file was on the disk
 
-// The cave being played, as loaded from the disk (CAVE01, CAVE02, ...;
-// the layout is described in tools/mkcave.py)
+// The cave being played, as loaded from the disk (CAVE01, CAVE02, ...,
+// or a slot OWN01, ... - the same layout, described in tools/mkcave.py;
+// time 0 is an empty slot). The editor edits it here.
 static struct {
     uint16_t time;
     uint8_t diamonds, value, extra, amoeba, magic, speed;
@@ -105,6 +115,64 @@ static CaveDef cave_def;
 static uint8_t loaded = 0xFF, loaded_level;  // cave_no and level of cave_file
 #ifdef SCREENCAST
 static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
+#endif
+
+#ifdef EDITTEST
+// The editor's test (tests/test_editor.sh builds with -DEDITTEST=n): keys
+// and joystick come from this script, a step per line: so many frames with
+// these IN_* held, the key typed in the first of them. A step of 0 frames
+// is a stop: at the n-th, Xemu (with -testing) is told to exit and writes
+// its screenshot.
+static const uint8_t test_script[][3] = {
+    {60, 0, 0}, {1, 'E', 0}, {90, 0, 0},                  // title, E: the editor
+    {1, '5', 0}, {2, 0, IN_RIGHT}, {2, 0, 0},             // a boulder at 3,2
+    {4, 0, IN_BUTTON}, {2, 0, 0},
+    {1, '7', 0}, {1, '7', 0}, {2, 0, IN_DOWN}, {2, 0, 0}, // a firefly (up) at 3,3
+    {4, 0, IN_BUTTON}, {10, 0, 0},
+    {0, 0, 0},                                            // 1: the editor
+    {1, 'H', 0}, {30, 0, 0}, {0, 0, 0},                   // 2: help
+    {1, 'Q', 0}, {1, 'V', 0}, {10, 0, 0},                 // values: time 153
+    {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
+    {2, 0, IN_UP}, {2, 0, 0},                             // the name: TEST
+    {1, 'T', 0}, {1, 0, 0}, {1, 'E', 0}, {1, 0, 0}, {1, 'S', 0}, {1, 0, 0}, {1, 'T', 0}, {10, 0, 0},
+    {0, 0, 0},                                            // 3: values
+    {1, '\r', 0}, {1, 'S', 0}, {30, 0, 0}, {0, 0, 0},     // 4: saved
+    {1, 'T', 0}, {250, 0, 0}, {0, 0, 0},                  // 5: trying it
+    {2, 0, IN_RESTART}, {100, 0, 0}, {2, 0, IN_BUTTON}, {150, 0, 0},
+    {0, 0, 0},                                            // 6: back in the editor
+    {1, '+', 0}, {100, 0, 0}, {0, 0, 0},                  // 7: slot 2, empty
+    {1, '-', 0}, {100, 0, 0}, {0, 0, 0},                  // 8: slot 1 again
+    {2, 0, IN_RESTART}, {120, 0, 0},                      // the title, own caves
+    {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
+    {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {10, 0, 0},
+    {0, 0, 0},                                            // 9: the title
+    {2, 0, IN_BUTTON}, {250, 0, 0}, {0, 0, 0},            // 10: playing own cave 1
+    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
+};
+static uint8_t test_pos, test_left, test_in, test_key, test_stops;
+
+static uint8_t test_input(void) {
+    while (!test_left) {
+        const uint8_t *step = test_script[test_pos];
+        if (test_pos < sizeof test_script / 3 - 1)
+            test_pos++;
+        if (!step[0]) {
+            if (++test_stops >= EDITTEST) {
+                POKE(0xD6CF, 0);
+                POKE(0xD6CF, 0x42);
+                for (;;)
+                    ;
+            }
+            continue;
+        }
+        test_left = step[0];
+        test_key = step[1];
+        test_in = step[2];
+    }
+    test_left--;
+    return test_in;
+}
+#define input_read test_input
 #endif
 
 // ---------------------------------------------------------------- drawing
@@ -313,11 +381,8 @@ static void follow(uint16_t *cam, bool *active, uint16_t p, uint16_t view, uint1
     }
 }
 
-static void camera(bool jump) {
-    uint16_t px, py;
-    cell_pos(game.player, &px, &py);
-    px += 8;
-    py += 8;
+// The view to pixel px, py of the cave (Rockford's or the editor's cursor)
+static void camera_at(uint16_t px, uint16_t py, bool jump) {
     if (jump) {
         cam_x = px < VIEW_W / 2 ? 0 : px - VIEW_W / 2;
         cam_y = py < VIEW_H / 2 ? 0 : py - VIEW_H / 2;
@@ -329,6 +394,12 @@ static void camera(bool jump) {
     }
     follow(&cam_x, &scroll_x, px, VIEW_W, MAX_X, 80);
     follow(&cam_y, &scroll_y, py, VIEW_H, MAX_Y, 48);
+}
+
+static void camera(bool jump) {
+    uint16_t px, py;
+    cell_pos(game.player, &px, &py);
+    camera_at(px + 8, py + 8, jump);
 }
 
 // ---------------------------------------------------------------- status
@@ -394,17 +465,29 @@ static void status_game(void) {
     valid = true;
 }
 
-// "CAVE 12/3": cave and level, as the original's "A/1"
+// "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12" for an
+// own cave, "TEST" for the one in the editor
 static void status_intro(void) {
     status_clear();
     status_put(2, ICON(ICON_LIFE));
     put_num(4, lives, 1);
-    status_print(7, "CAVE");
-    uint8_t col = cave_no >= 9 ? 14 : 13;
-    put_num(12, cave_no + 1, col - 12);
-    status_put(col, '/');
-    put_num(col + 1, level + 1, 1);
-    status_print(col + 3, game.def->name);
+    uint8_t col;
+    if (play_mode == PLAY_CAVES) {
+        status_print(7, "CAVE");
+        col = cave_no >= 9 ? 14 : 13;
+        put_num(12, cave_no + 1, col - 12);
+        status_put(col, '/');
+        put_num(col + 1, level + 1, 1);
+        col += 3;
+    } else if (play_mode == PLAY_OWN) {
+        status_print(7, "OWN");
+        put_num(11, cave_no + 1, 2);
+        col = 14;
+    } else {
+        status_print(7, "TEST");
+        col = 12;
+    }
+    status_print(col, game.def->name);
 }
 
 // ---------------------------------------------------------------- frames
@@ -412,6 +495,12 @@ static void status_intro(void) {
 static void next_frame(void) {
     video_sync();
     update_tiles();
+    if (show_cursor && (frame & 31) < 24 && nsprites < MAX_SPRITES) {
+        Sprite *s = &sprites[nsprites++];
+        s->x = cur_x * 16;
+        s->y = cur_y * 16;
+        s->tile = T_CURSOR;
+    }
     video_render(tiles, cam_x, cam_y, sprites, nsprites);
     video_show();
     sound_frame();
@@ -493,6 +582,8 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
     return ok;
 }
 
+static void use_cave_file(void);
+
 // Cave n of the level from the disk (CAVEnn-l), unless it is there already
 static bool load_cave(uint8_t n) {
     if (n == loaded && level == loaded_level)
@@ -522,6 +613,12 @@ static bool load_cave(uint8_t n) {
 #endif
     loaded = n;
     loaded_level = level;
+    use_cave_file();
+    return true;
+}
+
+// The cave of cave_file (loaded or edited) for the engine
+static void use_cave_file(void) {
     cave_def.name = cave_file.name;
     cave_def.map = cave_file.map;
     cave_def.time = cave_file.time;
@@ -531,7 +628,6 @@ static bool load_cave(uint8_t n) {
     cave_def.amoeba_time = cave_file.amoeba;
     cave_def.magic_time = cave_file.magic;
     cave_def.tick_ms = cave_file.speed;
-    return true;
 }
 
 // The cave cave_no; after the last one on the disk the first of the next
@@ -543,6 +639,37 @@ static bool next_cave(void) {
     if (level < LEVELS - 1)
         level++;
     return load_cave(0);
+}
+
+// The file of slot n (from 0): OWN01, ...
+static const char *own_name(uint8_t n) {
+    static char file[] = "OWN00";
+    file[3] = '0' + (n + 1) / 10;
+    file[4] = '0' + (n + 1) % 10;
+    return file;
+}
+
+// Slot n from the disk into cave_file; false if the disk has no such slot.
+// An empty one has time 0.
+static bool load_own(uint8_t n) {
+    loaded = 0xFF;
+    return load("LOADING OWN CAVE", own_name(n), 0, (uint16_t)&cave_file);
+}
+
+// The own cave cave_no, or the next one that is not empty (after the last
+// slot the first again); false if there is none
+static bool next_own(void) {
+    for (uint8_t k = 0; k < OWN_SLOTS; k++, cave_no++) {
+        if (cave_no >= OWN_SLOTS)
+            cave_no = 0;
+        if (!load_own(cave_no))
+            return false;
+        if (cave_file.time) {
+            use_cave_file();
+            return true;
+        }
+    }
+    return false;
 }
 
 // ---------------------------------------------------------------- screencast
@@ -639,26 +766,32 @@ static void title_line(const char *text) {
 // The status line on the title: what the game starts with, and the hi-score
 static void title_status(void) {
     status_clear();
-    status_print(2, "LEVEL");
-    put_num(8, start_level + 1, 1);
-    status_print(11, "CAVE");
-    status_put(16, ' ');
-    put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
+    if (start_cave == CAVE_COUNT) {
+        status_print(2, "OWN CAVES");
+    } else {
+        status_print(2, "LEVEL");
+        put_num(8, start_level + 1, 1);
+        status_print(11, "CAVE");
+        put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
+    }
     status_print(22, "HI-SCORE");
     put_num(31, hs_table[0].score, 6);
 }
 
-// Up and down pick the level, left and right the cave to start with
+// Up and down pick the level, left and right the cave to start with; right
+// of the last one come the own caves
+#define LAST_START ((CAVE_COUNT - 1) / START_STEP * START_STEP)
+
 static void title_pick(void) {
     uint8_t l = start_level, c = start_cave;
     if ((pressed & IN_UP) && l < LEVELS - 1)
         l++;
     if ((pressed & IN_DOWN) && l)
         l--;
-    if ((pressed & IN_RIGHT) && c + START_STEP < CAVE_COUNT)
-        c += START_STEP;
+    if ((pressed & IN_RIGHT) && c < CAVE_COUNT)
+        c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
     if ((pressed & IN_LEFT) && c)
-        c -= START_STEP;
+        c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
     if (l != start_level || c != start_cave) {
         start_level = l;
         start_cave = c;
@@ -873,7 +1006,7 @@ static void logo_page(void) {
         video_big_text(CENTRE(8), 44, "DASH");
         video_text(CENTRE(26), 88, "DIG  -  COLLECT  -  ESCAPE");
         video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
-        video_text(CENTRE(26), 156, "P PAUSE   RUN/STOP GIVE UP");
+        video_text(CENTRE(35), 156, "P PAUSE  RUN/STOP GIVE UP  E EDITOR");
     }
 }
 
@@ -892,7 +1025,7 @@ static void logo_frame(uint16_t pf) {
                 title_line("UP/DOWN: LEVEL   LEFT/RIGHT: CAVE");
                 break;
             case 5:
-                title_line("P PAUSE   RUN/STOP GIVE UP");
+                title_line("P PAUSE  RUN/STOP GIVE UP  E EDITOR");
                 break;
             case 7:
                 title_line("VERSION " VERSION);
@@ -909,9 +1042,26 @@ static void logo_frame(uint16_t pf) {
     }
 }
 
+// A key typed (ASCII, letters in upper case), or 0
+static uint8_t get_key(void) {
+#ifdef EDITTEST
+    uint8_t key = test_key;
+    test_key = 0;
+#else
+    uint8_t key = PEEK(0xD610);
+    if (key) {
+        POKE(0xD610, 0);
+        if (key >= 'a' && key <= 'z')
+            key -= 'a' - 'A';
+    }
+#endif
+    return key;
+}
+
 // The logo and the high score table take turns, like an arcade machine
-// waiting for a player; after a game the table comes first.
-static void title_screen(bool scores) {
+// waiting for a player; after a game the table comes first. True if E was
+// pressed for the editor, false for a game.
+static bool title_screen(bool scores) {
     if (scores)
         scores_page();
     else
@@ -922,7 +1072,10 @@ static void title_screen(bool scores) {
     // The button counts only after it was let go once (Return from the
     // emulator's RUN, or fire still held from the last game)
     bool armed = false;
+    bool editor = false;
     uint16_t pf = 0;  // frames on this page
+    while (get_key())  // forget the keys typed in the game
+        ;
     for (;;) {
         if (scores)
             scores_frame(pf);
@@ -932,6 +1085,10 @@ static void title_screen(bool scores) {
         title_pick();
         if (armed && (pressed & IN_BUTTON))
             break;
+        if (get_key() == 'E') {
+            editor = true;
+            break;
+        }
 #ifdef SCREENCAST
         if (pf == DEMO_TITLE_FRAMES)  // on the logo page, the first
             break;
@@ -954,6 +1111,7 @@ static void title_screen(bool scores) {
     video_clear();  // the logo goes before the game's palette comes
     video_palette(0);
     sound_init();
+    return editor;
 }
 
 // ---------------------------------------------------------------- caves
@@ -1087,6 +1245,543 @@ static uint8_t play_cave(void) {
     }
 }
 
+// ---------------------------------------------------------------- editor
+
+// The editor changes cave_file and shows it from cave[], both alike; a try
+// plays it from cave_file. Its keys (also on its help page, H):
+//   cursor keys, joystick   move the cursor
+//   fire, Space, Return     put the element chosen; held, it draws
+//   1-9, 0, I, X            choose the element; again: a firefly or a
+//                           butterfly gets its next starting direction
+//   G                       take the element under the cursor
+//   V                       name and values      T  try the cave
+//   S                       save it into its slot
+//   + -                     the next and the last slot
+//   C                       a new cave           D  empty the slot
+//   Run/Stop                back to the title
+// What would lose changes not saved, or the slot, wants its key twice.
+
+#define PENS     12
+#define PEN_FLY  6   // the firefly; the butterfly is next
+#define NAME_LEN 21  // what the status line has room for (mkcave.py)
+#define KEY_STOP 0x03  // Run/Stop, as the editor's key
+#define KEY_DEL  0x14
+
+static const char pen_keys[PENS] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'I', 'X'};
+static const uint8_t pen_elem[PENS] = {E_SPACE, E_DIRT, E_BRICK, E_STEEL, E_BOULDER, E_DIAMOND,
+                                       E_FIREFLY, E_BUTTERFLY, E_AMOEBA, E_MAGIC, E_INBOX, E_OUTBOX};
+static const uint8_t pen_tile[PENS] = {T_SPACE, T_DIRT, T_BRICK, T_STEEL, T_BOULDER, T_DIAMOND0,
+                                       T_FIREFLY0, T_BUTTERFLY0, T_AMOEBA0, T_MAGIC0, T_INBOX0, T_OUTBOX0};
+static const char *const pen_name[PENS] = {"SPACE", "DIRT", "BRICK WALL", "STEEL WALL", "BOULDER",
+                                           "EMERALD", "FIREFLY", "BUTTERFLY", "AMOEBA",
+                                           "MAGIC WALL", "INBOX", "EXIT"};
+static const char *const dir_name[4] = {"UP", "RIGHT", "DOWN", "LEFT"};
+static const char name_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /:.!-,";  // as cavekit.py
+
+static uint8_t slot;          // the one edited, from 0
+static uint8_t pen;           // the element chosen
+static uint8_t pen_dir = DIR_LEFT;  // a firefly's or butterfly's
+static bool dirty;            // changed since loaded or saved
+static bool have_slot;        // the slot is on the disk
+static uint8_t again;         // the key that does it when pressed again
+static uint8_t note;          // frames a note stays in the status line
+static bool edit_shown;       // the status line shows the editor's line
+
+static bool pen_fly(void) {
+    return pen == PEN_FLY || pen == PEN_FLY + 1;
+}
+
+static void digits2(char *p, uint8_t v) {
+    p[0] = '0' + v / 10;
+    p[1] = '0' + v % 10;
+}
+
+// v right-aligned in three characters
+static void digits3(char *p, uint16_t v) {
+    for (uint8_t k = 3; k--;) {
+        p[k] = v || k == 2 ? '0' + v % 10 : ' ';
+        v /= 10;
+    }
+}
+
+// The element, where the cursor is, the slot, * if not saved:
+// "[tile] FIREFLY LEFT      12,05  OWN 03*"
+static void edit_status(void) {
+    static char line[36];
+    memset(line, ' ', 35);
+    uint8_t n = strlen(pen_name[pen]);
+    memcpy(line, pen_name[pen], n);
+    if (pen_fly())
+        memcpy(line + n + 1, dir_name[pen_dir], strlen(dir_name[pen_dir]));
+    digits2(line + 18, cur_x);
+    line[20] = ',';
+    digits2(line + 21, cur_y);
+    memcpy(line + 25, "OWN", 3);
+    digits2(line + 29, slot + 1);
+    line[31] = dirty ? '*' : ' ';
+    status_tile(2, pen_tile[pen]);
+    status_print(4, line);
+    edit_shown = true;
+}
+
+// A note in the status line for two seconds
+static void edit_note(const char *text) {
+    status_center(text);
+    note = 100;
+    edit_shown = false;
+}
+
+static void set_dirty(void) {
+    dirty = true;
+    edit_shown = false;
+}
+
+// A new cave: steel frame, dirt, the inbox top left, the exit bottom right
+// (as cavekit.py's empty_map)
+static void new_cave(void) {
+    memset(&cave_file, 0, sizeof cave_file);
+    cave_file.time = 150;
+    cave_file.diamonds = 10;
+    cave_file.value = 10;
+    cave_file.extra = 15;
+    cave_file.speed = 160;
+    uint8_t *m = cave_file.map;
+    memset(m, E_DIRT, CAVE_SIZE);
+    memset(m, E_STEEL, CAVE_W);
+    memset(m + CAVE_SIZE - CAVE_W, E_STEEL, CAVE_W);
+    for (uint16_t i = CAVE_W; i < CAVE_SIZE; i += CAVE_W)
+        m[i - 1] = m[i] = E_STEEL;
+    m[2 * CAVE_W + 2] = E_INBOX;
+    m[(CAVE_H - 3) * CAVE_W + CAVE_W - 1] = E_OUTBOX;
+}
+
+// The edited cave on the screen, still: magic walls and the exit as such
+static void edit_view(void) {
+    memcpy(cave, cave_file.map, CAVE_SIZE);
+    memset(&game, 0, sizeof game);
+    game.magic_state = MW_ACTIVE;
+    memset(moved, DIR_NONE, CAVE_SIZE);
+    memset(trail_kind, TR_NONE, sizeof trail_kind);
+    slide = 0;
+    etile[E_OUTBOX] = T_OUTBOX0;
+    show_cursor = true;
+    edit_shown = false;
+    note = 0;
+}
+
+static void edit_camera(bool jump) {
+    camera_at(cur_x * 16 + 8, cur_y * 16 + 8, jump);
+}
+
+// The slot from the disk; an empty one (or none) gives a new cave
+static void edit_load(void) {
+    have_slot = load_own(slot);
+    if (!have_slot || !cave_file.time)
+        new_cave();
+    dirty = false;
+    edit_view();
+}
+
+// What keeps the cave from being played, or 0
+static const char *edit_check(void) {
+    uint8_t inboxes = 0;
+    bool exit = false;
+    for (uint16_t i = 0; i < CAVE_SIZE; i++) {
+        uint8_t e = cave_file.map[i];
+        if (e == E_INBOX)
+            inboxes++;
+        if (e == E_OUTBOX)
+            exit = true;
+    }
+    return inboxes != 1 ? "THE CAVE NEEDS AN INBOX" : exit ? 0 : "THE CAVE NEEDS AN EXIT";
+}
+
+// The element chosen where the cursor is (first: fire was just pressed).
+// The edge takes steel or the exit only; there is one inbox, the old one
+// turns to dirt.
+static void edit_put(bool first) {
+    uint16_t i = cur_y * CAVE_W + cur_x;
+    uint8_t e = pen_elem[pen] + (pen_fly() ? pen_dir : 0);
+    if ((cur_x == 0 || cur_x == CAVE_W - 1 || cur_y == 0 || cur_y == CAVE_H - 1) &&
+        e != E_STEEL && e != E_OUTBOX) {
+        if (first)
+            edit_note("THE EDGE: STEEL OR EXIT ONLY");
+        return;
+    }
+    if (cave_file.map[i] == e)
+        return;
+    if (e == E_INBOX)
+        for (uint16_t j = 0; j < CAVE_SIZE; j++)
+            if (cave_file.map[j] == E_INBOX)
+                cave_file.map[j] = cave[j] = E_DIRT;
+    cave_file.map[i] = cave[i] = e;
+    set_dirty();
+    sound_crackle();
+}
+
+// The element under the cursor becomes the one chosen
+static void edit_take(void) {
+    uint8_t e = cave_file.map[cur_y * CAVE_W + cur_x];
+    for (uint8_t k = 0; k < PENS; k++) {
+        uint8_t b = pen_elem[k];
+        uint8_t fly = k == PEN_FLY || k == PEN_FLY + 1;
+        if (e == b || (fly && e >= b && e < b + 4)) {
+            pen = k;
+            if (fly)
+                pen_dir = e - b;
+        }
+    }
+    edit_shown = false;
+}
+
+// Play the cave once, then back to the editor
+static void edit_try(void) {
+    const char *why = edit_check();
+    if (why) {
+        edit_note(why);
+        return;
+    }
+    use_cave_file();
+    show_cursor = false;
+    etile[E_OUTBOX] = T_STEEL;
+    lives = 1;
+    score = 0;
+    next_life = 0xFFFFFFFF;
+    play_cave();
+    edit_view();
+    edit_camera(true);
+    cover_cave(0);
+}
+
+static void edit_save(void) {
+    const char *why = edit_check();
+    if (why) {
+        edit_note(why);
+        return;
+    }
+    busy("SAVING");
+    bool ok = have_slot && disk_save(own_name(slot), &cave_file, sizeof cave_file);
+    not_busy();
+    if (ok) {
+        dirty = false;
+        sound_bonus();
+    }
+    edit_note(ok ? "SAVED" : "COULD NOT SAVE");
+}
+
+// The slot empty again on the disk (its cave is no longer played)
+static void edit_empty(void) {
+    memset(&cave_file, 0, sizeof cave_file);
+    busy("SAVING");
+    bool ok = have_slot && disk_save(own_name(slot), &cave_file, sizeof cave_file);
+    not_busy();
+    new_cave();
+    dirty = false;
+    edit_view();
+    edit_note(ok ? "THE SLOT IS EMPTY" : "COULD NOT SAVE");
+}
+
+// Some keys act only when pressed twice in a row: they would lose what is
+// not saved (when it is all saved: once is enough, unless always)
+static bool twice(uint8_t key, bool always, const char *what) {
+    if (again == key || (!dirty && !always)) {
+        again = 0;
+        return true;
+    }
+    again = key;
+    edit_note(what);
+    return false;
+}
+
+// Wait on a page of the editor for a key or the button
+static void page_wait(void) {
+    bool armed = false;
+    for (;;) {
+        title_frame();
+        if (get_key() || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
+            break;
+        if (!(held & IN_BUTTON))
+            armed = true;
+    }
+}
+
+static void edit_help(void) {
+    static const char *const lines[8] = {
+        "MOVE     CURSOR KEYS OR JOYSTICK",
+        "PUT      FIRE OR SPACE, HELD: DRAW",
+        "1-0 I X  CHOOSE, AGAIN: DIRECTION",
+        "G        CHOOSE WHAT THE CURSOR IS ON",
+        "V        NAME AND VALUES   T  TRY IT",
+        "S        SAVE   + -  NEXT, LAST SLOT",
+        "C        NEW CAVE   D  EMPTY THE SLOT",
+        "RUN/STOP BACK TO THE TITLE",
+    };
+    video_clear();
+    status_center("ANY KEY: BACK");
+    video_text_in(CENTRE(11), 0, "CAVE EDITOR", title_row);
+    for (uint8_t i = 0; i < 8; i++)
+        video_text(2, 16 + i * 16, lines[i]);
+    // the elements with their keys, two rows of six
+    char key[2] = {0, 0};
+    for (uint8_t k = 0; k < PENS; k++) {
+        uint8_t col = 2 + (k % 6) * 6, y = 144 + (k / 6) * 16;
+        key[0] = pen_keys[k];
+        video_text(col, y, key);
+        video_tile(col + 2, y, pen_tile[k]);
+    }
+    page_wait();
+    video_clear();
+    edit_shown = false;
+    note = 0;
+}
+
+// The values page: a line each, the one chosen shining
+#define VALUES 8
+#define VAL_Y0 8
+static const char *const val_text[VALUES] = {
+    "NAME", "TIME          SECONDS", "EMERALDS      TO OPEN THE EXIT", "VALUE         POINTS EACH",
+    "EXTRA         EACH AFTER THAT", "SPEED         MS PER STEP", "AMOEBA        SECONDS SLOW",
+    "MAGIC         SECONDS, 0: NO END"};
+static const uint8_t val_min[VALUES] = {0, 1, 1, 0, 0, 50, 0, 0};
+static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 255, 255};
+static uint8_t *const val_byte[VALUES] = {0, 0, &cave_file.diamonds, &cave_file.value, &cave_file.extra,
+                                          &cave_file.speed, &cave_file.amoeba, &cave_file.magic};
+
+static uint16_t val_get(uint8_t i) {
+    return i == 1 ? cave_file.time : *val_byte[i];
+}
+
+static void val_line(uint8_t i, bool chosen) {
+    static char line[37];
+    memset(line, ' ', 36);
+    memcpy(line, val_text[i], strlen(val_text[i]));
+    if (i)
+        digits3(line + 9, val_get(i));
+    else
+        memcpy(line + 10, cave_file.name, strlen(cave_file.name));
+    video_text_in(2, VAL_Y0 + i * 16, line, chosen ? title_row : font_row);
+}
+
+// Up and down choose a line, left and right change its value (held: on and
+// on, faster after a while), letters and Del the name. Return, V, Run/Stop
+// or the button (but not on the name, where Space is a space) go back.
+static void edit_values(void) {
+    video_clear();
+    status_center("NAME AND VALUES");
+    video_text(CENTRE(33), 144, "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE");
+    video_text(CENTRE(31), 160, "TYPE THE NAME  RETURN OR V BACK");
+    uint8_t sel = 1, rep = 0;
+    bool armed = false;
+    for (uint8_t i = 0; i < VALUES; i++)
+        val_line(i, i == sel);
+    for (uint16_t f = 0;; f++) {
+        if (f % 3 == 0)
+            video_shine(f / 3);
+        title_frame();
+        uint8_t key = get_key();
+        uint8_t old = sel;
+        if ((pressed & IN_UP) && sel)
+            sel--;
+        if ((pressed & IN_DOWN) && sel < VALUES - 1)
+            sel++;
+        if (sel != old) {
+            val_line(old, false);
+            val_line(sel, true);
+        }
+        uint8_t lr = held & (IN_LEFT | IN_RIGHT);
+        if (!lr)
+            rep = 0;
+        else if (sel && (rep == 0 || (rep >= 20 && (rep & 1)))) {
+            uint16_t v = val_get(sel), d = rep >= 100 ? 10 : 1;
+            if (lr & IN_RIGHT)
+                v = v + d > val_max[sel] ? val_max[sel] : v + d;
+            else
+                v = v < val_min[sel] + d ? val_min[sel] : v - d;
+            if (sel == 1)
+                cave_file.time = v;
+            else
+                *val_byte[sel] = v;
+            val_line(sel, true);
+            dirty = true;
+        }
+        if (lr && rep < 255)
+            rep++;
+        if (!sel && key && key != '\r') {
+            uint8_t n = strlen(cave_file.name);
+            if (key == KEY_DEL && n)
+                cave_file.name[n - 1] = 0;
+            else if (n < NAME_LEN && key && strchr(name_chars, key))
+                cave_file.name[n] = key;
+            else
+                continue;
+            dirty = true;
+            val_line(0, true);
+            armed = false;  // Space was a space
+            continue;
+        }
+        if (key == '\r' || key == 'V' || (pressed & IN_RESTART) || (sel && armed && (pressed & IN_BUTTON)))
+            break;
+        if (!(held & IN_BUTTON))
+            armed = true;
+    }
+    video_shine(0);
+    video_clear();
+    edit_shown = false;
+    note = 0;
+}
+
+static void editor(void) {
+    play_mode = PLAY_TEST;
+    again = 0;
+    edit_load();
+    cur_x = cur_y = 2;
+    edit_camera(true);
+    memset(covered, 1, sizeof covered);
+    cover_cave(0);
+    bool armed = false;  // fire from the title must be let go first
+    uint8_t rep = 0;
+    for (;;) {
+        if (note && !--note)
+            edit_shown = false;
+        if (!edit_shown && !note)
+            edit_status();
+        next_frame();
+        edit_camera(false);
+        uint8_t key = get_key();
+        if (pressed & IN_RESTART)
+            key = KEY_STOP;
+        if (key && key != again)
+            again = 0;
+
+        // move: at once, then on and on while held
+        uint8_t dir = held & (IN_UP | IN_DOWN | IN_LEFT | IN_RIGHT);
+        if (!dir) {
+            rep = 0;
+        } else {
+            if (rep == 0 || (rep >= 12 && (rep & 3) == 0)) {
+                if ((dir & IN_LEFT) && cur_x)
+                    cur_x--;
+                if ((dir & IN_RIGHT) && cur_x < CAVE_W - 1)
+                    cur_x++;
+                if ((dir & IN_UP) && cur_y)
+                    cur_y--;
+                if ((dir & IN_DOWN) && cur_y < CAVE_H - 1)
+                    cur_y++;
+                edit_shown = false;
+            }
+            if (++rep > 15)
+                rep = 12;
+        }
+        if (!(held & IN_BUTTON))
+            armed = true;
+        else if (armed)
+            edit_put(pressed & IN_BUTTON);
+
+        for (uint8_t k = 0; k < PENS; k++)
+            if (key == pen_keys[k]) {
+                if (k == pen && pen_fly())
+                    pen_dir = (pen_dir + 1) & 3;
+                pen = k;
+                edit_shown = false;
+            }
+        switch (key) {
+        case 'G':
+            edit_take();
+            break;
+        case 'H':
+            edit_help();
+            armed = false;
+            break;
+        case 'V':
+            edit_values();
+            armed = false;
+            break;
+        case 'T':
+            edit_try();
+            armed = false;
+            break;
+        case 'S':
+            edit_save();
+            break;
+        case 'C':
+            if (twice(key, true, "C AGAIN: A NEW CAVE")) {
+                new_cave();
+                edit_view();
+                set_dirty();
+            }
+            break;
+        case 'D':
+            if (twice(key, true, "D AGAIN: EMPTY THE SLOT"))
+                edit_empty();
+            break;
+        case '+':
+        case '-':
+            if (twice(key, false, key == '+' ? "NOT SAVED - + AGAIN: NEXT SLOT" : "NOT SAVED - - AGAIN: LAST SLOT")) {
+                slot = key == '+' ? (slot + 1) % OWN_SLOTS : (slot + OWN_SLOTS - 1) % OWN_SLOTS;
+                edit_load();
+            }
+            break;
+        case KEY_STOP:
+            if (twice(key, false, "NOT SAVED - RUN/STOP AGAIN: LEAVE")) {
+                show_cursor = false;
+                etile[E_OUTBOX] = T_STEEL;
+                cover_cave(1);
+                return;
+            }
+            break;
+        }
+    }
+}
+
+// A game: the caves from the one picked on the title, or the own caves,
+// until the lives are gone; then a good score gets into the table (the
+// game's caves only)
+static void play_game(void) {
+    lives = LIVES;
+    score = 0;
+    next_life = LIFE_POINTS;
+    play_mode = start_cave == CAVE_COUNT ? PLAY_OWN : PLAY_CAVES;
+    cave_no = play_mode == PLAY_OWN ? 0 : start_cave;
+    level = start_level;
+    bool have_cave = true;
+    while (lives) {
+#ifdef SCREENCAST
+        // after the last cave with moves
+        if (cave_no >= DEMO_LAST || cave_no >= DEMO_CAVES)
+            demo_end();
+#endif
+        if (!(have_cave = play_mode == PLAY_OWN ? next_own() : next_cave()))
+            break;
+#ifdef SCREENCAST
+        demo_p = demo_moves;
+        demo_left = 0;
+#endif
+        uint8_t end = play_cave();
+        score += game.score;
+        if (end == END_EXITED)
+            cave_no++;
+        else
+            lives--;
+#ifdef SCREENCAST
+        if (end != END_EXITED)  // something went wrong
+            demo_end();
+#endif
+    }
+    status_center(have_cave ? "GAME OVER" : play_mode == PLAY_OWN ? "NO OWN CAVES ON THE DISK" : "NO CAVES ON THE DISK");
+    sound_off();
+    wait_button(250);
+    uint8_t rank = have_cave && play_mode == PLAY_CAVES ? hiscore_rank(score) : HS_COUNT;
+    hs_new = rank;
+    if (rank < HS_COUNT) {
+        HiScore *e = hiscore_insert(rank);
+        e->score = score;
+        e->cave = cave_no;
+        e->level = level;
+        enter_name(e, rank);
+        save_scores();
+    }
+}
+
 int main(void) {
     __asm__ volatile("sei");
     POKE(0x00, 65);                     // 40 MHz
@@ -1109,49 +1804,13 @@ int main(void) {
     have_logo = load("LOADING", "SMARAGD.LOGO", GFX_BANK, LOGO_OFF);
     hiscore_load();
 
-    for (bool after_game = false;; after_game = true) {
-        title_screen(after_game);
-        lives = LIVES;
-        score = 0;
-        next_life = LIFE_POINTS;
-        cave_no = start_cave;
-        level = start_level;
-        bool have_cave = true;
-        while (lives) {
-#ifdef SCREENCAST
-            // after the last cave with moves
-            if (cave_no >= DEMO_LAST || cave_no >= DEMO_CAVES)
-                demo_end();
-#endif
-            if (!(have_cave = next_cave()))
-                break;
-#ifdef SCREENCAST
-            demo_p = demo_moves;
-            demo_left = 0;
-#endif
-            uint8_t end = play_cave();
-            score += game.score;
-            if (end == END_EXITED)
-                cave_no++;
-            else
-                lives--;
-#ifdef SCREENCAST
-            if (end != END_EXITED)  // something went wrong
-                demo_end();
-#endif
-        }
-        status_center(have_cave ? "GAME OVER" : "NO CAVES ON THE DISK");
-        sound_off();
-        wait_button(250);
-        uint8_t rank = have_cave ? hiscore_rank(score) : HS_COUNT;
-        hs_new = rank;
-        if (rank < HS_COUNT) {
-            HiScore *e = hiscore_insert(rank);
-            e->score = score;
-            e->cave = cave_no;
-            e->level = level;
-            enter_name(e, rank);
-            save_scores();
+    for (bool scores = false;;) {
+        if (title_screen(scores)) {
+            editor();
+            scores = false;
+        } else {
+            play_game();
+            scores = true;  // the table comes first after a game
         }
     }
 }

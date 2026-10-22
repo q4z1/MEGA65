@@ -13,11 +13,16 @@ On the title screen the joystick picks the level (up and down) and the cave
 to start with (left and right: 1, 6, 11, 16 or 21). After the last cave
 the game goes on with the first one of the next level.
 
+Right of cave 21 come the **own caves**: twenty slots on the disk for caves
+made with the game's [cave editor](#cave-editor) (E on the title), or
+brought over from [GDash](#own-caves-and-gdash), the Boulder Dash
+construction kit for PC, with `tools/cavekit.py`.
+
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
-melody on the right channel. Fire starts the game. The line under the
-logo takes turns: "press fire", the controls, and the version (the file
-`VERSION`, which is also in the disk's name).
+melody on the right channel. Fire starts the game, E the cave editor. The
+line under the logo takes turns: "press fire", the controls, and the
+version (the file `VERSION`, which is also in the disk's name).
 
 ### High scores
 
@@ -57,6 +62,45 @@ before building.
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
 | up/down, fire/right, left; or type | the name for the high score table |
+| E (on the title) | the cave editor |
+
+## Cave editor
+
+E on the title screen opens the editor on the first slot. It shows the
+cave as it starts, with a cursor; the status line names the element
+chosen, where the cursor is, the slot, and a `*` while there are changes
+not saved. H shows the keys:
+
+| | |
+| --- | --- |
+| cursor keys, joystick | move the cursor (held: on and on) |
+| fire, Space, Return | put the element chosen; held while moving, it draws |
+| 1-9, 0, I, X | choose: space, dirt, brick wall, steel wall, boulder, emerald, firefly, butterfly, amoeba, magic wall, inbox, exit |
+| the same key again | a firefly or butterfly gets its next starting direction (up, right, down, left) |
+| G | choose the element the cursor is on |
+| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times |
+| T | try the cave (one life), then back in the editor |
+| S | save it into its slot on the disk |
+| + and - | the next and the last slot |
+| C | a new cave: steel frame, dirt, inbox and exit |
+| D | empty the slot on the disk |
+| Run/Stop | back to the title |
+| H | the keys |
+
+The frame of a cave takes only steel or the exit, and there is one inbox:
+putting a new one turns the old one to dirt. A cave can be tried and saved
+when it has its inbox and an exit. What would lose changes not saved - another
+slot, Run/Stop - and the keys C and D want to be pressed twice. On the
+values page up and down choose a line, left and right change it (held:
+faster after a while), and the name is typed (Del goes back); Return or V
+go back to the cave.
+
+![The editor](screenshots/editor.png)
+
+The own caves are played from the title (right of cave 21): one after the
+other, empty slots left out, with three lives as usual; after the last one
+the first comes again. They have one level each and no place in the high
+score table, which is for the game's caves.
 
 ## Building and running
 
@@ -72,7 +116,8 @@ smaragd-dash/build.sh                       # build only
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
 (`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
-(`CAVE01-1` ... `CAVE25-4`: cave and level); the screencast build adds
+(`CAVE01-1` ... `CAVE25-4`: cave and level), the slots for the own caves
+(`OWN01` ... `OWN20`); the screencast build adds
 its moves (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, the tiles stay
@@ -97,6 +142,54 @@ The engine tests run on the host:
 ```sh
 cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/test_engine
 ```
+
+and so do the tests of `tools/cavekit.py`, `python3 tests/test_cavekit.py`.
+`tests/test_editor.sh` tries the editor in Xemu: built with `-DEDITTEST=n`,
+the game takes its keys from a script (`test_script` in `src/main.c`) and
+stops at its n-th stop; the screens of the ten stops land in `build/test/`,
+and at the end the cave the script saved is checked on the disk. It builds
+the normal game again afterwards.
+
+The slots for the own caves (`OWN01` ... `OWN20`, see `tools/mkcave.py`)
+go onto the disk empty; like the high scores, a new build keeps them from
+the old disk.
+
+## Own caves and GDash
+
+[GDash](https://github.com/revvv/gdash-export-CrLi) is a Boulder Dash
+clone and construction kit for the PC, with thousands of caves of the
+C64 games and of fans in its BDCFF files (`.bd`). `tools/cavekit.py` (it
+needs nothing but Python 3) brings them onto the game's disk and back:
+
+```sh
+tools/cavekit.py list   game.bd                     # its caves: which can be played
+tools/cavekit.py import smaragd-dash.d81 game.bd    # into the slots, from slot 1 on
+tools/cavekit.py list   smaragd-dash.d81            # what is in the slots
+tools/cavekit.py export smaragd-dash.d81 own.bd     # the own caves for GDash
+tools/cavekit.py empty  smaragd-dash.d81 --slot 3   # empty a slot
+tools/cavekit.py convert game.bd caves-dir/         # .bd -> .cave files (and back)
+```
+
+`import` takes all caves of the file in level 1, or `--cave N` or `N-M`,
+`--level L` (1-5) and `--slot N` to start with. GDash draws most caves from
+objects - lines, rectangles, random fills with the C64's random numbers -,
+and `cavekit.py` draws them the same: on GDash's own collection (200 files,
+5016 caves) its maps are those of GDash's own code in all five levels, cell
+for cell, except for caves that are random anew in every game, and the
+speed is GDash's in all but 25 of 13767 cave-levels (a few ms; elements
+outside an intermission's view). GDash's timing is converted: with PAL
+timing a second of the C64 lasts 1.2 real ones, and the speed of a C64
+cave (its CaveDelay and how full it is) becomes milliseconds per step.
+
+The game has the elements of Boulder Dash 1. A cave with others - the
+expanding wall of Boulder Dash 2, slime, keys, ... - is named with what it
+needs and left out, unless `--as NAME=C` puts one of the game's map
+characters in their place (`--as HEXPANDINGWALL=w`). Of GDash's 5016
+caves, 2758 can be played as they are. A cave smaller than 40x22 cells (an
+intermission) goes into the top left corner, steel around it; one that
+wraps round its edge (its inbox on the edge) cannot be played. Mazes are
+drawn by GDash only: `gdash in.bd --save-flat out.bd -q` saves a file with
+the maps drawn out.
 
 ### Screencast
 
@@ -141,7 +234,7 @@ there.
 | File | |
 | --- | --- |
 | `src/engine.c` | the cave rules, without hardware access |
-| `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens |
+| `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens, the cave editor |
 | `src/hiscore.c` | the high score table and its file |
 | `src/mem.h` | where everything lies that the linker does not place: DMA list, tiles, logo, framebuffers, status line, screens |
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
@@ -151,7 +244,8 @@ there.
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
-| `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`) |
+| `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`), makes the empty slots |
+| `tools/cavekit.py` | own caves: GDash's files onto the disk and back, `.cave` files |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
@@ -268,8 +362,9 @@ their own that the title screen cycles for the shine.
 
 ## Cave files
 
-See `tools/mkcave.py` for the format. A cave is 40x22 cells with a steel
-frame. The first six follow the first caves of Boulder Dash 1 in idea, not
+See `tools/mkcave.py` for the format; the map characters are the ones of
+BDCFF, so `tools/cavekit.py convert` turns them into GDash's files and
+back. A cave is 40x22 cells with a steel frame. The first six follow the first caves of Boulder Dash 1 in idea, not
 in layout; the others bring one idea each, getting a little harder from cave
 to cave - more boulders and creatures, a little less time to spare - but
 always with time to look around: each limit is at least three and a half

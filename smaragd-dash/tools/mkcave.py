@@ -10,16 +10,19 @@ little faster and shuffle the cave's fill (see shuffle()).
 
 Writes <outdir>/caveNN-L.bin for each cave and level (NN from 01, in the
 given order, L from 1), which build.sh puts on the disk as CAVENN-L,
-<outdir>/caves.c and caves.h with all of them for tools/solve.c, and
-<gendir>/levels.h with the number of caves and levels for the game. A cave
-file is a PRG: two bytes of load address (not used, the game gives its
-own), then
+<outdir>/caves.c and caves.h with all of them for tools/solve.c,
+<outdir>/ownNN.bin, the empty slots for the caves of the editor (OWNNN on
+the disk, OWN_SLOTS of them), and <gendir>/levels.h with the number of
+caves, levels and slots for the game. A cave file is a PRG: two bytes of
+load address (not used, the game gives its own), then
 
   0-1   time in seconds      5  amoeba
   2     diamonds needed      6  magic
   3     value                7  speed
   4     extra                8-31   name, closed by 0
   32-911  the map, 40x22 cells as E_* codes (src/engine.h)
+
+A slot of the editor is such a file as well; time 0 marks it empty.
 
 The game loads cave after cave until there is no next file; then it goes on
 with the first cave of the next level (and stays in the last level).
@@ -51,29 +54,29 @@ With one value the higher levels get, from level 1 on:
   speed     -0 -5 -10 -15 ms
 amoeba and magic stay the same.
 
-Map characters:
+Map characters, the ones of BDCFF (GDash's files; tools/cavekit.py
+converts between the two):
   W steel wall    w brick wall    . dirt      (space) empty
   r boulder       d diamond       P inbox     X outbox (in a wall)
-  q firefly (starts moving left)  B butterfly (starts moving down)
-  a amoeba        m magic wall
+  a amoeba        M magic wall
+  fireflies starting to the left Q, up o, right O, down q
+  butterflies starting to the left C, up b, right B, down c
 """
 
 import re
 import sys
 import zlib
 
+from cavekit import CHAR_EXPR, CODES, CaveError, check_map, parse_cave_text
+
 W, H = 40, 22
 NAME_LEN = 21  # "CAVE 12/3 " before it in the status line
 NAME_FIELD = 24  # bytes 8-31 of the file, cave_file.name in src/main.c
 LEVELS = 4
+OWN_SLOTS = 20  # the editor's slots on the disk: as many caves as Boulder Dash 1
 SCALED = ("time", "diamonds", "speed", "amoeba", "magic")
 FILL = ".rd "  # what the random fill of a cave is made of
-ELEM = {
-    "W": "E_STEEL", "w": "E_BRICK", ".": "E_DIRT", " ": "E_SPACE",
-    "r": "E_BOULDER", "d": "E_DIAMOND", "P": "E_INBOX", "X": "E_OUTBOX",
-    "q": "E_FIREFLY + DIR_LEFT", "B": "E_BUTTERFLY + DIR_DOWN",
-    "a": "E_AMOEBA", "m": "E_MAGIC",
-}
+ELEM = CHAR_EXPR  # map character: E_* code, as C
 KEYS = {"name": None, "time": None, "diamonds": None, "value": None,
         "extra": None, "speed": None, "amoeba": "0", "magic": "0",
         "demo": "", "shuffle": ""}
@@ -84,22 +87,12 @@ def fail(path, msg):
 
 
 def load(path):
-    keys, rows, in_map = dict(KEYS), [], False
-    for line in open(path, encoding="utf-8").read().splitlines():
-        if in_map:
-            if line.strip():
-                rows.append(line)
-            continue
-        if not line.strip() or line.startswith("#"):
-            continue
-        if line.strip() == "map:":
-            in_map = True
-            continue
-        k, _, v = line.partition("=")
-        k = k.strip()
-        if k not in KEYS:
-            fail(path, f"unknown key '{k}'")
-        keys[k] = v.strip()
+    keys = dict(KEYS)
+    try:
+        given, rows = parse_cave_text(path)
+    except CaveError as e:
+        sys.exit(str(e))
+    keys.update(given)
     for k, v in keys.items():
         if v is None:
             fail(path, f"'{k}' missing")
@@ -124,20 +117,10 @@ def load(path):
     keys["name"] = keys["name"].upper().replace("\\", "").replace('"', "")
     if len(keys["name"]) > NAME_LEN:
         fail(path, f"the name is longer than {NAME_LEN} characters")
-    if len(rows) != H or any(len(r) != W for r in rows):
-        fail(path, f"map must be {H} lines of {W} characters")
-    for y, r in enumerate(rows):
-        for x, ch in enumerate(r):
-            if ch not in ELEM:
-                fail(path, f"unknown map character '{ch}' at {x},{y}")
-            edge = x in (0, W - 1) or y in (0, H - 1)
-            if edge and ch not in "WX":
-                fail(path, f"the frame must be steel (or the outbox), not '{ch}' at {x},{y}")
     flat = "".join(rows)
-    if flat.count("P") != 1:
-        fail(path, "exactly one inbox (P) needed")
-    if flat.count("X") < 1:
-        fail(path, "an outbox (X) is needed")
+    errors = check_map(list(flat))
+    if errors:
+        fail(path, errors[0])
     return keys, flat
 
 
@@ -224,6 +207,9 @@ def elements():
         codes[name] = n
         n += 1
     codes.update({f"DIR_{d}": i for i, d in enumerate(("UP", "RIGHT", "DOWN", "LEFT"))})
+    for name, v in CODES.items():
+        if codes[name] != v:
+            sys.exit(f"mkcave: {name} is {codes[name]} in src/engine.h, {v} in tools/cavekit.py")
     return codes
 
 
@@ -248,10 +234,14 @@ def main():
         for lv, (k, flat) in enumerate(cave):
             with open(f"{outdir}/cave{i + 1:02d}-{lv + 1}.bin", "wb") as f:
                 f.write(cave_file(k, flat, codes))
+    for n in range(1, OWN_SLOTS + 1):
+        with open(f"{outdir}/own{n:02d}.bin", "wb") as f:
+            f.write(bytes(2 + 32 + W * H))  # time 0: empty
     with open(f"{gendir}/levels.h", "w") as f:
         f.write("// Generated by tools/mkcave.py - do not edit\n#ifndef LEVELS_H\n#define LEVELS_H\n\n")
         f.write(f"#define CAVE_COUNT {len(caves)}  // caves on the disk (CAVE01-1, ...)\n")
-        f.write(f"#define LEVELS     {LEVELS}  // levels of each\n\n#endif\n")
+        f.write(f"#define LEVELS     {LEVELS}  // levels of each\n")
+        f.write(f"#define OWN_SLOTS  {OWN_SLOTS}  // the editor's slots (OWN01, ...)\n\n#endif\n")
     with open(f"{outdir}/caves.h", "w") as f:
         f.write("// Generated by tools/mkcave.py - do not edit\n#ifndef CAVES_H\n#define CAVES_H\n")
         f.write('#include "engine.h"\n\n')

@@ -1,0 +1,463 @@
+# The maps GDash draws for objects.bd (its own code, loaded and rendered
+# with seed 0 as its --save-flat does), in BDCFF's map characters: per
+# level and cave a line "level L cave N", then the rows.
+level 1 cave 1
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...... ..drr .....r.r....... ....r....W
+W.rPr...... .........rdr.r.... ..... ..W
+W.......... ..r.....r.r..r........r....W
+Wr.rr.........r......r..r....r...r.....W
+Wr. r......... r..r........r......r.rr.W
+W... ..r........r.....r. r........r.rr.W
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwww...r..r.W
+W. ...r..dr ..r.r..........drrQ...... .W
+W..W.....r....wwwwwww.WWWWWWW.wwwwwww..W
+W...W..r.r....wc...aw.WMMMMMW.w  r dr..W
+W.r..W..r.....w.....w.W     W.w  dr wr.W
+W.Q.. W.r.  ..w.....w.W     W.wwwwwww .W
+W. r...WW.....wa....w.W     W...dr....rW
+W........WQdr.wwwwwww.W     W.r..r.r...W
+W....r .r.W.r...dr...r.....r..wwwwwwww.W
+W....rr.r..W rwwwwwww.r.rrr...wdrdrdrw.X
+W...........W.wrrrrrw.  ....drwdrdrdrw.W
+W....r.r.r....wrrrrrw.r.rrrrdrwdrdrdrw.W
+W. ...... ..r.wrrrrrw....r.rdrwwwwwwwwrW
+W.dr... ..... wwwwwww.r rrr.r....r...r.W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 1 cave 2
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....wwwww..........................rW
+W......w...w.......QoOqCbBc...........dW
+W......wwwww..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 1 cave 3
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............d..WWWWWWWWWWWWWWWWWWWWW
+W.P.....d........d.WWWWWWWWWWWWWWWWWWWWW
+W.......r...d......WWWWWWWWWWWWWWWWWWWWW
+W......r.......r.r.WWWWWWWWWWWWWWWWWWWWW
+Wd.................XWWWWWWWWWWWWWWWWWWWW
+W....r..d.d........WWWWWWWWWWWWWWWWWWWWW
+W..r.....r........dWWWWWWWWWWWWWWWWWWWWW
+W........d........dWWWWWWWWWWWWWWWWWWWWW
+Wr.................WWWWWWWWWWWWWWWWWWWWW
+W...........dd.....WWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 1 cave 4
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......................................W
+W.P....................................W
+W......................................W
+W......................................W
+W....xxxxxxxxxxxxxxxxxxxxxxxxxx........W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................X
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 2 cave 1
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.r..r..r......r.rr.........rQ..r.....aW
+Wr.P....r.rQ......r.... ...r..dr ..r.rrW
+W.......r.rdr..... ..r..drQ.r..r.... ..W
+Wr...rr r..r....r...r....r..r.r........W
+W....r .r..r........ ..r.....r........rW
+W.......r.. .Q....r....Q.. ..r.  .....rW
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwww........W
+Wr..r........dr....r ..........Qdr.....W
+Wr.W .r....r..wwwwwww.WWWWWWW.wwwwwwwdrW
+W.r.W...r...r.wc....w.WMMMMMW.w drdrwr.W
+W....Wr......rw..aa.w.W     W.w  dr w..W
+Wr.  .W..dr..rw.....w.W     W.wwwwwww..W
+W.....rWWdr...w..a..w.W     W. ..r.rr..W
+W.....r.rW....wwwwwww.W     W..... ....W
+Wr. r....rW...r...r....r..r.r.wwwwwwww.W
+Wr rr....r.Wdrwwwwwwwrr.r.rr..wdrdrdrwrX
+Wr.........rW.wrrrrrwr.... ...wdrdrdrw W
+Wr......r..r..wrrrrrw.r.r.r..rwdrdrdrw.W
+Wr..r..r...r..wrrrrrw.r .....rwwwwwwww.W
+W...r....r..r.wwwwwww r.r.r....rdr.r...W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 2 cave 2
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....wwwww..........................rW
+W......w...w.......QoOqCbBc...........dW
+W......wwwww..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 2 cave 3
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............d..WWWWWWWWWWWWWWWWWWWWW
+W.P.....d........d.WWWWWWWWWWWWWWWWWWWWW
+W.......r...d......WWWWWWWWWWWWWWWWWWWWW
+W......r.......r.r.WWWWWWWWWWWWWWWWWWWWW
+Wd.................XWWWWWWWWWWWWWWWWWWWW
+W....r..d.d........WWWWWWWWWWWWWWWWWWWWW
+W..r.....r........dWWWWWWWWWWWWWWWWWWWWW
+W........d........dWWWWWWWWWWWWWWWWWWWWW
+Wr.................WWWWWWWWWWWWWWWWWWWWW
+W...........dd.....WWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 2 cave 4
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......................................W
+W.P....................................W
+W......................................W
+W......................................W
+W....xxxxxxxxxxxxxxxxxxxxxxxxxx........W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................X
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 3 cave 1
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+Wr..... .r.. .r....r..r.r... . r......aW
+Wr.P.dr...r.....r...r.......r. r.......W
+W r..r........r......r.rr...... ..r....W
+Wr.r.....r.  ....dr..r.rr.........rdr.rW
+W......r......r.rdr.....r........ ..r. W
+Wr.rr.........r.rdr..... ..r...dr... ..W
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwr..r.r..W
+W.............r..r..dr.......r.....r...W
+W..Wrrrdr.dr..wwwwwww.WWWWWWWrwwwwwww..W
+W...Wr r..r...wc.a..w.WMMMMMW.wdrdr wr.W
+W....W.r..r...wa....w.W     W.wdr drwr.W
+W.....W ....r.wa...cw.W     W wwwwwww..W
+W..r...WW.....w.....w.W     W ..r.....rW
+W..r.....W..r.wwwwwwwrW     W...r......W
+W.r.......Wr.......r. r.......wwwwwwww.W
+W.....r....Wr.wwwwwww.r.rrr...wdrdrdrw.X
+W...r..r ...W.wrrrrrw....r...rwdrdrdrwrW
+W..rd...r...r.wrrrrrw.r.r.rdr wdrdrdrw.W
+W. .....r.....wrrrrrwQ.....r..wwwwwwww.W
+W.rr r..r....rwwwwwww.r.rrrr...........W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 3 cave 2
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....wwwww..........................rW
+W......w...w.......QoOqCbBc...........dW
+W......wwwww..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 3 cave 3
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............d..WWWWWWWWWWWWWWWWWWWWW
+W.P.....d........d.WWWWWWWWWWWWWWWWWWWWW
+W.......r...d......WWWWWWWWWWWWWWWWWWWWW
+W......r.......r.r.WWWWWWWWWWWWWWWWWWWWW
+Wd.................XWWWWWWWWWWWWWWWWWWWW
+W....r..d.d........WWWWWWWWWWWWWWWWWWWWW
+W..r.....r........dWWWWWWWWWWWWWWWWWWWWW
+W........d........dWWWWWWWWWWWWWWWWWWWWW
+Wr.................WWWWWWWWWWWWWWWWWWWWW
+W...........dd.....WWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 3 cave 4
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......................................W
+W.P....................................W
+W......................................W
+W......................................W
+W....xxxxxxxxxxxxxxxxxxxxxxxxxx........W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................X
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 4 cave 1
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......Q.....dr..... ..r.  .....r.r...QW
+W. P...r....r..r.r...... ..Q. ...rrdr.rW
+W.. ..... ...r....... .. ..dr....r.r..rW
+Wr.....r......r.rr.........r........r..W
+W.r...dr......r.rr.........rr..r.......W
+W......r.rr......r..dr.... ..r.....r.rrW
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..dr....W
+W.r....r..r.... ...r..drr..r.r.........W
+W.rW...r..r..rwwwwwww.WWWWWWW.wwwwwwwrrW
+W..rW.. r...r.wca...w.WMMMMMW.wrdrrdrrrW
+W..r.W.. ... .w..a.cwrW     W.wdr   w. W
+W..r..W.....r.w..c..wrW     W.wwwwwww..W
+Wr...r.WW.r..rw..a..w.W     W..r r..r..W
+W....dr..W.r .wwwwwww.W     W.. .r.. .rW
+W.rd...r..W.r. r.........r...drwwwwwww.W
+W.r........Wr.wwwwwww.r.r r..rwdrdrdrwrX
+W..... .....W.wrrrrrw......r..wdrdrdrw.W
+W.r.... ......wrrrrrw.r.r.r...wdrdrdrwrW
+W.Q.......... wrrrrrw. ..r.rr.wwwwwwwwrW
+Wdr..... ..r..wwwwwwwrr.r.r........rr rW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 4 cave 2
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....wwwww..........................rW
+W......w...w.......QoOqCbBc...........dW
+W......wwwww..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 4 cave 3
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............d..WWWWWWWWWWWWWWWWWWWWW
+W.P.....d........d.WWWWWWWWWWWWWWWWWWWWW
+W.......r...d......WWWWWWWWWWWWWWWWWWWWW
+W......r.......r.r.WWWWWWWWWWWWWWWWWWWWW
+Wd.................XWWWWWWWWWWWWWWWWWWWW
+W....r..d.d........WWWWWWWWWWWWWWWWWWWWW
+W..r.....r........dWWWWWWWWWWWWWWWWWWWWW
+W........d........dWWWWWWWWWWWWWWWWWWWWW
+Wr.................WWWWWWWWWWWWWWWWWWWWW
+W...........dd.....WWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 4 cave 4
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......................................W
+W.P....................................W
+W......................................W
+W......................................W
+W....xxxxxxxxxxxxxxxxxxxxxxxxxx........W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................X
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 5 cave 1
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.......r.rr......r..dr.... ..r.....r.rW
+W..P....r.rr.........r...r........dr...W
+Wdrr....r..r.... ...r..drr..r.r........W
+Wrrr....r..r..r........r.....r........rW
+Wr..r... r...r....r..drr..............rW
+Wr..r.... ... ..r.....r........r.r.....W
+Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwr.rQ..drW
+W.r...r..Q.r..r. r..............r r..r.W
+W..W..dr....r wwwwwww.WWWWWWW.wwwwwww .W
+W...W..r.r...rwc....w.WMMMMMW.w  drdr..W
+Wr...W.......rw.....w.W     W.w rdrdr..W
+W.....W.rr....w.....w.W     W.wwwwwww .W
+W.Q...rWWr....w.c..aw.W     W...r......W
+Wrdr.....W....wwwwwwwrW     Wr.........W
+W ...r..r W.r..drdrr..r.... ..wwwwwwww W
+Wr....rrd..W..wwwwwwwrr.r.r...wdrdrdrw.X
+Wr....rrd...W.wrrrrrw........rwdrdrdrw.W
+Wr.......r....wrrrrrw.r.r.r..rwdrdrdrw.W
+Wr....... ..r.wrrrrrw.........wwwwwwww.W
+W...r.....r...wwwwwww.rdr.r.....r....r.W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 5 cave 2
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....wwwww..........................rW
+W......w...w.......QoOqCbBc...........dW
+W......wwwww..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 5 cave 3
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W...............d..WWWWWWWWWWWWWWWWWWWWW
+W.P.....d........d.WWWWWWWWWWWWWWWWWWWWW
+W.......r...d......WWWWWWWWWWWWWWWWWWWWW
+W......r.......r.r.WWWWWWWWWWWWWWWWWWWWW
+Wd.................XWWWWWWWWWWWWWWWWWWWW
+W....r..d.d........WWWWWWWWWWWWWWWWWWWWW
+W..r.....r........dWWWWWWWWWWWWWWWWWWWWW
+W........d........dWWWWWWWWWWWWWWWWWWWWW
+Wr.................WWWWWWWWWWWWWWWWWWWWW
+W...........dd.....WWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+level 5 cave 4
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......................................W
+W.P....................................W
+W......................................W
+W......................................W
+W....xxxxxxxxxxxxxxxxxxxxxxxxxx........W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................X
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

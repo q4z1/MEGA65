@@ -1,0 +1,122 @@
+; A test file for tools/cavekit.py: every kind of object GDash draws,
+; random fills of both kinds, a map with map codes, an intermission. The
+; maps it must give are in expected.txt (written by GDash's own code).
+[BDCFF]
+Version=0.5
+[game]
+Name=cavekit test
+Author=Smaragd Dash
+Caves=4
+Levels=5
+[mapcodes]
+Length=1
+%=WALL
+[/mapcodes]
+
+[cave]
+Name=Objects
+Size=40 22 0 0 39 21
+CaveTime=150 140 130 120 110
+DiamondsRequired=12 13 14 15 16
+DiamondValue=10 15
+CaveScheduling=bd1
+PALTiming=true
+CaveDelay=12 6 3 1 0
+RandSeed=10 11 12 13 14
+RandomFill=SPACE 60 BOULDER 50 DIAMOND 9 FIREFLYl 2
+AmoebaTime=20
+MagicWallTime=15
+BorderProperties.lineshift=true
+BorderProperties.objectwraparound=true
+
+[objects]
+Line=1 7 30 7 WALL
+Line=3 9 12 17 STEELWALL
+Rectangle=14 9 20 14 WALL
+RandomFillC64=15 10 19 13 1 2 3 4 5 DIRT AMOEBA 40 BUTTERFLYd 10
+FillRect=22 9 28 14 STEELWALL MAGICWALL
+FillRect=30 9 36 12 WALL
+RandomFill=31 10 35 11 7 8 9 10 11 SPACE DIAMOND 128 BOULDER 40
+Rectangle=30 15 37 19 WALL
+BoundaryFill=33 17 DIAMOND WALL
+FillRect=14 16 20 20 WALL SPACE
+FloodFill=16 18 BOULDER SPACE
+Raster=22 16 3 3 2 2 BOULDER
+Add=1 0 DIAMOND BOULDER
+AddBackward=0 1 MAGICWALL SPACE
+CopyPaste=1 1 8 5 1 15 mirror flip
+Point=41 3 BOULDER
+[Level=2,3]
+Point=38 1 AMOEBA
+[/Level]
+Point=3 2 INBOX
+Point=39 16 OUTBOX
+[/objects]
+[/cave]
+
+[cave]
+Name=Map with codes
+Size=40 22
+CaveTime=100
+DiamondsRequired=5
+DiamondValue=5
+CaveScheduling=plck
+CaveDelay=8
+AmoebaThreshold=0.1
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WP.....%%%%%..........................rW
+W......%...%.......QoOqCbBc...........dW
+W......%%%%%..........................MW
+W.................a....................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W......................................W
+W.....................................XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[cave]
+Name=Intermission
+Size=40 22 0 0 19 11
+Intermission=true
+CaveTime=15
+DiamondsRequired=6
+DiamondValue=30
+FrameTime=120
+RandSeed=5
+RandomFill=BOULDER 40 DIAMOND 20
+[objects]
+FillRect=19 0 39 21 STEELWALL
+FillRect=0 11 39 21 STEELWALL
+Point=2 2 INBOX
+Point=19 5 OUTBOX
+[/objects]
+[/cave]
+
+[cave]
+Name=What the game has not
+Size=40 22
+CaveTime=100
+DiamondsRequired=5
+[objects]
+Line=5 5 30 5 HEXPANDINGWALL
+Point=2 2 INBOX
+Point=39 10 OUTBOX
+[/objects]
+[/cave]
+[/game]
+[/BDCFF]

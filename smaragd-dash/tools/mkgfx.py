@@ -664,6 +664,19 @@ def draw_space():
     return new_tile()
 
 
+def draw_cursor():
+    """The editor's cursor: a bright frame with a dark one inside it, so
+    it shows on every tile; the rest is transparent"""
+    t = new_tile()
+    for i in range(T):
+        for a, b in ((i, 0), (i, T - 1), (0, i), (T - 1, i)):
+            t[b][a] = hexc("fff8c0")
+        if 0 < i < T - 1:
+            for a, b in ((i, 1), (i, T - 2), (1, i), (T - 2, i)):
+                t[b][a] = hexc("301808")
+    return t
+
+
 # ---------------------------------------------------------------- font
 
 FONT5x7 = {
@@ -711,6 +724,8 @@ FONT5x7 = {
     "-": "00000 00000 00000 11111 00000 00000 00000",
     ",": "00000 00000 00000 00000 01100 00100 01000",
     "x": "00000 10001 01010 00100 01010 10001 00000",
+    "+": "00000 00100 00100 11111 00100 00100 00000",
+    "*": "00000 10101 01110 11111 01110 10101 00000",
 }
 
 # Letters that the automatic bold would clog up, drawn bold already (7 wide)
@@ -831,6 +846,7 @@ def build_tiles():
     tiles += [(f"CRUMBS{i}", draw_crumbs(i)) for i in range(3)]
     tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
     tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]
+    tiles += [("CURSOR", draw_cursor())]
     return tiles
 
 
