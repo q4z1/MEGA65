@@ -399,8 +399,8 @@ void video_logo(uint8_t col, uint8_t y) {
     dma_begin(0, 0);
     for (uint8_t c = 0; c < LOGO_W / 8; c++, src += LOGO_H * 8) {
         uint16_t dst = (col + c) * FB_COL + y * 8;
-        dma_copy(src, GFX_BANK, dst, FB_BANK_A, LOGO_H * 8);
-        dma_copy(src, GFX_BANK, dst, FB_BANK_B, LOGO_H * 8);
+        dma_copy(src, LOGO_BANK, dst, FB_BANK_A, LOGO_H * 8);
+        dma_copy(src, LOGO_BANK, dst, FB_BANK_B, LOGO_H * 8);
     }
     dma_run();
 }

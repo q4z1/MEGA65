@@ -9,8 +9,7 @@ and GDash (BDCFF, .bd files). Needs nothing but Python 3.
   cavekit.py convert <game.bd | file.cave> <out.cave | out.bd | directory>
 
 list shows the own caves on a disk (the slots OWN01, OWN02, ... that the
-game's editor saves into and plays), or the caves of a file and whether
-they can be imported.
+game's editor saves into and plays), or the caves of a file.
 
 import puts caves into the slots of the disk, from slot 1 on (or --slot N),
 over what is there. From a .bd file it takes all its caves (or --cave N or
@@ -18,101 +17,69 @@ N-M, counted from 1) in level 1 (or --level L, 1-5). A cave that cannot be
 imported is named with the reason and left out; the others are written.
 
 export writes the own caves of the disk (or --slot N-M) as a .bd file for
-GDash.
-
-empty empties all slots of the disk (or --slot N-M).
+GDash. empty empties all slots of the disk (or --slot N-M).
 
 convert turns a .bd file into .cave files (one per cave, into a
 directory, or a single one with --cave N), for building them into the
-game (caves/), or a .cave file into a .bd file.
+game (caves/) - for caves with the elements of Boulder Dash 1 only -, or
+a .cave file into a .bd file.
 
 Options for import, list and convert:
   --cave N[-M]      only these caves of the .bd file
   --level L         the level to take (1-5), default 1
-  --as NAME=C       turn the GDash element NAME (or map character) into the
-                    map character C, e.g. --as HEXPANDINGWALL=w
+  --as NAME=NAME2   put the element NAME2 in place of NAME (BDCFF names or
+                    map characters), e.g. --as HEXPANDINGWALL=WALL
 
-What the game has: the elements of Boulder Dash 1 (steel and brick wall,
-dirt, boulders, emeralds, magic wall, amoeba, fireflies, butterflies, inbox
-and exit) in a cave of 40x22 cells with a steel frame. A smaller cave
-(an intermission) goes into the top left corner, the rest is steel. GDash's
-timing is converted: the time with PAL timing in real seconds (x 1.2), the
-speed of C64 caves (CaveDelay) into milliseconds as GDash computes them.
-Objects are drawn as GDash draws them (lines, rectangles, random fills,
-...), except mazes: save such a file flat first (gdash in.bd --save-flat
-out.bd -q, from github.com/revvv/gdash-export-CrLi).
+The own caves play by GDash's rules: the game has GDash's engine for them
+(src/gdengine.c) with all its elements, and takes a cave as GDash draws
+and starts it - its objects (lines, rectangles, random fills with the
+C64's random numbers, ...), its properties and their defaults, those of
+the C64 engines (Engine=BD1, ...) included. A cave is at most 40x22 cells;
+a smaller one (an intermission) shows in the top left corner.
 
-The .cave format is described in tools/mkcave.py; its map characters are
-the ones BDCFF uses.
+The .cave format of the game's own caves is described in tools/mkcave.py;
+its map characters are the ones BDCFF uses.
 """
 
 import os
 import re
+import struct
 import sys
 
 W, H = 40, 22
 NAME_LEN = 21          # what the status line has room for
-NAME_FIELD = 24        # bytes 8-31 of a cave file
+NAME_FIELD = 24        # the name's bytes in a cave file
 NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /:.!-,"  # the game's font
 SLOT = "OWN"           # the slots on the disk: OWN01, OWN02, ...
 LEVELS = 5             # BDCFF's
-
-# The engine's codes (src/engine.h; mkcave.py checks them against it)
-CODES = {"E_SPACE": 0, "E_DIRT": 1, "E_BRICK": 2, "E_STEEL": 3, "E_BOULDER": 4,
-         "E_DIAMOND": 6, "E_INBOX": 9, "E_OUTBOX": 10, "E_MAGIC": 12, "E_AMOEBA": 13,
-         "E_FIREFLY": 14, "E_BUTTERFLY": 18,
-         "DIR_UP": 0, "DIR_RIGHT": 1, "DIR_DOWN": 2, "DIR_LEFT": 3}
-
-# The elements of the game: map character (BDCFF's), GDash's name, the
-# engine's code, and the C64 time it took per cell in microseconds (GDash's
-# "ckdelay", for the speed of C64 caves)
-ELEMENTS = [
-    (" ", "SPACE", "E_SPACE", 0),
-    (".", "DIRT", "E_DIRT", 0),
-    ("w", "WALL", "E_BRICK", 0),
-    ("W", "STEELWALL", "E_STEEL", 0),
-    ("r", "BOULDER", "E_BOULDER", 156),
-    ("d", "DIAMOND", "E_DIAMOND", 156),
-    ("P", "INBOX", "E_INBOX", 0),
-    ("X", "OUTBOX", "E_OUTBOX", 0),
-    ("M", "MAGICWALL", "E_MAGIC", 0),
-    ("a", "AMOEBA", "E_AMOEBA", 260),
-    ("Q", "FIREFLYl", "E_FIREFLY + DIR_LEFT", 384),
-    ("o", "FIREFLYu", "E_FIREFLY + DIR_UP", 384),
-    ("O", "FIREFLYr", "E_FIREFLY + DIR_RIGHT", 384),
-    ("q", "FIREFLYd", "E_FIREFLY + DIR_DOWN", 384),
-    ("C", "BUTTERFLYl", "E_BUTTERFLY + DIR_LEFT", 384),
-    ("b", "BUTTERFLYu", "E_BUTTERFLY + DIR_UP", 384),
-    ("B", "BUTTERFLYr", "E_BUTTERFLY + DIR_RIGHT", 384),
-    ("c", "BUTTERFLYd", "E_BUTTERFLY + DIR_DOWN", 384),
-]
-CHAR_EXPR = {c: expr for c, _, expr, _ in ELEMENTS}
-CHAR_CODE = {c: eval(expr, {}, CODES) for c, expr in CHAR_EXPR.items()}
-CODE_CHAR = {v: c for c, v in CHAR_CODE.items()}
-CHAR_NAME = {c: name for c, name, _, _ in ELEMENTS}
-CKDELAY = {c: d for c, _, _, d in ELEMENTS}
-
-# GDash's names (upper case: it compares them so) for what the game has
-NAME_CHAR = {name.upper(): c for c, name, _, _ in ELEMENTS}
-# Other states of the same things: falling, open, hidden, the player
-NAME_CHAR.update({"DIRT2": ".", "BOULDERF": "r", "FALLING_BOULDER": "r", "DIAMONDF": "d",
-                  "FALLING_DIAMOND": "d", "OUTBOXOPEN": "X", "HIDDENOUTBOX": "X",
-                  "HIDDENOUTBOXOPEN": "X", "GUY": "P", "GUYBIRTH1": "P", "GUYBIRTH2": "P",
-                  "GUYBIRTH3": "P"})
-# GDash's map characters for elements the game does not have
-OTHER_CHARS = {"E": "STEELWALLDESTRUCTABLE", "x": "HEXPANDINGWALL", "v": "VEXPANDINGWALL",
-               "e": "EXPANDINGWALL", "G": "GRAVESTONE", "F": "DUMMY", "s": "SLIME", "g": "GHOST",
-               "R": "BOULDERf", "D": "DIAMONDf", "H": "HIDDENOUTBOX"}
 
 
 class CaveError(Exception):
     pass
 
 
-# ---------------------------------------------------------------- caves
+# ---------------------------------------------------------------- the game's own caves (.cave)
+
+# The codes of the game's own engine (src/engine.h; mkcave.py checks them)
+CODES = {"E_SPACE": 0, "E_DIRT": 1, "E_BRICK": 2, "E_STEEL": 3, "E_BOULDER": 4,
+         "E_DIAMOND": 6, "E_INBOX": 9, "E_OUTBOX": 10, "E_MAGIC": 12, "E_AMOEBA": 13,
+         "E_FIREFLY": 14, "E_BUTTERFLY": 18,
+         "DIR_UP": 0, "DIR_RIGHT": 1, "DIR_DOWN": 2, "DIR_LEFT": 3}
+
+# Its elements: map character (BDCFF's), the engine's code
+ELEMENTS = [
+    (" ", "E_SPACE"), (".", "E_DIRT"), ("w", "E_BRICK"), ("W", "E_STEEL"), ("r", "E_BOULDER"),
+    ("d", "E_DIAMOND"), ("P", "E_INBOX"), ("X", "E_OUTBOX"), ("M", "E_MAGIC"), ("a", "E_AMOEBA"),
+    ("Q", "E_FIREFLY + DIR_LEFT"), ("o", "E_FIREFLY + DIR_UP"), ("O", "E_FIREFLY + DIR_RIGHT"),
+    ("q", "E_FIREFLY + DIR_DOWN"), ("C", "E_BUTTERFLY + DIR_LEFT"), ("b", "E_BUTTERFLY + DIR_UP"),
+    ("B", "E_BUTTERFLY + DIR_RIGHT"), ("c", "E_BUTTERFLY + DIR_DOWN"),
+]
+CHAR_EXPR = dict(ELEMENTS)
+CHAR_CODE = {c: eval(expr, {}, CODES) for c, expr in CHAR_EXPR.items()}
+
 
 class Cave:
-    """A cave as the game plays it: one level, 40x22 map characters"""
+    """A cave of the game's own (.cave): one level, 40x22 map characters"""
 
     def __init__(self, name="", time=150, diamonds=10, value=10, extra=15, speed=160,
                  amoeba=0, magic=0, cells=None):
@@ -120,7 +87,7 @@ class Cave:
         self.value, self.extra, self.speed = value, extra, speed
         self.amoeba, self.magic = amoeba, magic
         self.cells = cells or empty_map()
-        self.notes = []  # what was changed on the way, for the user
+        self.notes = []
 
     def rows(self):
         return ["".join(self.cells[y * W:(y + 1) * W]) for y in range(H)]
@@ -142,7 +109,7 @@ def clean_name(name):
 
 
 def check_map(cells):
-    """Errors of a map the game cannot play (none: it can)"""
+    """Errors of a map the game's own engine cannot play (none: it can)"""
     errors = []
     if len(cells) != W * H:
         return [f"the map must be {W}x{H}"]
@@ -157,44 +124,6 @@ def check_map(cells):
         errors.append("an exit (X) is needed")
     return errors
 
-
-def check_cave(cave):
-    """Errors of the cave's numbers and map"""
-    errors = check_map(cave.cells)
-    for key, lo, hi in (("time", 1, 999), ("diamonds", 0, 255), ("value", 0, 255), ("extra", 0, 255),
-                        ("speed", 20, 255), ("amoeba", 0, 255), ("magic", 0, 255)):
-        if not lo <= getattr(cave, key) <= hi:
-            errors.append(f"{key} must be {lo}-{hi}, not {getattr(cave, key)}")
-    if len(cave.name) > NAME_LEN or any(c not in NAME_CHARS for c in cave.name):
-        errors.append(f"the name must be at most {NAME_LEN} of {NAME_CHARS.strip()}")
-    return errors
-
-
-# The file the game loads (src/main.c, cave_file): after two bytes of load
-# address the time (2 bytes), diamonds, value, extra, amoeba, magic, speed,
-# the name (24 bytes, closed by 0) and the map as E_* codes.
-
-def cave_bytes(cave):
-    errors = check_cave(cave)
-    if errors:
-        raise CaveError("; ".join(errors))
-    head = bytes([cave.time & 255, cave.time >> 8, cave.diamonds, cave.value, cave.extra,
-                  cave.amoeba, cave.magic, cave.speed])
-    return head + cave.name.encode("ascii").ljust(NAME_FIELD, b"\0") + bytes(CHAR_CODE[c] for c in cave.cells)
-
-
-def cave_from_bytes(data):
-    """The cave of a file's contents (without load address), or None for
-    an empty slot"""
-    time = data[0] | data[1] << 8
-    if not time:
-        return None
-    name = data[8:8 + NAME_FIELD].split(b"\0")[0].decode("ascii", "replace")
-    cells = [CODE_CHAR.get(b, "?") for b in data[32:32 + W * H]]
-    return Cave(name, time, data[2], data[3], data[4], data[7], data[5], data[6], cells)
-
-
-# ---------------------------------------------------------------- .cave files
 
 CAVE_KEYS = ("name", "time", "diamonds", "value", "extra", "speed", "amoeba", "magic", "demo", "shuffle")
 
@@ -229,6 +158,9 @@ def read_cave_file(path):
     cave = Cave(clean_name(keys.get("name", "")), first("time", "150"), first("diamonds", "10"),
                 first("value", "10"), first("extra", "15"), first("speed", "160"),
                 first("amoeba", "0"), first("magic", "0"), list("".join(rows)))
+    errors = check_map(cave.cells)
+    if errors:
+        raise CaveError(f"{path}: {errors[0]}")
     return cave
 
 
@@ -246,14 +178,775 @@ def write_cave_file(path, cave, source=""):
         f.write("map:\n" + "\n".join(cave.rows()) + "\n")
 
 
+# ---------------------------------------------------------------- GDash's tables
+
+# The tables below are GDash's (https://github.com/revvv/gdash-export-CrLi,
+# MIT license, Copyright (c) 2007-2018 GDash Project), written out by its own
+# code: its elements, and the properties of its caves with their defaults.
+#
+# An element per line: its code here (GDash's order, without its "scanned"
+# twins), its name in GDash's code (O_...), its name in BDCFF files, its map
+# character (0: none), its flags (P_* below), the time the C64 took for it in
+# microseconds (for the speed of C64 caves), what a pneumatic hammer makes of
+# it (255: nothing).
+
+GD_ELEMENTS = """\
+0 SPACE SPACE 32 64 0 255
+1 DIRT DIRT 46 32960 0 255
+2 DIRT_SLOPED_UP_RIGHT DIRTSLOPEDUPRIGHT 0 204 0 255
+3 DIRT_SLOPED_UP_LEFT DIRTSLOPEDUPLEFT 0 202 0 255
+4 DIRT_SLOPED_DOWN_LEFT DIRTSLOPEDDOWNLEFT 0 210 0 255
+5 DIRT_SLOPED_DOWN_RIGHT DIRTSLOPEDDOWNRIGHT 0 212 0 255
+6 DIRT_BALL DIRTBALL 0 131294 120 255
+7 DIRT_BALL_F DIRTBALLf 0 0 120 255
+8 DIRT_LOOSE DIRTLOOSE 0 131264 60 255
+9 DIRT_LOOSE_F DIRTLOOSEf 0 0 60 255
+10 DIRT2 DIRT2 0 192 0 255
+11 BRICK WALL 119 8254 0 0
+12 BRICK_SLOPED_UP_RIGHT WALLSLOPEDUPRIGHT 0 8236 0 0
+13 BRICK_SLOPED_UP_LEFT WALLSLOPEDUPLEFT 0 8234 0 0
+14 BRICK_SLOPED_DOWN_LEFT WALLSLOPEDDOWNLEFT 0 8242 0 0
+15 BRICK_SLOPED_DOWN_RIGHT WALLSLOPEDDOWNRIGHT 0 8244 0 0
+16 BRICK_NON_SLOPED WALLNONSLOPED 0 8192 0 0
+17 MAGIC_WALL MAGICWALL 77 8192 0 0
+18 PRE_OUTBOX OUTBOX 88 0 0 255
+19 OUTBOX OUTBOXopen 0 0 0 255
+20 PRE_INVIS_OUTBOX HIDDENOUTBOX 72 0 0 255
+21 INVIS_OUTBOX HIDDENOUTBOXopen 0 0 0 255
+22 STEEL STEELWALL 87 2048 0 255
+23 STEEL_SLOPED_UP_RIGHT STEELWALLSLOPEDUPRIGHT 0 2060 0 255
+24 STEEL_SLOPED_UP_LEFT STEELWALLSLOPEDUPLEFT 0 2058 0 255
+25 STEEL_SLOPED_DOWN_LEFT STEELWALLSLOPEDDOWNLEFT 0 2066 0 255
+26 STEEL_SLOPED_DOWN_RIGHT STEELWALLSLOPEDDOWNRIGHT 0 2068 0 255
+27 STEEL_EXPLODABLE STEELWALLDESTRUCTABLE 69 8192 0 0
+28 STEEL_EATABLE STEELWALLEATABLE 0 0 0 255
+29 BRICK_EATABLE WALLEATABLE 0 0 0 255
+30 STONE BOULDER 114 147486 156 255
+31 STONE_F BOULDERf 82 0 156 255
+32 FLYING_STONE FLYINGBOULDER 0 278558 156 255
+33 FLYING_STONE_F FLYINGBOULDERf 0 0 156 255
+34 MEGA_STONE MEGABOULDER 0 147486 156 255
+35 MEGA_STONE_F MEGABOULDERf 0 0 156 255
+36 DIAMOND DIAMOND 100 131102 156 255
+37 DIAMOND_F DIAMONDf 68 0 156 255
+38 FLYING_DIAMOND FLYINGDIAMOND 0 262174 156 255
+39 FLYING_DIAMOND_F FLYINGDIAMONDf 0 0 156 255
+40 NUT NUT 0 147486 156 255
+41 NUT_F NUTf 0 0 0 255
+42 BLADDER_SPENDER BLADDERSPENDER 0 0 20 255
+43 INBOX INBOX 80 0 0 255
+44 H_EXPANDING_WALL HEXPANDINGWALL 120 40960 111 0
+45 V_EXPANDING_WALL VEXPANDINGWALL 118 40960 111 0
+46 EXPANDING_WALL EXPANDINGWALL 101 40960 111 0
+47 H_EXPANDING_STEEL_WALL HEXPANDINGSTEELWALL 0 2048 111 255
+48 V_EXPANDING_STEEL_WALL VEXPANDINGSTEELWALL 0 2048 111 255
+49 EXPANDING_STEEL_WALL EXPANDINGSTEELWALL 0 2048 111 255
+50 EXPANDING_WALL_SWITCH EXPANDINGWALLSWITCH 0 0 0 255
+51 CREATURE_SWITCH FIREFLYBUTTERFLYSWITCH 0 0 0 255
+52 BITER_SWITCH BITERSWITCH 0 0 0 255
+53 REPLICATOR_SWITCH REPLICATORSWITCH 0 0 0 255
+54 CONVEYOR_SWITCH CONVEYORSWITCH 0 0 0 255
+55 CONVEYOR_DIR_SWITCH CONVEYORDIRECTIONSWITCH 0 0 0 255
+56 ACID ACID 0 0 128 255
+57 FALLING_WALL FALLINGWALL 0 8192 80 0
+58 FALLING_WALL_F FALLINGWALLf 0 8192 80 0
+59 BOX SOKOBANBOX 0 16384 0 255
+60 TIME_PENALTY TIMEPENALTY 0 2048 0 255
+61 GRAVESTONE GRAVESTONE 71 2048 0 255
+62 STONE_GLUED GLUEDBOULDER 0 30 0 255
+63 DIAMOND_GLUED GLUEDDIAMOND 0 30 0 255
+64 DIAMOND_KEY DIAMONDRELEASEKEY 0 0 0 255
+65 TRAPPED_DIAMOND TRAPPEDDIAMOND 0 2048 0 255
+66 CLOCK CLOCK 0 0 0 255
+67 DIRT_GLUED GLUEDDIRT 0 0 0 255
+68 KEY_1 KEY1 0 0 0 255
+69 KEY_2 KEY2 0 0 0 255
+70 KEY_3 KEY3 0 0 0 255
+71 DOOR_1 DOOR1 0 0 0 255
+72 DOOR_2 DOOR2 0 0 0 255
+73 DOOR_3 DOOR3 0 0 0 255
+74 POT POT 0 0 0 255
+75 GRAVITY_SWITCH GRAVITY_SWITCH 0 0 0 255
+76 PNEUMATIC_HAMMER PNEUMATIC_HAMMER 0 0 0 255
+77 TELEPORTER TELEPORTER 0 0 0 255
+78 SKELETON SKELETON 0 0 0 255
+79 WATER WATER 0 0 100 255
+80 WATER_1 WATER1 0 0 0 255
+81 WATER_2 WATER2 0 0 0 255
+82 WATER_3 WATER3 0 0 0 255
+83 WATER_4 WATER4 0 0 0 255
+84 WATER_5 WATER5 0 0 0 255
+85 WATER_6 WATER6 0 0 0 255
+86 WATER_7 WATER7 0 0 0 255
+87 WATER_8 WATER8 0 0 0 255
+88 WATER_9 WATER9 0 0 0 255
+89 WATER_10 WATER10 0 0 0 255
+90 WATER_11 WATER11 0 0 0 255
+91 WATER_12 WATER12 0 0 0 255
+92 WATER_13 WATER13 0 0 0 255
+93 WATER_14 WATER14 0 0 0 255
+94 WATER_15 WATER15 0 0 0 255
+95 WATER_16 WATER16 0 0 0 255
+96 COW_1 COWl 0 4096 384 255
+97 COW_2 COWu 0 4096 384 255
+98 COW_3 COWr 0 4096 384 255
+99 COW_4 COWd 0 4096 384 255
+100 COW_ENCLOSED_1 COW_ENCLOSED1 0 0 120 255
+101 COW_ENCLOSED_2 COW_ENCLOSED2 0 0 120 255
+102 COW_ENCLOSED_3 COW_ENCLOSED3 0 0 120 255
+103 COW_ENCLOSED_4 COW_ENCLOSED4 0 0 120 255
+104 COW_ENCLOSED_5 COW_ENCLOSED5 0 0 120 255
+105 COW_ENCLOSED_6 COW_ENCLOSED6 0 0 120 255
+106 COW_ENCLOSED_7 COW_ENCLOSED7 0 0 120 255
+107 WALLED_DIAMOND WALLED_DIAMOND 0 8192 0 36
+108 WALLED_KEY_1 WALLED_KEY1 0 8192 0 68
+109 WALLED_KEY_2 WALLED_KEY2 0 8192 0 69
+110 WALLED_KEY_3 WALLED_KEY3 0 8192 0 70
+111 AMOEBA AMOEBA 97 256 260 255
+112 AMOEBA_2 AMOEBA2 0 33024 260 255
+113 REPLICATOR REPLICATOR 0 2048 210 255
+114 CONVEYOR_LEFT CONVEYORLEFT 0 2048 256 255
+115 CONVEYOR_RIGHT CONVEYORRIGHT 0 2048 0 255
+116 LAVA LAVA 0 2048 0 255
+117 SWEET SWEET 0 0 0 255
+118 VOODOO DUMMY 70 256 0 255
+119 SLIME SLIME 115 0 211 255
+120 BLADDER BLADDER 0 0 267 255
+121 BLADDER_1 BLADDERd1 0 0 0 255
+122 BLADDER_2 BLADDERd2 0 0 0 255
+123 BLADDER_3 BLADDERd3 0 0 0 255
+124 BLADDER_4 BLADDERd4 0 0 0 255
+125 BLADDER_5 BLADDERd5 0 0 0 255
+126 BLADDER_6 BLADDERd6 0 0 0 255
+127 BLADDER_7 BLADDERd7 0 0 0 255
+128 BLADDER_8 BLADDERd8 0 0 0 255
+129 WAITING_STONE WAITINGBOULDER 0 16414 176 255
+130 CHASING_STONE CHASINGBOULDER 0 16414 269 255
+131 GHOST GHOST 103 0 50 255
+132 FIREFLY_1 FIREFLYl 81 4608 384 255
+133 FIREFLY_2 FIREFLYu 111 4608 384 255
+134 FIREFLY_3 FIREFLYr 79 4608 384 255
+135 FIREFLY_4 FIREFLYd 113 4608 384 255
+136 ALT_FIREFLY_1 A_FIREFLYl 0 512 384 255
+137 ALT_FIREFLY_2 A_FIREFLYu 0 512 384 255
+138 ALT_FIREFLY_3 A_FIREFLYr 0 512 384 255
+139 ALT_FIREFLY_4 A_FIREFLYd 0 512 384 255
+140 BUTTER_1 BUTTERFLYl 67 512 384 255
+141 BUTTER_2 BUTTERFLYu 98 512 384 255
+142 BUTTER_3 BUTTERFLYr 66 512 384 255
+143 BUTTER_4 BUTTERFLYd 99 512 384 255
+144 ALT_BUTTER_1 A_BUTTERFLYl 0 4608 384 255
+145 ALT_BUTTER_2 A_BUTTERFLYu 0 4608 384 255
+146 ALT_BUTTER_3 A_BUTTERFLYr 0 4608 384 255
+147 ALT_BUTTER_4 A_BUTTERFLYd 0 4608 384 255
+148 STONEFLY_1 STONEFLYl 0 512 384 255
+149 STONEFLY_2 STONEFLYu 0 512 384 255
+150 STONEFLY_3 STONEFLYr 0 512 384 255
+151 STONEFLY_4 STONEFLYd 0 512 384 255
+152 BITER_1 BITERu 0 0 518 255
+153 BITER_2 BITERr 0 0 518 255
+154 BITER_3 BITERd 0 0 518 255
+155 BITER_4 BITERl 0 0 518 255
+156 DRAGONFLY_1 DRAGONFLYl 0 4608 256 255
+157 DRAGONFLY_2 DRAGONFLYu 0 4608 256 255
+158 DRAGONFLY_3 DRAGONFLYr 0 4608 256 255
+159 DRAGONFLY_4 DRAGONFLYd 0 4608 256 255
+160 PRE_PL_1 GUYBIRTH1 0 65536 0 255
+161 PRE_PL_2 GUYBIRTH2 0 65536 0 255
+162 PRE_PL_3 GUYBIRTH3 0 65536 0 255
+163 PLAYER GUY 0 66304 32 255
+164 PLAYER_BOMB GUYBOMB 0 66304 25 255
+165 PLAYER_ROCKET_LAUNCHER GUYROCKETLAUNCER 0 66304 25 255
+166 PLAYER_GLUED GUYGLUED 0 768 0 255
+167 PLAYER_STIRRING GUYSTIRRING 0 66304 0 255
+168 ROCKET_LAUNCHER ROCKET_LAUNCHER 0 0 0 255
+169 ROCKET_1 ROCKETr 0 0 40 255
+170 ROCKET_2 ROCKETu 0 0 40 255
+171 ROCKET_3 ROCKETl 0 0 40 255
+172 ROCKET_4 ROCKETd 0 0 40 255
+173 BOMB BOMB 0 0 0 255
+174 BOMB_TICK_1 IGNITEDBOMB1 0 1024 0 255
+175 BOMB_TICK_2 IGNITEDBOMB2 0 0 0 255
+176 BOMB_TICK_3 IGNITEDBOMB3 0 0 0 255
+177 BOMB_TICK_4 IGNITEDBOMB4 0 0 0 255
+178 BOMB_TICK_5 IGNITEDBOMB5 0 0 0 255
+179 BOMB_TICK_6 IGNITEDBOMB6 0 0 0 255
+180 BOMB_TICK_7 IGNITEDBOMB7 0 0 0 255
+181 NITRO_PACK NITRO 0 147998 0 255
+182 NITRO_PACK_F NITROf 0 512 0 255
+183 NITRO_PACK_EXPLODE NITROtriggered 0 512 0 255
+184 PRE_CLOCK_1 CLOCKBIRTH1 0 0 280 255
+185 PRE_CLOCK_2 CLOCKBIRTH2 0 0 280 255
+186 PRE_CLOCK_3 CLOCKBIRTH3 0 0 280 255
+187 PRE_CLOCK_4 CLOCKBIRTH4 0 0 280 255
+188 PRE_DIA_1 DIAMONDBIRTH1 0 1024 280 255
+189 PRE_DIA_2 DIAMONDBIRTH2 0 0 280 255
+190 PRE_DIA_3 DIAMONDBIRTH3 0 0 280 255
+191 PRE_DIA_4 DIAMONDBIRTH4 0 0 280 255
+192 PRE_DIA_5 DIAMONDBIRTH5 0 0 280 255
+193 EXPLODE_1 EXPLOSION1 0 1024 280 255
+194 EXPLODE_2 EXPLOSION2 0 0 280 255
+195 EXPLODE_3 EXPLOSION3 0 0 280 255
+196 EXPLODE_4 EXPLOSION4 0 0 280 255
+197 EXPLODE_5 EXPLOSION5 0 0 280 255
+198 PRE_STONE_1 BOULDERBIRTH1 0 0 280 255
+199 PRE_STONE_2 BOULDERBIRTH2 0 0 280 255
+200 PRE_STONE_3 BOULDERBIRTH3 0 0 280 255
+201 PRE_STONE_4 BOULDERBIRTH4 0 0 280 255
+202 PRE_STEEL_1 STEELWALLBIRTH1 0 0 280 255
+203 PRE_STEEL_2 STEELWALLBIRTH2 0 0 280 255
+204 PRE_STEEL_3 STEELWALLBIRTH3 0 0 280 255
+205 PRE_STEEL_4 STEELWALLBIRTH4 0 0 280 255
+206 GHOST_EXPL_1 GHOSTEXPLOSION1 0 0 280 255
+207 GHOST_EXPL_2 GHOSTEXPLOSION2 0 0 280 255
+208 GHOST_EXPL_3 GHOSTEXPLOSION3 0 0 280 255
+209 GHOST_EXPL_4 GHOSTEXPLOSION4 0 0 280 255
+210 BOMB_EXPL_1 BOMBEXPLOSION1 0 0 280 255
+211 BOMB_EXPL_2 BOMBEXPLOSION2 0 0 280 255
+212 BOMB_EXPL_3 BOMBEXPLOSION3 0 0 280 255
+213 BOMB_EXPL_4 BOMBEXPLOSION4 0 0 280 255
+214 NITRO_EXPL_1 NITROEXPLOSION1 0 0 280 255
+215 NITRO_EXPL_2 NITROEXPLOSION2 0 0 280 255
+216 NITRO_EXPL_3 NITROEXPLOSION3 0 0 280 255
+217 NITRO_EXPL_4 NITROEXPLOSION4 0 0 280 255
+218 AMOEBA_2_EXPL_1 AMOEBA2EXPLOSION1 0 0 280 255
+219 AMOEBA_2_EXPL_2 AMOEBA2EXPLOSION2 0 0 280 255
+220 AMOEBA_2_EXPL_3 AMOEBA2EXPLOSION3 0 0 280 255
+221 AMOEBA_2_EXPL_4 AMOEBA2EXPLOSION4 0 0 280 255
+222 NUT_CRACK_1 NUTCRACK1 0 30 280 255
+223 NUT_CRACK_2 NUTCRACK2 0 30 280 255
+224 NUT_CRACK_3 NUTCRACK3 0 30 280 255
+225 NUT_CRACK_4 NUTCRACK4 0 30 280 255
+226 PLAYER_PNEUMATIC_LEFT GUYHAMMERl 0 66304 0 255
+227 PLAYER_PNEUMATIC_RIGHT GUYHAMMERr 0 66304 0 255
+228 PNEUMATIC_ACTIVE_LEFT HAMMERACTIVEl 0 0 0 255
+229 PNEUMATIC_ACTIVE_RIGHT HAMMERACTIVEr 0 0 0 255
+230 UNKNOWN UNKNOWN 0 2048 0 255
+231 NONE NONE 0 0 0 255
+"""
+
+# A property of a cave per line: GDash's name of it, its name in BDCFF files
+# (-: none), its type (GD_* below), its flags (32: a part of the cave's
+# size), the number of values (5: one per level), the default, then what the
+# engines BD1, BD2, PLCK, 1stB, CrDr and CrLi set it to (.: they do not).
+
+GD_PROPERTIES = """\
+selectable Selectable 6 0 1 1 . . . . . .
+intermission_instantlife IntermissionProperties.instantlife 6 0 1 0 1 1 1 0 0 0
+intermission Intermission 6 1 1 0 . . . . . .
+intermission_rewardlife IntermissionProperties.rewardlife 6 0 1 1 0 0 0 1 1 1
+w Size 2 1 1 40 . . . . . .
+h Size 2 1 1 22 . . . . . .
+x1 Size 2 5 1 0 . . . . . .
+y1 Size 2 5 1 0 . . . . . .
+x2 Size 2 5 1 39 . . . . . .
+y2 Size 2 5 1 21 . . . . . .
+level_diamonds DiamondsRequired 3 1 5 10,10,10,10,10 . . . . . .
+level_time CaveTime 3 1 5 999,999,999,999,999 . . . . . .
+max_time CaveMaxTime 2 0 1 999 999 999 999 999 999 999
+scheduling CaveScheduling 13 1 1 0 1 2 3 3 4 3
+pal_timing PALTiming 6 0 1 0 1 1 1 1 1 1
+level_speed FrameTime 3 1 5 180,160,140,120,120 . . . . . .
+level_hatching_delay_frame HatchingDelay 3 0 5 21,21,21,21,21 . . . . . .
+level_ckdelay CaveDelay 3 1 5 0,0,0,0,0 12,6,3,1,0 9,8,7,6,6 . . . .
+level_hatching_delay_time HatchingTime 3 0 5 2,2,2,2,2 2,2,2,2,2 2,2,2,2,2 2,2,2,2,2 2,2,2,2,2 2,2,2,2,2 2,2,2,2,2
+level_timevalue TimeValue 3 0 5 1,2,3,4,5 . . . . . .
+diamond_value DiamondValue 2 1 1 0 . . . . . .
+extra_diamond_value DiamondValue 2 1 1 0 . . . . . .
+level_rand RandSeed 3 4 5 0,1,2,3,4 . . . . . .
+initial_border InitialBorder 9 4 1 22 . . . . . .
+initial_fill InitialFill 9 4 1 1 . . . . . .
+random_fill_1 RandomFill 9 4 1 1 . . . . . .
+random_fill_probability_1 RandomFill 2 4 1 0 . . . . . .
+random_fill_2 RandomFill 9 4 1 1 . . . . . .
+random_fill_probability_2 RandomFill 2 4 1 0 . . . . . .
+random_fill_3 RandomFill 9 4 1 1 . . . . . .
+random_fill_probability_3 RandomFill 2 4 1 0 . . . . . .
+random_fill_4 RandomFill 9 4 1 1 . . . . . .
+random_fill_probability_4 RandomFill 2 4 1 0 . . . . . .
+diagonal_movements DiagonalMovement 6 0 1 0 0 0 0 . . .
+active_is_first_found ActiveGuyIsFirst 6 0 1 1 0 0 0 1 1 1
+snap_element SnapEffect 9 0 1 0 0 0 0 0 0 .
+pushing_stone_prob PushingBoulderProb 4 0 1 250000 250000 250000 250000 250000 250000 250000
+pushing_stone_prob_sweet PushingBoulderProb 4 0 1 1000000 1000000 1000000 1000000 1000000 1000000 1000000
+mega_stones_pushable_with_sweet PushingMegaStonesAfterSweet 6 0 1 0 . . . . . .
+infinite_rockets RocketLauncher.infinite 6 0 1 0 . . . . . .
+pneumatic_hammer_frame PneumaticHammer.frames 2 0 1 5 . . . . . .
+hammered_walls_reappear PneumaticHammer.wallsreappear 6 0 1 0 . . . . . .
+hammered_wall_reappear_frame PneumaticHammer.wallsreappearframes 2 0 1 100 . . . . . .
+level_bonus_time BonusTime 3 0 5 30,30,30,30,30 . . . . . .
+voodoo_collects_diamonds DummyProperties.diamondcollector 6 0 1 0 0 0 0 1 1 1
+voodoo_dies_by_stone DummyProperties.penalty 6 0 1 0 0 0 0 1 1 1
+voodoo_disappear_in_explosion DummyProperties.destructable 6 0 1 1 1 1 1 1 1 1
+voodoo_any_hurt_kills_player DummyProperties.alwayskillsplayer 6 0 1 0 0 0 0 0 0 0
+level_penalty_time PenaltyTime 3 0 5 30,30,30,30,30 . . . . . .
+amoeba_timer_started_immediately AmoebaProperties.immediately 6 0 1 1 1 0 0 0 0 0
+amoeba_timer_wait_for_hatching AmoebaProperties.waitforhatching 6 0 1 0 0 0 0 1 1 1
+level_amoeba_threshold AmoebaThreshold 3 32 5 200,200,200,200,200 200,200,200,200,200 200,200,200,200,200 . . . .
+level_amoeba_time AmoebaTime 3 0 5 999,999,999,999,999 . . . . . .
+amoeba_growth_prob AmoebaGrowthProb 4 0 1 31250 31250 31250 31250 31250 31250 31250
+amoeba_fast_growth_prob AmoebaGrowthProb 4 0 1 250000 250000 250000 250000 250000 250000 250000
+amoeba_too_big_effect AMOEBABOULDEReffect 10 0 1 30 . . . . . .
+amoeba_enclosed_effect AMOEBADIAMONDeffect 10 0 1 36 . . . 188 188 188
+level_amoeba_2_threshold Amoeba2Threshold 3 32 5 200,200,200,200,200 . . . . . .
+level_amoeba_2_time Amoeba2Time 3 0 5 999,999,999,999,999 . . . . . .
+amoeba_2_growth_prob Amoeba2GrowthProb 4 0 1 31250 . . . . . .
+amoeba_2_fast_growth_prob Amoeba2GrowthProb 4 0 1 250000 . . . . . .
+amoeba_2_explodes_by_amoeba Amoeba2Properties.explode 6 0 1 1 . . . . . .
+amoeba_2_explosion_effect AMOEBA2EXPLOSIONeffect 10 0 1 0 . . . . . .
+amoeba_2_too_big_effect AMOEBA2BOULDEReffect 10 0 1 30 . . . . . .
+amoeba_2_enclosed_effect AMOEBA2DIAMONDeffect 10 0 1 36 . . . . . .
+amoeba_2_looks_like AMOEBA2LOOKSLIKEeffect 10 0 1 112 . . . . . .
+level_magic_wall_time MagicWallTime 3 0 5 999,999,999,999,999 . . . . . .
+magic_timer_zero_is_infinite MagicWallProperties.zeroisinfinite 6 0 1 1 1 1 1 1 0 0
+magic_timer_wait_for_hatching MagicWallProperties.waitforhatching 6 0 1 0 0 0 0 1 1 1
+magic_diamond_to MagicWallProperties 9 0 1 31 . . . . . .
+magic_stone_to MagicWallProperties 9 0 1 37 . . . . . .
+magic_mega_stone_to MagicWallProperties.megastoneto 9 0 1 182 . . . . . .
+magic_nitro_pack_to MagicWallProperties.nitropackto 9 0 1 35 . . . . . .
+magic_nut_to MagicWallProperties.nutto 9 0 1 41 . . . . . .
+magic_flying_stone_to MagicWallProperties.flyingstoneto 9 0 1 39 . . . . . .
+magic_flying_diamond_to MagicWallProperties.flyingdiamondto 9 0 1 33 . . . . . .
+magic_wall_stops_amoeba MagicWallProperties.convertamoeba 6 0 1 1 0 0 0 . . .
+magic_wall_breakscan MagicWallProperties.breakscan 6 0 1 0 1 . . . . .
+slime_predictable - 6 2 1 1 1 1 . 1 1 1
+level_slime_permeability SlimePermeability 5 1 5 1000000,1000000,1000000,1000000,1000000 . . . . . .
+level_slime_permeability_c64 SlimePermeabilityC64 3 1 5 0,0,0,0,0 . . . . . .
+level_slime_seed_c64 SlimePredictableC64.seed 3 0 5 -1,-1,-1,-1,-1 . . . . . .
+slime_eats_1 SlimeProperties 9 0 1 36 . . . . . .
+slime_converts_1 SlimeProperties 9 0 1 37 . . . . . .
+slime_eats_2 SlimeProperties 9 0 1 30 . . . . . .
+slime_converts_2 SlimeProperties 9 0 1 31 . . . . . .
+slime_eats_3 SlimeProperties 9 0 1 40 . . . . . .
+slime_converts_3 SlimeProperties 9 0 1 41 . . . . . .
+acid_eats_this AcidProperties 9 0 1 1 . . . . . .
+acid_spread_ratio AcidProperties 4 0 1 31250 . . . . . .
+acid_turns_to ACIDEffect 10 0 1 195 . . . . . .
+biter_delay_frame BiterProperties 2 0 1 0 . . . . . .
+biter_eat BiterProperties 9 0 1 36 . . . . . .
+bladder_converts_by BladderProperties 9 0 1 118 . . . . . .
+expanding_wall_changed ExpandingWallDirection.changed 6 0 1 0 . . . . . .
+replicators_active ReplicatorActive 6 0 1 1 . . . . . .
+replicator_delay_frame ReplicatorDelayFrame 2 0 1 4 . . . . . .
+conveyor_belts_active ConveyorBeltActive 6 0 1 1 . . . . . .
+conveyor_belts_direction_changed ConveyorBeltDirection.changed 6 0 1 0 . . . . . .
+water_does_not_flow_down WaterProperties.doesnotflowdown 6 0 1 0 . . . . 1 .
+nut_turns_to_when_crushed Nut.whencrushed 9 0 1 222 . . . . . .
+stone_falling_effect BOULDERfallingeffect 10 0 1 31 . . . . . .
+stone_bouncing_effect BOULDERbouncingeffect 10 0 1 30 . . . . . .
+diamond_falling_effect DIAMONDfallingeffect 10 0 1 37 . . . . . .
+diamond_bouncing_effect DIAMONDbouncingeffect 10 0 1 36 . . . . . .
+firefly_explode_to FireflyExplodeTo 9 0 1 193 . . . . . .
+alt_firefly_explode_to AltFireflyExplodeTo 9 0 1 193 . . . . . .
+butterfly_explode_to ButterflyExplodeTo 9 0 1 188 . . . . . .
+alt_butterfly_explode_to AltButterflyExplodeTo 9 0 1 188 . . . . . .
+stonefly_explode_to StoneflyExplodeTo 9 0 1 198 . . . . . .
+dragonfly_explode_to DragonflyExplodeTo 9 0 1 193 . . . . . .
+explosion_effect EXPLOSIONEffect 10 0 1 0 . . . . . .
+diamond_birth_effect DIAMONDBIRTHEffect 10 0 1 36 . . . . . .
+bomb_explosion_effect BOMBEXPLOSIONeffect 10 0 1 11 . . . . . .
+nitro_explosion_effect NITROEXPLOSIONeffect 10 0 1 0 . . . . . .
+expanding_wall_looks_like EXPANDINGWALLLOOKSLIKEeffect 10 0 1 11 . . . . . .
+dirt_looks_like DIRTLOOKSLIKEeffect 10 0 1 1 . . . 10 . .
+creatures_backwards EnemyDirectionProperties.startbackwards 6 0 1 0 0 0 0 . . .
+creatures_direction_auto_change_time EnemyDirectionProperties.time 2 0 1 0 0 0 0 . . .
+creatures_direction_auto_change_on_start EnemyDirectionProperties.changeathatching 6 0 1 0 0 0 0 1 0 0
+gravity Gravitation 12 0 1 5 . . . . . .
+gravity_switch_active GravitationSwitchActive 6 0 1 0 . . . . . .
+skeletons_needed_for_pot SkeletonsForPot 2 0 1 5 . . . . . .
+gravity_change_time GravitationChangeDelay 2 0 1 10 . . . . . .
+diamond_sound Diamond.sound 6 0 1 1 . . . . . .
+stone_sound Stone.sound 6 0 1 1 . . . . . .
+nut_sound Nut.sound 6 0 1 1 . . . . . .
+nitro_sound NitroPack.sound 6 0 1 1 . . . . . .
+expanding_wall_sound ExpandingWall.sound 6 0 1 1 . . . . . .
+falling_wall_sound FallingWall.sound 6 0 1 1 . . . . . .
+amoeba_sound AmoebaProperties.sound 6 0 1 1 . . . . . .
+magic_wall_sound MagicWallProperties.sound 6 0 1 1 . . . . . .
+slime_sound SlimeProperties.sound 6 0 1 1 . . . . . .
+lava_sound LavaProperties.sound 6 0 1 1 . . . . . .
+replicator_sound ReplicatorProperties.sound 6 0 1 1 . . . . . .
+acid_spread_sound AcidProperties.sound 6 0 1 1 . . . . . .
+biter_sound BiterProperties.sound 6 0 1 1 . . . . . .
+bladder_sound BladderProperties.sound 6 0 1 1 . . . . . .
+water_sound WaterProperties.sound 6 0 1 1 . . . . . .
+pneumatic_hammer_sound PneumaticHammer.sound 6 0 1 1 . . . . . .
+bladder_spender_sound BladderSpender.sound 6 0 1 1 . . . . . .
+bladder_convert_sound BladderConvert.sound 6 0 1 1 . . . . . .
+gravity_change_sound GravityChange.sound 6 0 1 1 . . . . . .
+creature_direction_auto_change_sound EnemyDirectionProperties.sound 6 0 1 1 . . . . . .
+skeletons_worth_diamonds SkeletonsWorthDiamonds 2 16 1 0 . . . . 1 .
+lineshift BorderProperties.lineshift 6 0 1 0 1 1 1 1 1 1
+wraparound_objects BorderProperties.objectwraparound 6 0 1 0 1 1 1 1 1 1
+border_scan_first_and_last BorderProperties.scan 6 0 1 1 . . 0 . . .
+short_explosions ShortExplosions 6 0 1 1 1 1 1 0 0 0
+gravity_affects_all GravityAffectsAll 6 0 1 1 . . . . 0 .
+explosion_3_effect EXPLOSION3S 10 0 1 196 . . . . . .
+"""
+
+GD_INT, GD_INT_LEVELS, GD_PROB, GD_PROB_LEVELS, GD_BOOL = 2, 3, 4, 5, 6
+GD_ELEMENT, GD_EFFECT, GD_DIRECTION, GD_SCHEDULING = 9, 10, 12, 13
+GD_RATIO = 32  # flag: written as a part of the cave's cells
+GD_ENGINES = ("BD1", "BD2", "PLCK", "1STB", "CRDR", "CRLI")
+DIRECTIONS = ("none", "up", "upright", "right", "downright", "down", "downleft", "left", "upleft")
+SCHEDULINGS = ("ms", "bd1", "bd2", "plck", "crdr7", "bd1atari", "bd2ckatari")
+
+# the flags of the elements (GDash's P_*)
+P_SLOPED_LEFT, P_SLOPED_RIGHT, P_SLOPED_UP, P_SLOPED_DOWN = 1 << 1, 1 << 2, 1 << 3, 1 << 4
+P_FLAGS = ("SCANNED", "SLOPED_LEFT", "SLOPED_RIGHT", "SLOPED_UP", "SLOPED_DOWN", "BLADDER_SLOPED",
+           "AMOEBA_CONSUMES", "DIRT", "BLOWS_UP_FLIES", "EXPLODES_BY_HIT", "EXPLOSION_FIRST_STAGE",
+           "NON_EXPLODABLE", "CCW", "CAN_BE_HAMMERED", "CAN_BE_PUSHED", "VISUAL_EFFECT", "PLAYER",
+           "MOVED_BY_CONVEYOR_TOP", "MOVED_BY_CONVEYOR_BOTTOM")
+
+
+class GdElement:
+    def __init__(self, line):
+        p = line.split()
+        self.code, self.name, self.file = int(p[0]), p[1], p[2]
+        self.char = chr(int(p[3])) if int(p[3]) else ""
+        self.flags, self.ckdelay, self.hammered = int(p[4]), int(p[5]), int(p[6])
+
+
+GD_EL = [GdElement(line) for line in GD_ELEMENTS.splitlines()]
+O = {e.name: e.code for e in GD_EL}  # O["STONE"]: the code of O_STONE
+# BDCFF names (GDash compares them without case), with GDash's other spellings
+GD_NAME = {e.file.upper(): e.code for e in GD_EL}
+GD_NAME.update({"HEXPANDING_WALL": O["H_EXPANDING_WALL"], "FALLING_DIAMOND": O["DIAMOND_F"],
+                "FALLING_BOULDER": O["STONE_F"], "WALL2": O["STEEL_EXPLODABLE"],
+                "BLADDERD9": O["BLADDER_8"]})
+GD_NAME.update({f"EXPLOSION{i}S": O[f"EXPLODE_{i}"] for i in range(1, 6)})
+GD_NAME.update({f"EXPLOSION{i}D": O[f"PRE_DIA_{i}"] for i in range(1, 6)})
+# and the names of GDash's scanned twins, which stand for the element itself
+GD_SCANNED_NAMES = """\
+SCANN_DIRTBALL:6 SCANN_DIRTBALLf:7 SCANN_DIRTLOOSE:8 SCANN_DIRTLOOSEf:9 SCANN_BOULDER:30
+SCANN_BOULDERf:31 SCANN_FLYINGBOULDER:32 SCANN_FLYINGBOULDERf:33 SCANN_MEGABOULDER:34
+SCANN_MEGABOULDERf:35 SCANN_DIAMOND:36 SCANN_DIAMONDf:37 SCANN_FLYINGDIAMOND:38
+SCANN_FLYINGDIAMONDf:39 SCANN_NUT:40 SCANN_NUTf:41 SCANN_HEXPANDINGWALL:44 SCANN_VEXPANDINGWALL:45
+SCANN_EXPANDINGWALL:46 SCANN_HEXPANDINGSTEELWALL:47 SCANN_VEXPANDINGSTEELWALL:48
+SCANN_EXPANDINGSTEELWALL:49 SCANN_ACID:56 SCANN_FALLINGWALLf:58 SCANN_COWl:96 SCANN_COWu:97
+SCANN_COWr:98 SCANN_COWd:99 SCANN_AMOEBA:111 SCANN_AMOEBA2:112 SCANN_WAITINGBOULDER:129
+SCANN_CHASINGBOULDER:130 SCANN_GHOST:131 SCANN_FIREFLYl:132 SCANN_FIREFLYu:133 SCANN_FIREFLYr:134
+SCANN_FIREFLYd:135 SCANN_A_FIREFLYl:136 SCANN_A_FIREFLYu:137 SCANN_A_FIREFLYr:138
+SCANN_A_FIREFLYd:139 SCANN_BUTTERFLYl:140 SCANN_BUTTERFLYu:141 SCANN_BUTTERFLYr:142
+SCANN_BUTTERFLYd:143 SCANN_A_BUTTERFLYl:144 SCANN_A_BUTTERFLYu:145 SCANN_A_BUTTERFLYr:146
+SCANN_A_BUTTERFLYd:147 SCANN_STONEFLYl:148 SCANN_STONEFLYu:149 SCANN_STONEFLYr:150
+SCANN_STONEFLYd:151 SCANN_BITERu:152 SCANN_BITERr:153 SCANN_BITERd:154 SCANN_BITERl:155
+SCANN_DRAGONFLYl:156 SCANN_DRAGONFLYu:157 SCANN_DRAGONFLYr:158 SCANN_DRAGONFLYd:159 SCANN_GUY:163
+SCANN_GUYBOMB:164 SCANN_GUYROCKETLAUNCER:165 SCANN_ROCKETr:169 SCANN_ROCKETu:170 SCANN_ROCKETl:171
+SCANN_ROCKETd:172 SCANN_NITRO:181 SCANN_NITROf:182 SCANN_NITROtriggered:183 CLOCKBIRTH0:184
+DIAMONDBIRTH0:188 EXPLOSION0:193 BOULDERBIRTH0:198 STEELWALLBIRTH0:202 GHOSTEXPLOSION0:206
+BOMBEXPLOSION0:210 NITROEXPLOSION0:214 AMOEBA2EXPLOSION0:218 NUTCRACK0:222
+"""
+GD_NAME.update({n.upper(): int(c) for n, c in (x.split(":") for x in GD_SCANNED_NAMES.split())})
+GD_CHAR = {e.char: e.code for e in GD_EL if e.char}  # BDCFF's map characters
+
+
+class GdProperty:
+    def __init__(self, line):
+        p = line.split()
+        self.member, self.ident = p[0], "" if p[1] == "-" else p[1]
+        self.type, self.flags, self.count = int(p[2]), int(p[3]), int(p[4])
+        self.default = [int(v) for v in p[5].split(",")]
+        self.engine = [None if v == "." else [int(n) for n in v.split(",")] for v in p[6:12]]
+
+
+GD_PROPS = [GdProperty(line) for line in GD_PROPERTIES.splitlines()]
+GD_MEMBER = {p.member: p for p in GD_PROPS}
+
+
 # ---------------------------------------------------------------- BDCFF: reading
+
+def c_int(s):
+    """What C++'s >> reads as an int from s, or None"""
+    m = re.match(r"\s*([+-]?\d+)", s)
+    return int(m.group(1)) if m else None
+
+
+def c_double(s):
+    """What C++'s >> reads as a double from s, or None"""
+    m = re.match(r"\s*([+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?)", s)
+    return float(m.group(1)) if m else None
+
+
+def gd_bool(s):
+    if s == "1" or s.lower() in ("true", "on", "yes"):
+        return 1
+    if s == "0" or s.lower() in ("false", "off", "no"):
+        return 0
+    return None
+
+
+class GdStored:
+    """A cave's properties as GDash keeps them (CaveStored): GDash's name of
+    each property, a list of its values"""
+
+    def __init__(self):
+        self.v = {p.member: list(p.default) for p in GD_PROPS}
+
+    def copy(self):
+        c = GdStored()
+        c.v = {k: list(v) for k, v in self.v.items()}
+        return c
+
+    def __getitem__(self, member):
+        return self.v[member][0]
+
+    def engine(self, n):
+        """GDash's defaults for engine n (C64Import::cave_set_engine_defaults)"""
+        for p in GD_PROPS:
+            if p.engine[n] is not None:
+                self.v[p.member] = list(p.engine[n])
+
+    def parse(self, p, s, ratio):
+        """One value of property p from the string s, or None"""
+        t = p.type
+        if t in (GD_INT, GD_INT_LEVELS):
+            if p.flags & GD_RATIO:
+                d = c_double(s)
+                return int(d * ratio + 0.5) if d is not None and 0 <= d <= 1 else None
+            return c_int(s)
+        if t in (GD_PROB, GD_PROB_LEVELS):
+            d = c_double(s)
+            return int(d * 1000000 + 0.5) if d is not None and 0 <= d <= 1 else None
+        if t == GD_BOOL:
+            return gd_bool(s)
+        if t == GD_ELEMENT:
+            return GD_NAME.get(s.upper())
+        if t == GD_DIRECTION:
+            return DIRECTIONS.index(s.lower()) if s.lower() in DIRECTIONS else None
+        if t == GD_SCHEDULING:
+            return SCHEDULINGS.index(s.lower()) if s.lower() in SCHEDULINGS else None
+        return None
+
+    def set(self, attrib, param, ratio):
+        """A BDCFF line attrib=param as GDash reads it (struct_set_property):
+        the properties of that name take the values in turn; one for each
+        level takes the following ones too. True if attrib is known."""
+        params = param.split(" ")
+        i, found = 0, False
+        for p in GD_PROPS:
+            if not p.ident or p.ident.lower() != attrib.lower():
+                continue
+            found = True
+            if p.type == GD_EFFECT:
+                continue
+            for j in range(p.count):
+                if i >= len(params):
+                    break
+                v = self.parse(p, params[i], ratio)
+                if v is not None:
+                    self.v[p.member][j] = v
+                    if p.type in (GD_INT_LEVELS, GD_PROB_LEVELS):
+                        for k in range(j + 1, p.count):
+                            self.v[p.member][k] = v
+                    i += 1
+        return found
+
+    def tag(self, attrib, param):
+        """A cave's BDCFF line (cave_process_tags_func), with GDash's special
+        cases; True if known"""
+        params = param.split(" ")
+        a = attrib.lower()
+        if a == "snapexplosions":
+            b = gd_bool(param)
+            if b is not None:
+                self.v["snap_element"] = [O["EXPLODE_1"] if b else O["SPACE"]]
+            return True
+        if a == "bd1scheduling":
+            if gd_bool(param) and self["scheduling"] == SCHEDULINGS.index("plck"):
+                self.v["scheduling"] = [SCHEDULINGS.index("bd1")]
+            return True
+        if a == "engine":
+            if param.upper() in GD_ENGINES:
+                self.engine(GD_ENGINES.index(param.upper()))
+            return True
+        if a == "amoebaproperties":
+            e1, e2 = (GD_NAME.get(params[i].upper()) if i < len(params) else None for i in (0, 1))
+            if e1 is not None and e2 is not None:
+                self.v["amoeba_too_big_effect"], self.v["amoeba_enclosed_effect"] = [e1], [e2]
+            return True
+        if a == "colors":
+            return True
+        if a == "effect":
+            if len(params) == 2:
+                for p in GD_PROPS:
+                    if p.type == GD_EFFECT and p.ident.lower() == params[0].lower():
+                        e = GD_NAME.get(params[1].upper())
+                        if e is not None:
+                            self.v[p.member] = [e]
+                        break
+                else:
+                    special = {"bouncing_boulder": "stone_bouncing_effect", "explosion3s": "explosion_3_effect",
+                               "starting_faling_diamond": "diamond_falling_effect", "dirt": "dirt_looks_like"}
+                    e = GD_NAME.get(params[1].upper())
+                    if params[0].lower() in special and e is not None:
+                        self.v[special[params[0].lower()]] = [e]
+                    elif params[0].lower() == "hexpanding_wall" and params[1].lower() == "steel_hexpanding_wall":
+                        pass  # GDash reads it, but no element has that name
+            return True
+        return self.set(attrib, param, self["w"] * self["h"])
+
+
+class BdcffCave:
+    """A [cave] of a BDCFF file: its lines as they are"""
+
+    def __init__(self, number):
+        self.number = number
+        self.lines = []    # attrib=param lines
+        self.map = []      # [map] lines
+        self.objects = []  # (levels, line)
+        self.stored = None
+
+    def prop(self, name, default=None):
+        """A property as written (the last line of that name)"""
+        v = default
+        for line in self.lines:
+            a, _, p = line.partition("=")
+            if a.lower() == name.lower():
+                v = p
+        return v
+
+    def name(self):
+        return self.prop("Name", f"CAVE {self.number}")
+
+
+# [game] properties that are the game's, not defaults for its caves (CaveSet)
+GAME_ONLY = {"name", "description", "author", "date", "www", "difficulty", "charset", "fontset",
+             "lives", "bonuslife", "story", "remark", "titlescreen", "titlescreenscroll"}
+
+
+class BdcffFile:
+    """A BDCFF file as GDash reads it (load_from_bdcff): every cave's
+    properties (GdStored), its map or objects"""
+
+    def __init__(self, path):
+        self.path = path
+        self.version = "0.32"
+        self.game = []
+        self.caves = []
+        self.mapcodes = {}
+        self.parse(open(path, encoding="latin-1").read())
+        self.properties()
+
+    def parse(self, text):
+        state, levels, cave = "start", None, None
+        for line in text.replace("\r", "").split("\n"):
+            if not line:
+                continue
+            if state != "map" and line.startswith(";"):
+                continue
+            if line.startswith("["):
+                tag = line.lower()
+                if tag == "[cave]":
+                    cave = BdcffCave(len(self.caves) + 1)
+                    self.caves.append(cave)
+                    state = "cave"
+                elif tag in ("[/map]", "[/objects]", "[/demo]", "[/replay]") or \
+                        (tag == "[/highscore]" and state == "cavehs"):
+                    state = "cave"
+                elif tag in ("[/cave]", "[/mapcodes]", "[/highscore]"):
+                    state = "game"
+                elif tag == "[map]" and state == "cave":
+                    state = "map"
+                elif tag == "[objects]":
+                    state, levels = "objects", None
+                elif tag.startswith("[level="):
+                    if state == "objects":
+                        cave.objects.append(("level", line))
+                elif tag == "[/level]":
+                    if state == "objects":
+                        cave.objects.append(("level", line))
+                elif tag == "[mapcodes]":
+                    state = "mapcodes"
+                elif tag == "[bdcff]":
+                    state = "bdcff"
+                elif tag == "[game]":
+                    state = "game"
+                elif tag == "[highscore]":
+                    state = "cavehs" if state == "cave" else "skip"
+                elif tag in ("[demo]", "[replay]"):
+                    state = "skip"
+                continue
+            if state == "map":
+                cave.map.append(line)
+                continue
+            line = line.strip(" ")
+            if state == "bdcff":
+                a, _, p = line.partition("=")
+                if a.lower() == "version":
+                    self.version = p
+            elif state == "game":
+                self.game.append(line)
+            elif state == "mapcodes":
+                a, _, p = line.partition("=")
+                if a.lower() != "length" and a and GD_NAME.get(p.upper()) is not None:
+                    self.mapcodes[a[0]] = GD_NAME[p.upper()]
+            elif state == "cave":
+                cave.lines.append(line)
+            elif state == "objects":
+                cave.objects.append((None, line))
+
+    def properties(self):
+        """Every cave's properties, as GDash sets them: its defaults, the
+        [game] lines (twice: GDash reads them so), then the cave's own lines,
+        some of them first"""
+        default = GdStored()
+        lines = [line.partition("=") for line in self.game if "=" in line]
+        lines = [(a, p) for a, _, p in lines if a.lower() not in GAME_ONLY and a.lower() not in ("caves", "levels")]
+        for a, p in lines:
+            default.tag(a, p)
+        for a, p in lines:
+            default.set(a, p, default["w"] * default["h"])
+        for cave in self.caves:
+            s = default.copy()
+            todo = [line.partition("=") for line in cave.lines if "=" in line]
+            todo = [[a, p] for a, _, p in todo]
+
+            def first(name):
+                for k, (a, p) in enumerate(todo):
+                    if a.lower() == name.lower():
+                        s.tag(a, p)
+                        del todo[k]
+                        return True
+                return False
+            for name in ("Name", "Engine", "Intermission", "Size"):
+                first(name)
+            if first("SlimePermeability"):
+                s.v["slime_predictable"] = [0]
+            if first("SlimePermeabilityC64"):
+                s.v["slime_predictable"] = [1]
+            if first("CaveDelay") and s["scheduling"] == 0:
+                s.v["scheduling"] = [SCHEDULINGS.index("plck")]
+            if first("FrameTime"):
+                s.v["scheduling"] = [0]
+            for a, p in todo:
+                s.tag(a, p)
+            cave.stored = s
+        # BDCFF 0.32: intermissions without a map were 40x22 with the top
+        # left 20x12 visible (GDash's hack)
+        if self.version == "0.32":
+            for cave in self.caves:
+                s = cave.stored
+                if s["intermission"] and not cave.map:
+                    for k, v in (("w", 40), ("h", 22), ("x1", 0), ("y1", 0), ("x2", 19), ("y2", 11)):
+                        s.v[k] = [v]
+                    b = O_NAME(s["initial_border"])
+                    cave.objects += [(None, f"FillRect=0 11 39 21 {b} {b}"), (None, f"FillRect=19 0 39 21 {b} {b}")]
+
+
+def O_NAME(code):
+    return GD_EL[code].file
+
 
 class C64Random:
     """The random numbers of Boulder Dash 1 on the C64 (GDash's
-    C64RandomGenerator): random fills with a RandSeed"""
+    C64RandomGenerator): random fills with a RandSeed, predictable slime"""
 
-    def __init__(self, seed):
-        self.s1, self.s2 = seed // 256 % 256, seed % 256
+    def __init__(self, seed=0, seed2=None):
+        if seed2 is None:
+            self.s1, self.s2 = seed // 256 % 256, seed % 256
+        else:
+            self.s1, self.s2 = seed % 256, seed2 % 256
 
     def next(self):
         t1 = (self.s1 & 1) << 7
@@ -272,7 +965,7 @@ class C64Random:
 
 class GlibRandom:
     """GLib's g_rand (Mersenne Twister) as GDash uses it for its own random
-    fills: g_rand_set_seed, then g_rand_int_range(0, 256)"""
+    fills and mazes: g_rand_set_seed, g_rand_int_range"""
 
     def __init__(self, seed):
         mt = [seed & 0xFFFFFFFF]
@@ -280,7 +973,7 @@ class GlibRandom:
             mt.append((1812433253 * (mt[i - 1] ^ (mt[i - 1] >> 30)) + i) & 0xFFFFFFFF)
         self.mt, self.i = mt, 624
 
-    def next(self):
+    def int32(self):
         mt = self.mt
         if self.i >= 624:
             for k in range(624):
@@ -293,7 +986,22 @@ class GlibRandom:
         y ^= (y << 7) & 0x9D2C5680
         y ^= (y << 15) & 0xEFC60000
         y ^= y >> 18
-        return y % 256
+        return y
+
+    def range(self, begin, end):
+        """g_rand_int_range(begin, end)"""
+        dist = end - begin
+        leftover = (0x80000000 % dist) * 2
+        if leftover >= dist:
+            leftover -= dist
+        top = 0xFFFFFFFF - leftover
+        while True:
+            r = self.int32()
+            if r <= top:
+                return begin + r % dist
+
+    def next(self):
+        return self.range(0, 256)
 
 
 def cdiv(a, b):
@@ -306,132 +1014,34 @@ def cmod(a, b):
     return a - b * cdiv(a, b)
 
 
-SCHEDULING = ("ms", "bd1", "bd2", "plck", "crdr7", "bd1atari", "bd2ckatari")
-# The Engine tag: its timing and CaveDelay per level. All of them (C64
-# engines) have PAL timing and draw objects round the edge, line-shifted.
-ENGINES = {
-    "BD1": ("bd1", (12, 6, 3, 1, 0)), "BD2": ("bd2", (9, 8, 7, 6, 6)), "PLCK": ("plck", None),
-    "1STB": ("plck", None), "CRDR": ("crdr7", None), "CRLI": ("plck", None)}
-
-
-class BdcffCave:
-    """A [cave] of a BDCFF file, with the properties of its [game] as
-    defaults"""
-
-    def __init__(self, number):
-        self.number = number
-        self.props = {}    # upper-case name: value string
-        self.map = []      # [map] lines
-        self.objects = []  # (levels, line)
-
-    def prop(self, name, default=None):
-        return self.props.get(name.upper(), default)
-
-    def name(self):
-        return self.prop("Name", f"CAVE {self.number}")
-
-
-# [game] properties that are the game's, not defaults for its caves
-GAME_ONLY = {"NAME", "DESCRIPTION", "AUTHOR", "DATE", "WWW", "DIFFICULTY", "STORY", "REMARK",
-             "CHARSET", "FONTSET", "LIVES", "MAXIMUMLIVES", "BONUSLIFE", "TITLESCREEN",
-             "TITLESCREENSCROLL", "LEVELS", "CAVES"}
-
-
-class BdcffFile:
-    def __init__(self, path):
-        self.path = path
-        self.version = "0.32"
-        self.game = {}
-        self.caves = []
-        self.mapcodes = {}
-        self.parse(open(path, encoding="latin-1").read())
-
-    def parse(self, text):
-        state, levels, cave = "start", None, None
-        for line in text.replace("\r", "").split("\n"):
-            if not line:
-                continue
-            if state != "map" and line.startswith(";"):
-                continue
-            if line.startswith("["):
-                tag = line.strip().lower()
-                if tag == "[cave]":
-                    cave = BdcffCave(len(self.caves) + 1)
-                    cave.props.update((k, v) for k, v in self.game.items() if k not in GAME_ONLY)
-                    self.caves.append(cave)
-                    state = "cave"
-                elif tag in ("[/cave]", "[/map]", "[/objects]", "[/demo]", "[/replay]", "[/highscore]"):
-                    state = "cave" if tag != "[/cave]" else "game"
-                elif tag == "[map]":
-                    state = "map"
-                elif tag == "[objects]":
-                    state, levels = "objects", None
-                elif tag.startswith("[level="):
-                    levels = {int(n) - 1 for n in re.findall(r"\d+", tag) if 1 <= int(n) <= LEVELS}
-                elif tag == "[/level]":
-                    levels = None
-                elif tag == "[mapcodes]":
-                    state = "mapcodes"
-                elif tag == "[/mapcodes]":
-                    state = "game"
-                elif tag == "[bdcff]":
-                    state = "bdcff"
-                elif tag == "[game]":
-                    state = "game"
-                elif tag in ("[demo]", "[replay]", "[highscore]"):
-                    state = "skip"
-                continue
-            if state == "map":
-                cave.map.append(line)
-                continue
-            line = line.rstrip()
-            key, _, value = line.partition("=")
-            key, value = key.strip(), value.strip()
-            if state == "bdcff" and key.lower() == "version":
-                self.version = value
-            elif state == "game":
-                self.game[key.upper()] = value
-            elif state == "mapcodes" and len(key) == 1:
-                self.mapcodes[key] = value
-            elif state == "cave":
-                cave.props[key.upper()] = value
-            elif state == "objects":
-                cave.objects.append((levels, line))
+def lineshift(w, h, x, y):
+    """GDash's lineshift_wrap_coords_only_x: off the right edge into the
+    next row, as on the C64"""
+    if x < 0:
+        y -= cdiv(-x, w) + 1
+        x = cmod(x, w) + w
+    elif x >= w:
+        y += cdiv(x, w)
+        x = cmod(x, w)
+    return x, y
 
 
 class Renderer:
-    """Draws a BDCFF cave in one level as GDash does: the [map] or the
-    random fill, then the objects. Cells hold GDash element names (upper
-    case)."""
+    """Draws a BDCFF cave in one level as GDash does (create_map): the [map]
+    or the random fill, then the objects. Cells hold element codes."""
 
-    def __init__(self, bd, cave, level, subst):
-        self.bd, self.cave, self.level, self.subst = bd, cave, level, subst
-        size = [int(n) for n in cave.prop("Size", "40 22").split()]
-        self.w, self.h = size[0], size[1]
-        self.view = size[2:6] if len(size) >= 6 else [0, 0, self.w - 1, self.h - 1]
-        c64 = (cave.prop("Engine") or "").upper() in ENGINES
-        self.lineshift = self.flag("BorderProperties.lineshift", c64)
-        self.wrap = self.flag("BorderProperties.objectwraparound", c64)
+    def __init__(self, bd, cave, level, subst=None):
+        self.bd, self.cave, self.level, self.subst = bd, cave, level, subst or {}
+        s = cave.stored
+        self.w, self.h = s["w"], s["h"]
+        self.lineshift, self.wrap = s["lineshift"], s["wraparound_objects"]
         self.cells = None
-
-    def flag(self, name, default):
-        v = self.cave.prop(name)
-        return default if v is None else v.lower() == "true"
+        self.c64 = C64Random(0, 0x1E)
 
     def element(self, name):
-        name = name.upper()
-        if name in self.subst:
-            return self.subst[name]
-        return name
-
-    def per_level(self, name, default):
-        """A property with a value per level: the one of this level (BDCFF
-        repeats the last one given)"""
-        v = self.cave.prop(name)
-        if v is None:
-            return default
-        vals = v.split()
-        return vals[min(self.level, len(vals) - 1)]
+        """The code of an element name, or None (GDash leaves the object out)"""
+        e = GD_NAME.get(name.upper())
+        return self.subst.get(e, e)
 
     def get(self, x, y):
         if self.lineshift:
@@ -442,7 +1052,7 @@ class Renderer:
         return self.cells[y * self.w + x]
 
     def put(self, x, y, e):
-        if e == "NONE":
+        if e == O["NONE"]:
             return
         if self.wrap:
             if self.lineshift:
@@ -463,22 +1073,24 @@ class Renderer:
         return e
 
     def render(self):
-        c, w, h = self.cave, self.w, self.h
-        border = self.element(c.prop("InitialBorder", "STEELWALL"))
+        c, s, w, h = self.cave, self.cave.stored, self.w, self.h
+        sub = lambda e: self.subst.get(e, e)
+        border = sub(s["initial_border"])
         if c.map:
-            codes = dict(OTHER_CHARS)
-            codes.update(CHAR_NAME)
+            codes = dict(GD_CHAR)
             codes.update(self.bd.mapcodes)
             self.cells = [border] * (w * h)
             for y, line in enumerate(c.map[:h]):
                 for x, ch in enumerate(line[:w]):
-                    self.cells[y * w + x] = self.element(codes.get(ch, f"'{ch}'"))
+                    self.cells[y * w + x] = sub(codes.get(ch, O["UNKNOWN"]))
         else:
-            seed = int(self.per_level("RandSeed", str(self.level)))
-            rand = C64Random(seed) if seed >= 0 else GlibRandom(self.level)
-            fill = c.prop("RandomFill", "").split()
-            pairs = [(self.element(fill[i]), int(fill[i + 1])) for i in range(0, len(fill) - 1, 2)]
-            initial = self.element(c.prop("InitialFill", "DIRT"))
+            seed = s.v["level_rand"][self.level]
+            if seed >= 0:
+                rand = self.c64 = C64Random(seed)
+            else:  # new in every game in GDash: here always the same
+                rand = GlibRandom(self.level)
+            pairs = [(sub(s[f"random_fill_{i}"]), s[f"random_fill_probability_{i}"]) for i in range(1, 5)]
+            initial = sub(s["initial_fill"])
             self.cells = [initial] * (w * h)
             for y in range(1, h - 1):
                 for x in range(w):
@@ -487,24 +1099,29 @@ class Renderer:
                 self.cells[y * w] = self.cells[y * w + w - 1] = border
             for x in range(w):
                 self.cells[x] = self.cells[(h - 1) * w + x] = border
-        for levels, line in c.objects:
-            if levels is None or self.level in levels:
+        levels = None
+        for kind, line in c.objects:
+            if kind == "level":
+                if line.lower() == "[/level]":
+                    levels = None
+                else:
+                    n = [int(v) for v in re.findall(r"\d+", line.partition("=")[2])]
+                    levels = set(v - 1 for v in n) if all(1 <= v <= 5 for v in n) else None
+            elif levels is None or self.level in levels:
                 self.draw(line)
-        # BDCFF 0.32: intermissions without a size were 40x22 with the top
-        # left 20x12 visible (GDash's hack)
-        if self.bd.version == "0.32" and self.flag("Intermission", False) and not c.map:
-            self.view = [0, 0, 19, 11]
-            for x0, y0 in ((0, 11), (19, 0)):
-                for y in range(y0, h):
-                    for x in range(x0, w):
-                        self.put(x, y, border)
         return self.cells
 
     def draw(self, line):
         kind, _, args = line.partition("=")
-        kind, a = kind.strip().lower(), args.split()
+        kind, a = kind.lower(), args.split()
         num = lambda i: int(a[i])
-        el = lambda i: self.element(a[i])
+        try:
+            self.draw_object(kind, a, num)
+        except (IndexError, ValueError, TypeError):
+            pass  # GDash leaves out what it cannot read
+
+    def draw_object(self, kind, a, num):
+        el = lambda i: self.element(a[i]) if self.element(a[i]) is not None else int("not an element")
         if kind == "point":
             self.put(num(0), num(1), el(2))
         elif kind == "line":
@@ -513,7 +1130,9 @@ class Renderer:
             x1, x2 = sorted((num(0), num(2)))
             y1, y2 = sorted((num(1), num(3)))
             edge = el(4)
-            inside = el(5) if kind == "fillrect" and len(a) > 5 else edge
+            inside = edge
+            if kind == "fillrect" and len(a) > 5 and self.element(a[5]) is not None:
+                inside = el(5)
             for y in range(y1, y2 + 1):
                 for x in range(x1, x2 + 1):
                     if y in (y1, y2) or x in (x1, x2):
@@ -522,12 +1141,13 @@ class Renderer:
                         self.put(x, y, inside)
         elif kind == "raster":
             x1, y1, nx, ny, dx, dy = (num(i) for i in range(6))
+            e = el(6)
             x2, y2 = x1 + (nx - 1) * dx, y1 + (ny - 1) * dy
             x1, x2 = sorted((x1, x2))
             y1, y2 = sorted((y1, y2))
             for y in range(y1, y2 + 1, max(dy, 1)):
                 for x in range(x1, x2 + 1, max(dx, 1)):
-                    self.put(x, y, el(6))
+                    self.put(x, y, e)
         elif kind in ("add", "addbackward"):
             dx, dy, search, put = num(0), num(1), el(2), el(3)
             cells = [(x, y) for y in range(self.h) for x in range(self.w)]
@@ -537,13 +1157,20 @@ class Renderer:
         elif kind in ("randomfill", "randomfillc64"):
             x1, x2 = sorted((num(0), num(2)))
             y1, y2 = sorted((num(1), num(3)))
-            seed = int(a[4 + self.level])
+            seeds = [num(4 + i) for i in range(5)]
+            initial, rest = el(9), a[10:]
+            pairs, j = [], 0
+            while j < 4 and len(rest) >= 2:
+                pairs.append((el(10 + 2 * j), int(rest[1])))
+                rest = rest[2:]
+                j += 1
+            only = self.element(rest[0]) if rest else None
+            if rest and only is None:
+                return
+            seed = seeds[self.level]
             if seed < 0:
                 seed = self.level
             rand = C64Random(seed) if kind == "randomfillc64" else GlibRandom(seed)
-            initial, rest = el(9), a[10:]
-            pairs = [(self.element(rest[i]), int(rest[i + 1])) for i in range(0, len(rest) - 1, 2)][:4]
-            only = self.element(rest[-1]) if len(rest) % 2 else None
             for y in range(y1, y2 + 1):
                 for x in range(x1, x2 + 1):
                     e = self.fill_element(rand.next(), initial, pairs)
@@ -568,10 +1195,7 @@ class Renderer:
                 for x in range(w):
                     self.put(dx + (w - 1 - x if mirror else x), dy + (h - 1 - y if flip else y), clip[y][x])
         elif kind == "maze":
-            raise CaveError("has a maze, which only GDash draws: save the file flat first "
-                            "(gdash in.bd --save-flat out.bd -q)")
-        else:
-            raise CaveError(f"unknown object '{kind}'")
+            Maze(self, a).draw()
 
     def line(self, x1, y1, x2, y2, e):
         steep = abs(y2 - y1) > abs(x2 - x1)
@@ -603,170 +1227,356 @@ class Renderer:
             self.put(x, y, fill)
 
 
-def lineshift(w, h, x, y):
-    """GDash's lineshift_wrap_coords_only_x: off the right edge into the
-    next row, as on the C64"""
-    if x < 0:
-        y -= cdiv(-x, w) + 1
-        x = cmod(x, w) + w
-    elif x >= w:
-        y += cdiv(x, w)
-        x = cmod(x, w)
-    return x, y
+class Maze:
+    """GDash's maze objects (CaveMaze): perfect, braid or unicursal"""
+
+    def __init__(self, r, a):
+        raise CaveError("has a maze, which only GDash draws: save the file flat first "
+                        "(gdash in.bd --save-flat out.bd -q)")
 
 
-def bdcff_cave(bd, cave, level, subst):
-    """A cave of a BDCFF file in one level (0-4) as the game plays it;
-    CaveError if it cannot"""
+# ---------------------------------------------------------------- the caves of GDash, as the game keeps them
+
+# An own cave on the disk (a slot, OWNnn): what GDash's engine needs of it
+# in one level - as GDash's CaveRendered has it before setup_for_game - and
+# the map. src/gdengine.c plays it; mkcave.py writes this layout as C
+# (build/gen/gdcave.h). All of it little-endian; time 0 is an empty slot.
+GD_FIELDS = [  # name, C type, struct format
+    ("time", "uint16_t", "H"), ("diamonds_needed", "int16_t", "h"), ("diamond_value", "uint16_t", "H"),
+    ("extra_diamond_value", "uint16_t", "H"), ("max_time", "uint16_t", "H"), ("time_bonus", "int8_t", "b"),
+    ("time_penalty", "uint8_t", "B"), ("timevalue", "uint8_t", "B"),
+    ("w", "uint8_t", "B"), ("h", "uint8_t", "B"), ("x1", "uint8_t", "B"), ("y1", "uint8_t", "B"),
+    ("x2", "uint8_t", "B"), ("y2", "uint8_t", "B"),
+    ("magic_wall_time", "uint16_t", "H"), ("amoeba_time", "uint16_t", "H"), ("amoeba_max_count", "uint16_t", "H"),
+    ("amoeba_2_time", "uint16_t", "H"), ("amoeba_2_max_count", "uint16_t", "H"),
+    ("hatching_delay_time", "uint8_t", "B"), ("hatching_delay_frame", "uint8_t", "B"),
+    ("speed", "uint16_t", "H"), ("ckdelay", "uint8_t", "B"), ("scheduling", "uint8_t", "B"),
+    ("pneumatic_hammer_frame", "uint8_t", "B"), ("hammered_wall_reappear_frame", "uint8_t", "B"),
+    ("biter_delay_frame", "uint8_t", "B"), ("replicator_delay_frame", "uint8_t", "B"),
+    ("gravity_change_time", "uint8_t", "B"), ("skeletons_needed_for_pot", "uint8_t", "B"),
+    ("skeletons_worth_diamonds", "uint8_t", "B"), ("slime_permeability_c64", "uint8_t", "B"),
+    ("c64_seed_1", "uint8_t", "B"), ("c64_seed_2", "uint8_t", "B"), ("gravity", "uint8_t", "B"),
+    ("creatures_direction_auto_change_time", "uint16_t", "H"),
+]
+GD_PROB_FIELDS = ["pushing_stone_prob", "pushing_stone_prob_sweet", "amoeba_growth_prob",
+                  "amoeba_fast_growth_prob", "amoeba_2_growth_prob", "amoeba_2_fast_growth_prob",
+                  "slime_permeability", "acid_spread_ratio"]
+GD_ELEMENT_FIELDS = [
+    "snap_element", "magic_diamond_to", "magic_stone_to", "magic_mega_stone_to", "magic_nitro_pack_to",
+    "magic_nut_to", "magic_flying_stone_to", "magic_flying_diamond_to", "amoeba_too_big_effect",
+    "amoeba_enclosed_effect", "amoeba_2_too_big_effect", "amoeba_2_enclosed_effect",
+    "amoeba_2_explosion_effect", "amoeba_2_looks_like", "slime_eats_1", "slime_converts_1", "slime_eats_2",
+    "slime_converts_2", "slime_eats_3", "slime_converts_3", "acid_eats_this", "acid_turns_to", "biter_eat",
+    "bladder_converts_by", "nut_turns_to_when_crushed", "stone_falling_effect", "stone_bouncing_effect",
+    "diamond_falling_effect", "diamond_bouncing_effect", "firefly_explode_to", "alt_firefly_explode_to",
+    "butterfly_explode_to", "alt_butterfly_explode_to", "stonefly_explode_to", "dragonfly_explode_to",
+    "explosion_effect", "explosion_3_effect", "diamond_birth_effect", "bomb_explosion_effect",
+    "nitro_explosion_effect", "expanding_wall_looks_like", "dirt_looks_like"]
+GD_FLAG_FIELDS = [
+    "diagonal_movements", "active_is_first_found", "mega_stones_pushable_with_sweet", "infinite_rockets",
+    "hammered_walls_reappear", "voodoo_collects_diamonds", "voodoo_dies_by_stone",
+    "voodoo_disappear_in_explosion", "voodoo_any_hurt_kills_player", "amoeba_timer_started_immediately",
+    "amoeba_timer_wait_for_hatching", "amoeba_2_explodes_by_amoeba", "magic_timer_zero_is_infinite",
+    "magic_timer_wait_for_hatching", "magic_wall_stops_amoeba", "magic_wall_breakscan", "slime_predictable",
+    "expanding_wall_changed", "replicators_active", "conveyor_belts_active",
+    "conveyor_belts_direction_changed", "water_does_not_flow_down", "creatures_backwards",
+    "creatures_direction_auto_change_on_start", "gravity_switch_active", "lineshift",
+    "border_scan_first_and_last", "short_explosions", "gravity_affects_all", "pal_timing", "intermission"]
+GD_FORMAT = "<" + "".join(f for _, _, f in GD_FIELDS) + "I" * len(GD_PROB_FIELDS) + \
+    "B" * len(GD_ELEMENT_FIELDS) + "I" + f"{NAME_FIELD}s{W * H}s"
+GD_SIZE = struct.calcsize(GD_FORMAT)
+# a value per level (CaveStored's level_...), and what it is called in a level
+GD_LEVEL = {"time": "level_time", "timevalue": "level_timevalue", "diamonds_needed": "level_diamonds",
+            "magic_wall_time": "level_magic_wall_time", "slime_permeability": "level_slime_permeability",
+            "slime_permeability_c64": "level_slime_permeability_c64", "time_bonus": "level_bonus_time",
+            "time_penalty": "level_penalty_time", "amoeba_time": "level_amoeba_time",
+            "amoeba_max_count": "level_amoeba_threshold", "amoeba_2_time": "level_amoeba_2_time",
+            "amoeba_2_max_count": "level_amoeba_2_threshold", "hatching_delay_time": "level_hatching_delay_time",
+            "hatching_delay_frame": "level_hatching_delay_frame", "speed": "level_speed",
+            "ckdelay": "level_ckdelay"}
+
+
+class GdCave:
+    """A cave in one level as the game keeps and plays it with GDash's
+    rules (src/gdengine.c): GDash's values (by their names in its code), its
+    name, and its map, w x h element codes"""
+
+    def __init__(self, name, values, cells):
+        self.name, self.v, self.cells = name, values, cells
+        self.notes = []
+
+    def __getattr__(self, k):
+        if k in ("w", "h", "time"):
+            return self.v[k]
+        raise AttributeError(k)
+
+    def rows(self):
+        w = self.v["w"]
+        return [self.cells[y * w:(y + 1) * w] for y in range(self.v["h"])]
+
+    def tobytes(self):
+        v = dict(self.v)
+        v["time"] = max(1, v["time"])  # 0 is an empty slot
+        flags = sum(1 << i for i, f in enumerate(GD_FLAG_FIELDS) if v[f])
+        cells = bytearray([O["STEEL"]] * (W * H))  # around a smaller cave: steel to see
+        for y in range(v["h"]):
+            cells[y * W:y * W + v["w"]] = bytes(self.cells[y * v["w"]:(y + 1) * v["w"]])
+        lim = {"B": (0, 255), "b": (-128, 127), "H": (0, 65535), "h": (-32768, 32767)}
+        fields = [min(lim[f][1], max(lim[f][0], v[n])) for n, _, f in GD_FIELDS]
+        return struct.pack(GD_FORMAT, *fields, *(v[n] for n in GD_PROB_FIELDS),
+                           *(v[n] for n in GD_ELEMENT_FIELDS), flags,
+                           self.name.encode("ascii").ljust(NAME_FIELD, b"\0"), bytes(cells))
+
+    @staticmethod
+    def frombytes(data):
+        """The cave of a slot's contents (without load address), or None for
+        an empty one"""
+        if len(data) < GD_SIZE or not data[0] | data[1]:
+            return None
+        vals = list(struct.unpack(GD_FORMAT, data[:GD_SIZE]))
+        v = {}
+        for (n, _, _) in GD_FIELDS:
+            v[n] = vals.pop(0)
+        for n in GD_PROB_FIELDS + GD_ELEMENT_FIELDS:
+            v[n] = vals.pop(0)
+        flags = vals.pop(0)
+        for i, n in enumerate(GD_FLAG_FIELDS):
+            v[n] = flags >> i & 1
+        name = vals.pop(0).split(b"\0")[0].decode("ascii", "replace")
+        raw = vals.pop(0)
+        cells = [raw[y * W + x] for y in range(v["h"]) for x in range(v["w"])]
+        return GdCave(name, v, cells)
+
+
+def gd_cave(bd, cave, level, subst=None):
+    """A cave of a BDCFF file in one level (0-4) as GDash's CaveRendered
+    starts it; CaveError if the game cannot have it"""
+    s = cave.stored
     r = Renderer(bd, cave, level, subst)
     cells = r.render()
-    x1, y1, x2, y2 = r.view
-    vw, vh = x2 - x1 + 1, y2 - y1 + 1
-    if vw > W or vh > H:
-        raise CaveError(f"is {vw}x{vh} cells, the game has {W}x{H}")
-    out = Cave(clean_name(cave.name()))
-    notes = out.notes
-    if (vw, vh) != (W, H):
-        notes.append(f"{vw}x{vh} cells, in the top left corner")
-    names = ["STEELWALL"] * (W * H)
-    for y in range(vh):
-        for x in range(vw):
-            names[y * W + x] = cells[(y1 + y) * r.w + x1 + x]
-    missing = {}
-    chars = []
-    for n in names:
-        c = n if n in CHAR_CODE else NAME_CHAR.get(n)
-        if c is None:
-            missing[n] = missing.get(n, 0) + 1
-            c = "?"
-        chars.append(c)
-    if missing:
-        what = ", ".join(f"{n} ({k}x)" for n, k in sorted(missing.items(), key=lambda t: -t[1]))
-        raise CaveError(f"has what the game does not: {what}")
-    edge = [i for i in range(W * H) if (i % W in (0, W - 1) or i // W in (0, H - 1)) and chars[i] not in "WX"]
-    if any(chars[i] == "P" for i in edge):
-        raise CaveError("has its inbox on the edge (GDash wraps such caves round, the game cannot)")
-    for i in edge:
-        chars[i] = "W"
-    if edge:
-        notes.append(f"{len(edge)} cells of the edge made steel")
-    inboxes = [i for i, c in enumerate(chars) if c == "P"]
-    if not inboxes:
-        raise CaveError("has no inbox")
-    if len(inboxes) > 1:
-        keep = inboxes[0] if r.flag("ActiveGuyIsFirst", True) else inboxes[-1]
-        for i in inboxes:
-            if i != keep:
-                chars[i] = " "
-        notes.append(f"{len(inboxes) - 1} more inbox(es) left out: one player only")
-    if "X" not in chars:
-        raise CaveError("has no exit")
-    out.cells = chars
-
-    # the numbers
-    num = lambda name, default: int(float(r.per_level(name, default)))
-    pal = r.flag("PALTiming", ENGINES.get((cave.prop("Engine") or "").upper()) is not None)
-    factor = 1.2 if pal else 1.0
-    out.time = max(1, min(999, round(num("CaveTime", "999") * factor)))
-    need = num("DiamondsRequired", "10")
-    if need <= 0:
-        need += chars.count("d")
-    out.diamonds = max(1, min(255, need))
-    dv = (cave.prop("DiamondValue") or "0 0").split()
-    out.value = min(255, int(dv[0]))
-    out.extra = min(255, int(dv[1])) if len(dv) > 1 else 0
-    out.speed = cave_speed(r, cave, cells)
-    for key, prop in (("amoeba", "AmoebaTime"), ("magic", "MagicWallTime")):
-        v = round(num(prop, "999") * factor)
-        elem = "a" if key == "amoeba" else "M"
-        if v > 255:
-            if elem in chars:
-                notes.append(f"{prop} {v} s cut to 255 s")
-            v = 255
-        setattr(out, key, v)
-    if "a" in chars:
-        t = cave.prop("AmoebaThreshold")
-        if t is not None and float(t.split()[min(level, len(t.split()) - 1)]) <= 1:
-            # a part of the cave's cells, as GDash reads it
-            cells_max = int(float(t.split()[min(level, len(t.split()) - 1)]) * r.w * r.h + 0.5)
-            if cells_max != 200:
-                notes.append(f"the amoeba turns to boulders at 200 cells, not {cells_max}")
-    for prop, ok in (("DiagonalMovement", "false"), ("Gravitation", "down"),
-                     ("PushingBoulderProb", "0.25"), ("AmoebaGrowthProb", "0.03125 0.25")):
-        v = cave.prop(prop)
-        if v is not None and v.lower() != ok and [float(n) for n in re.findall(r"[\d.]+", v)] != \
-                [float(n) for n in re.findall(r"[\d.]+", ok)]:
-            notes.append(f"{prop}={v} is played as {ok}")
+    if s["w"] > W or s["h"] > H:
+        raise CaveError(f"is {s['w']}x{s['h']} cells, the game has {W}x{H}")
+    v = {}
+    for f in [n for n, _, _ in GD_FIELDS] + GD_PROB_FIELDS + GD_ELEMENT_FIELDS + GD_FLAG_FIELDS:
+        if f in GD_LEVEL:
+            v[f] = s.v[GD_LEVEL[f]][level]
+        elif f in GD_MEMBER:
+            v[f] = s[f]
+    # the C64 random numbers for the slime: as the map left them, or a seed
+    c64 = r.c64
+    seed = s.v["level_slime_seed_c64"][level]
+    if seed != -1:
+        c64 = C64Random(seed // 256, seed % 256)
+    v["c64_seed_1"], v["c64_seed_2"] = c64.s1, c64.s2
+    # the visible part, as GDash corrects it (gd_cave_correct_visible_size)
+    x1, x2 = sorted((v["x1"], v["x2"]))
+    y1, y2 = sorted((v["y1"], v["y2"]))
+    v["x1"], v["y1"] = max(0, x1), max(0, y1)
+    v["x2"], v["y2"] = min(v["w"] - 1, x2), min(v["h"] - 1, y2)
+    out = GdCave(clean_name(cave.name()), v, cells)
+    if (v["x2"] - v["x1"] + 1, v["y2"] - v["y1"] + 1) != (W, H):
+        out.notes.append(f"{v['x2'] - v['x1'] + 1}x{v['y2'] - v['y1'] + 1} cells")
+    if O["INBOX"] not in cells:
+        out.notes.append("no inbox")
     return out
 
 
-def cave_speed(r, cave, cells):
-    """Milliseconds per cave tick, as GDash computes them (for C64 caves
-    from the CaveDelay and what the whole cave holds, cells as drawn)"""
-    engine = ENGINES.get((cave.prop("Engine") or "").upper())
-    sched = engine[0] if engine else "ms"
-    delays = engine[1] if engine and engine[1] else (0,) * LEVELS
-    if cave.prop("CaveDelay") is not None and sched == "ms":
-        sched = "plck"
-    if cave.prop("FrameTime") is not None:
-        sched = "ms"
-    if cave.prop("CaveScheduling") is not None:
-        sched = cave.prop("CaveScheduling").lower()
-    if sched not in SCHEDULING:
-        sched = "ms"
-    if sched == "ms":
-        ms = int(r.per_level("FrameTime", str((180, 160, 140, 120, 120)[r.level])))
-    else:
-        ckdelay = int(r.per_level("CaveDelay", str(delays[r.level])))
-        chars = [c if c in CHAR_CODE else NAME_CHAR.get(c, "") for c in cells]
-        cur = sum(CKDELAY.get(c, 0) for c in chars)
-        anim = 2600 * (("a" in chars) * 2 + any(c in "QoOq" for c in chars) + any(c in "CbBc" for c in chars))
-        inter = r.flag("Intermission", False)
-        # GDash's ints and doubles: (cur + anim) / 1000 is an int division
-        if sched == "bd1":
-            ms = (60 if inter else 88) + 3.66 * ckdelay + (cur + anim) // 1000
-        elif sched == "bd1atari":
-            ms = (65 + 2.88 * ckdelay if inter else 74 + 3.2 * ckdelay) + cur // 1000
-        elif sched == "bd2":
-            ms = max(60 + (cur + anim) // 1000, ckdelay * 20)
-        elif sched == "plck":
-            ms = max(65 + cur // 1000, ckdelay * 20)
-        elif sched == "bd2ckatari":
-            ms = max(40 + cur // 1000, ckdelay * 20)
-        else:  # crdr7
-            ms = max(130 + cur // 1000, ckdelay * 20)
-    return max(20, min(255, int(ms)))
-
-
-def read_bd(path, level, subst, which=None):
-    """The caves of a .bd file: [(number, BdcffCave, Cave or CaveError)]"""
+def read_bd(path, level, subst=None, which=None):
+    """The caves of a .bd file: [(number, BdcffCave, GdCave or CaveError)]"""
     bd = BdcffFile(path)
     out = []
     for c in bd.caves:
         if which and c.number not in which:
             continue
         try:
-            out.append((c.number, c, bdcff_cave(bd, c, level, subst)))
-        except (CaveError, ValueError, IndexError) as e:
-            out.append((c.number, c, e if isinstance(e, CaveError) else CaveError(f"cannot be read: {e}")))
+            out.append((c.number, c, gd_cave(bd, c, level, subst)))
+        except CaveError as e:
+            out.append((c.number, c, e))
     return bd, out
+
+
+def gd_from_cave(cave):
+    """A cave of the game's own kind (.cave, Cave) with GDash's rules: those
+    of Boulder Dash 1 (Engine=BD1), in milliseconds and real seconds"""
+    s = GdStored()
+    s.engine(GD_ENGINES.index("BD1"))
+    v = {}
+    for f in [n for n, _, _ in GD_FIELDS] + GD_PROB_FIELDS + GD_ELEMENT_FIELDS + GD_FLAG_FIELDS:
+        if f in GD_LEVEL:
+            v[f] = s.v[GD_LEVEL[f]][0]
+        elif f in GD_MEMBER:
+            v[f] = s[f]
+    v.update(time=cave.time, diamonds_needed=cave.diamonds, diamond_value=cave.value,
+             extra_diamond_value=cave.extra, speed=cave.speed, scheduling=0, pal_timing=0,
+             amoeba_time=cave.amoeba, magic_wall_time=cave.magic, c64_seed_1=0, c64_seed_2=0x1E)
+    cells = [GD_CHAR[c] for c in cave.cells]
+    return GdCave(cave.name, v, cells)
 
 
 # ---------------------------------------------------------------- BDCFF: writing
 
+def bd_value(p, x, cells):
+    """A property's value as BDCFF writes it"""
+    if p.type in (GD_INT, GD_INT_LEVELS):
+        return f"{x / cells:.6f}" if p.flags & GD_RATIO else str(x)
+    if p.type in (GD_PROB, GD_PROB_LEVELS):
+        return f"{x / 1000000:.6f}"
+    if p.type == GD_BOOL:
+        return "true" if x else "false"
+    if p.type in (GD_ELEMENT, GD_EFFECT):
+        return GD_EL[x].file
+    if p.type == GD_DIRECTION:
+        return DIRECTIONS[x]
+    if p.type == GD_SCHEDULING:
+        return SCHEDULINGS[x]
+    return str(x)
+
+
 def write_bd(path, caves, title):
-    """caves as a BDCFF file for GDash, with the rules of Boulder Dash 1
-    (Engine=BD1) in the game's timing: real seconds, milliseconds per tick"""
-    out = ["[BDCFF]", "Version=0.5", "[game]", f"Name={title}", f"Caves={len(caves)}", "Levels=1", ""]
+    """GdCaves as a BDCFF file for GDash: every property that is not GDash's
+    default, the maps with BDCFF's characters (and map codes for elements
+    that have none)"""
+    chars = {e.code: e.char for e in GD_EL if e.char}
+    codes, free = {}, (chr(i) for i in range(33, 127) if chr(i) not in "<>&[]/=\\" and chr(i) not in GD_CHAR)
     for cave in caves:
-        out += ["[cave]", f"Name={cave.name}", "Engine=BD1", "Intermission=false", "Size=40 22",
-                f"CaveTime={cave.time}", f"DiamondsRequired={cave.diamonds}",
-                f"DiamondValue={cave.value} {cave.extra}", "CaveScheduling=ms", "PALTiming=false",
-                f"FrameTime={cave.speed}", f"AmoebaTime={cave.amoeba}", f"MagicWallTime={cave.magic}",
-                "", "[map]"] + cave.rows() + ["[/map]", "[/cave]", ""]
+        for e in cave.cells:
+            if e not in chars and e not in codes:
+                codes[e] = next(free)
+    out = ["[BDCFF]", "Version=0.5", "[game]", f"Name={title}", f"Caves={len(caves)}", "Levels=1"]
+    if codes:
+        out += ["[mapcodes]", "Length=1"] + [f"{c}={GD_EL[e].file}" for e, c in codes.items()] + ["[/mapcodes]"]
+    out.append("")
+    level_of = {v: k for k, v in GD_LEVEL.items()}
+    for cave in caves:
+        v = cave.v
+        vals = {}
+        for p in GD_PROPS:
+            n = level_of.get(p.member, p.member)
+            vals[p.member] = [v[n]] * p.count if p.member in level_of else ([v[n]] if n in v else None)
+        vals["level_slime_seed_c64"] = [v["c64_seed_1"] * 256 + v["c64_seed_2"]] * 5
+        lines = [f"Name={cave.name}", f"Size={v['w']} {v['h']} {v['x1']} {v['y1']} {v['x2']} {v['y2']}"]
+        # what says how the slime takes its random numbers, and the timing:
+        # always, as GDash reads them in this order
+        slime = "SlimePermeabilityC64" if v["slime_predictable"] else "SlimePermeability"
+        always = {slime, "CaveScheduling", "PALTiming", "CaveTime", "DiamondsRequired", "DiamondValue"}
+        done = {"Size", "SlimePermeability", "SlimePermeabilityC64"} - {slime}
+        for p in GD_PROPS:
+            if not p.ident or p.ident in done:
+                continue
+            group = [q for q in GD_PROPS if q.ident == p.ident]
+            if any(vals.get(q.member) is None for q in group):
+                continue
+            if p.ident not in always and all(vals[q.member] == q.default for q in group):
+                continue
+            done.add(p.ident)
+            ratio = v["w"] * v["h"]
+            if p.type == GD_EFFECT:
+                lines.append(f"Effect={p.ident} {GD_EL[vals[p.member][0]].file}")
+            else:
+                lines.append(f"{p.ident}=" + " ".join(bd_value(q, vals[q.member][0], ratio) for q in group))
+        out += ["[cave]"] + lines + ["", "[map]"]
+        out += ["".join(chars.get(e) or codes[e] for e in row) for row in cave.rows()]
+        out += ["[/map]", "[/cave]", ""]
     out += ["[/game]", "[/BDCFF]"]
     with open(path, "w", encoding="latin-1", newline="\r\n") as f:
         f.write("\n".join(out) + "\n")
+
+
+# ---------------------------------------------------------------- C for the game
+
+def write_c(gendir):
+    """build/gen/gdcave.h and gdcave.c: the slots' layout and GDash's
+    element table for src/gdengine.c"""
+    with open(f"{gendir}/gdcave.h", "w") as f:
+        f.write("// Generated by tools/mkcave.py from tools/cavekit.py - do not edit\n")
+        f.write("#ifndef GDCAVE_H\n#define GDCAVE_H\n\n#include <stdint.h>\n\n")
+        f.write("// GDash's elements (O_...), in its order without the scanned twins\nenum {\n")
+        for e in GD_EL:
+            f.write(f"    O_{e.name} = {e.code},\n")
+        f.write(f"    O_COUNT = {len(GD_EL)}\n}};\n\n// their flags (GDash's P_...)\n")
+        for i, n in enumerate(P_FLAGS):
+            f.write(f"#define P_{n} {hex(1 << i)}ul\n")
+        f.write("\n// The flags of GdCaveFile.flags\n")
+        for i, n in enumerate(GD_FLAG_FIELDS):
+            f.write(f"#define GDF_{n.upper()} {hex(1 << i)}ul\n")
+        f.write("\n// An own cave as the disk has it (tools/cavekit.py, GD_FIELDS)\ntypedef struct {\n")
+        for n, t, _ in GD_FIELDS:
+            f.write(f"    {t} {n};\n")
+        for n in GD_PROB_FIELDS:
+            f.write(f"    uint32_t {n};  // of a million\n")
+        for n in GD_ELEMENT_FIELDS:
+            f.write(f"    uint8_t {n};\n")
+        f.write(f"    uint32_t flags;  // GDF_*\n    char name[{NAME_FIELD}];\n")
+        f.write(f"    uint8_t map[{W * H}];  // w x h codes, rows of {W}\n}} __attribute__((packed)) GdCaveFile;\n")
+        f.write(f"_Static_assert(sizeof(GdCaveFile) == {GD_SIZE}, \"the layout of tools/cavekit.py\");\n\n")
+        f.write("extern const uint32_t gd_flags[O_COUNT];      // P_*\n")
+        f.write("extern const uint16_t gd_ckdelay[O_COUNT];    // microseconds on the C64\n")
+        f.write("extern const uint8_t gd_hammered[O_COUNT];    // what a hammer makes of it, 255: nothing\n")
+        f.write("extern const uint8_t gd_twin[(O_COUNT + 7) / 8];  // bits: it has a scanned twin\n\n#endif\n")
+    with open(f"{gendir}/gdnew.h", "w") as f:
+        # what a new cave of the editor starts with, up to its name: the
+        # rules of Boulder Dash 1 in milliseconds (gd_from_cave)
+        params = gd_from_cave(Cave()).tobytes()[:struct.calcsize(GD_FORMAT[:-len(f"{NAME_FIELD}s{W * H}s")])]
+        f.write("// Generated by tools/mkcave.py from tools/cavekit.py - do not edit\n")
+        f.write(f"#define GD_NEW_PARAMS_SIZE {len(params)}\n#define GD_NEW_PARAMS {{")
+        f.write(", ".join(str(b) for b in params) + "}\n")
+    with open(f"{gendir}/gdcave.c", "w") as f:
+        f.write("// Generated by tools/mkcave.py from tools/cavekit.py - do not edit\n#include \"gdcave.h\"\n\n")
+        for name, vals in (("const uint32_t gd_flags", [e.flags for e in GD_EL]),
+                           ("const uint16_t gd_ckdelay", [e.ckdelay for e in GD_EL]),
+                           ("const uint8_t gd_hammered", [e.hammered for e in GD_EL])):
+            f.write(f"{name}[O_COUNT] = {{\n")
+            for i in range(0, len(vals), 12):
+                f.write("    " + ", ".join(str(x) for x in vals[i:i + 12]) + ",\n")
+            f.write("};\n\n")
+        twins = set(int(x.split(":")[1]) for x in GD_SCANNED_NAMES.split())
+        bits = [sum(1 << b for b in range(8) if i * 8 + b in twins) for i in range((len(GD_EL) + 7) // 8)]
+        f.write("const uint8_t gd_twin[(O_COUNT + 7) / 8] = {" + ", ".join(str(b) for b in bits) + "};\n")
+
+
+def gd_speed(v, cells):
+    """Milliseconds per step at the start, as GDash computes them
+    (update_scheduling): for C64 caves from the CaveDelay and the cave"""
+    sched, ckdelay = SCHEDULINGS[v["scheduling"]], v["ckdelay"]
+    if sched == "ms":
+        return v["speed"]
+    cur = sum(GD_EL[e].ckdelay for e in cells)
+    kinds = set(cells)
+    anim = 2600 * ((O["AMOEBA"] in kinds) * 2 + any(O[f"FIREFLY_{i}"] in kinds for i in range(1, 5)) +
+                   any(O[f"BUTTER_{i}"] in kinds for i in range(1, 5)))
+    inter = v["intermission"]
+    if sched == "bd1":
+        return int((60 if inter else 88) + 3.66 * ckdelay + (cur + anim) // 1000)
+    if sched == "bd1atari":
+        return int((65 + 2.88 * ckdelay if inter else 74 + 3.2 * ckdelay) + cur // 1000)
+    if sched == "bd2":
+        return max(60 + (cur + anim) // 1000, ckdelay * 20)
+    if sched == "plck":
+        return max(65 + cur // 1000, ckdelay * 20)
+    if sched == "bd2ckatari":
+        return max(40 + cur // 1000, ckdelay * 20)
+    return max(130 + cur // 1000, ckdelay * 20)  # crdr7
+
+
+def game_cave(gd):
+    """A GdCave as a cave of the game's own (.cave), or CaveError: only the
+    elements of Boulder Dash 1 in 40x22 cells"""
+    v = gd.v
+    if (v["w"], v["h"]) != (W, H):
+        raise CaveError("is not 40x22 cells")
+    to_char = {GD_CHAR[c]: c for c in CHAR_CODE}
+    other = sorted({GD_EL[e].file for e in gd.cells if e not in to_char})
+    if other:
+        raise CaveError("has elements of GDash only: " + ", ".join(other[:6]) + ("..." if len(other) > 6 else ""))
+    factor = 1.2 if v["pal_timing"] else 1.0
+    cave = Cave(gd.name, round(v["time"] * factor), max(1, min(255, v["diamonds_needed"])), v["diamond_value"],
+                v["extra_diamond_value"], max(20, min(255, gd_speed(v, gd.cells))),
+                min(255, round(v["amoeba_time"] * factor)), min(255, round(v["magic_wall_time"] * factor)),
+                [to_char[e] for e in gd.cells])
+    errors = check_map(cave.cells)
+    if errors:
+        raise CaveError(errors[0])
+    return cave
 
 
 # ---------------------------------------------------------------- the disk
@@ -816,7 +1626,7 @@ class Disk:
     def rewrite(self, name, data):
         """The file's contents in place: it keeps its length"""
         if len(data) != len(self.read(name)):
-            raise CaveError(f"{name} has another length")
+            raise CaveError(f"{name} has another length - a disk of an older version?")
         pos = 0
         for blk in self.blocks(name):
             n = 254 if blk[0] else blk[1] - 1
@@ -832,12 +1642,12 @@ class Disk:
 
 
 def read_slot(disk, name):
-    return cave_from_bytes(disk.read(name)[2:])
+    return GdCave.frombytes(disk.read(name)[2:])
 
 
 def write_slot(disk, name, cave):
     old = disk.read(name)
-    data = old[:2] + (cave_bytes(cave) if cave else bytes(32 + W * H))
+    data = old[:2] + (cave.tobytes() if cave else bytes(GD_SIZE))
     disk.rewrite(name, data)
 
 
@@ -852,6 +1662,15 @@ def numbers(spec, top):
     return set(range(lo, hi + 1))
 
 
+def element_code(name):
+    """An element by its BDCFF name or map character"""
+    if len(name) == 1 and name in GD_CHAR:
+        return GD_CHAR[name]
+    if name.upper() in GD_NAME:
+        return GD_NAME[name.upper()]
+    raise CaveError(f"unknown element '{name}'")
+
+
 def options(args):
     opts = {"cave": None, "level": 1, "slot": None, "as": {}}
     rest = []
@@ -862,10 +1681,8 @@ def options(args):
                 raise CaveError(f"{a} needs a value")
             v = args.pop(0)
             if a == "--as":
-                name, _, ch = v.partition("=")
-                if ch not in CHAR_CODE:
-                    raise CaveError(f"--as {v}: the character must be one of '{''.join(CHAR_CODE)}'")
-                opts["as"][name if len(name) == 1 else name.upper()] = ch
+                old, _, new = v.partition("=")
+                opts["as"][element_code(old)] = element_code(new)
             elif a == "--level":
                 opts["level"] = int(v)
                 if not 1 <= opts["level"] <= LEVELS:
@@ -877,27 +1694,15 @@ def options(args):
     return opts, rest
 
 
-def subst_names(opts):
-    """--as for map characters and names: both as element names"""
-    out = {}
-    for k, ch in opts["as"].items():
-        out[OTHER_CHARS.get(k, CHAR_NAME.get(k, f"'{k}'")).upper() if len(k) == 1 else k] = ch
-        if len(k) == 1:
-            out[f"'{k}'"] = ch
-    return out
-
-
 def load_caves(path, opts):
-    """[(label, Cave or CaveError)] of a .bd or .cave file"""
+    """[(label, GdCave or CaveError)] of a .bd or .cave file"""
     if path.lower().endswith(".cave"):
         try:
-            cave = read_cave_file(path)
-            errors = check_cave(cave)
-            return [(os.path.basename(path), CaveError("; ".join(errors)) if errors else cave)]
+            return [(os.path.basename(path), gd_from_cave(read_cave_file(path)))]
         except CaveError as e:
             return [(os.path.basename(path), e)]
     which = numbers(opts["cave"], 9999) if opts["cave"] else None
-    _, caves = read_bd(path, opts["level"] - 1, subst_names(opts), which)
+    _, caves = read_bd(path, opts["level"] - 1, opts["as"], which)
     return [(f"cave {n:2}", CaveError(f"{c.name()}: {cave}") if isinstance(cave, CaveError) else cave)
             for n, c, cave in caves]
 
@@ -906,8 +1711,11 @@ def show(label, cave):
     if isinstance(cave, CaveError):
         print(f"  {label}: not possible - {cave}")
         return False
+    v = cave.v
+    need = v["diamonds_needed"] if v["diamonds_needed"] > 0 else "all" + \
+        (f" but {-v['diamonds_needed']}" if v["diamonds_needed"] else "")
     extra = f" ({'; '.join(cave.notes)})" if cave.notes else ""
-    print(f"  {label}: {cave.name}, {cave.diamonds} in {cave.time} s, {cave.speed} ms{extra}")
+    print(f"  {label}: {cave.name}, {need} in {v['time']} s{extra}")
     return True
 
 
@@ -918,7 +1726,10 @@ def cmd_list(args):
         disk = Disk(path)
         for name in disk.slots():
             cave = read_slot(disk, name)
-            print(f"  {name}: " + (f"{cave.name}, {cave.diamonds} in {cave.time} s" if cave else "(empty)"))
+            if cave:
+                show(name, cave)
+            else:
+                print(f"  {name}: (empty)")
         return
     caves = load_caves(path, opts)
     ok = sum(show(label, cave) for label, cave in caves)
@@ -979,28 +1790,36 @@ def cmd_convert(args):
     opts, rest = options(args)
     src, dst = rest
     if src.lower().endswith(".cave"):
-        cave = read_cave_file(src)
+        cave = gd_from_cave(read_cave_file(src))
         write_bd(dst, [cave], cave.name)
         print(f"{dst}: {cave.name}")
         return
-    caves = load_caves(src, opts)
+    caves = []
+    for label, gd in load_caves(src, opts):
+        try:
+            caves.append((label, gd if isinstance(gd, CaveError) else game_cave(gd)))
+        except CaveError as e:
+            caves.append((label, CaveError(f"{gd.name}: {e}")))
     if dst.lower().endswith(".cave"):
         good = [(label, c) for label, c in caves if not isinstance(c, CaveError)]
         if len(caves) != 1 or not good:
             for label, c in caves:
-                show(label, c)
+                print(f"  {label}: {c if isinstance(c, CaveError) else c.name}")
             raise CaveError("one cave to a .cave file: --cave N")
         write_cave_file(dst, good[0][1], f"from {os.path.basename(src)}, level {opts['level']}")
-        show(dst, good[0][1])
+        print(f"{dst}: {good[0][1].name}")
         return
     os.makedirs(dst, exist_ok=True)
     n = 0
     for label, cave in caves:
-        if show(label, cave):
-            slug = re.sub(r"[^a-z0-9]+", "-", cave.name.lower()).strip("-") or "cave"
-            n += 1
-            write_cave_file(os.path.join(dst, f"{n:02d}-{slug}.cave"), cave,
-                            f"from {os.path.basename(src)}, cave {label.split()[0]}, level {opts['level']}")
+        if isinstance(cave, CaveError):
+            print(f"  {label}: not possible - {cave}")
+            continue
+        slug = re.sub(r"[^a-z0-9]+", "-", cave.name.lower()).strip("-") or "cave"
+        n += 1
+        path = os.path.join(dst, f"{n:02d}-{slug}.cave")
+        write_cave_file(path, cave, f"from {os.path.basename(src)}, {label}, level {opts['level']}")
+        print(f"  {label}: {path}")
     print(f"{n} caves written to {dst}")
 
 

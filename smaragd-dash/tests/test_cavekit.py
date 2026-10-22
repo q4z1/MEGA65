@@ -5,8 +5,9 @@
 
 tests/cavekit/objects.bd has every kind of object GDash draws; the maps
 must be the ones GDash's own code draws (tests/cavekit/expected.txt), in
-all five levels. Then the numbers of its caves, what the game cannot play,
-and the ways back and forth: .bd, .cave, the disk's file layout.
+all five levels. Then the values of its caves, and the ways back and
+forth: .bd, .cave, the disk's file layout. (tests/test_gdengine.sh compares
+with GDash itself, on all of its caves.)
 """
 
 import os
@@ -17,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "tools"))
 import cavekit as ck  # noqa: E402
 
+O = ck.O
 failures = 0
 
 
@@ -42,9 +44,7 @@ def expected():
 
 
 def map_chars(cells, w):
-    names = {v.upper(): k for k, v in ck.OTHER_CHARS.items()}
-    names.update({v.upper(): k for k, v in ck.CHAR_NAME.items()})
-    chars = "".join(names.get(e, e) for e in cells)
+    chars = "".join(ck.GD_EL[e].char or "?" for e in cells)
     return [chars[i:i + w] for i in range(0, len(chars), w)]
 
 
@@ -53,56 +53,63 @@ bd = ck.BdcffFile(BD)
 
 # the maps, as GDash draws them
 for (level, n), rows in sorted(expected().items()):
-    r = ck.Renderer(bd, bd.caves[n - 1], level - 1, {})
+    r = ck.Renderer(bd, bd.caves[n - 1], level - 1)
     got = map_chars(r.render(), r.w)
     diff = [y for y in range(len(rows)) if rows[y] != got[y]]
     check(f"level {level}, cave {n}: map as GDash draws it", not diff,
           f"row {diff[0]}: {got[diff[0]]!r} instead of {rows[diff[0]]!r}" if diff else "")
 
-# the caves as the game plays them
-_, caves = ck.read_bd(BD, 0, {})
+# the caves as the game keeps them: GDash's values of a level
+_, caves = ck.read_bd(BD, 0)
 c1, c2, c3, c4 = (c for _, _, c in caves)
-check("BD1 timing: real seconds", (c1.time, c1.amoeba, c1.magic) == (180, 24, 18),
-      (c1.time, c1.amoeba, c1.magic))
-check("numbers of level 1", (c1.diamonds, c1.value, c1.extra) == (12, 10, 15),
-      (c1.diamonds, c1.value, c1.extra))
-check("BD1 speed from the CaveDelay and the cave (GDash: 166)", c1.speed == 166, c1.speed)
-_, lv5 = ck.read_bd(BD, 4, {})
-check("level 5: its own numbers", (lv5[0][2].time, lv5[0][2].diamonds) == (132, 16),
-      (lv5[0][2].time, lv5[0][2].diamonds))
-check("one diamond value: extra 0", (c2.value, c2.extra) == (5, 0), (c2.value, c2.extra))
-check("PLCK speed: CaveDelay x 20 ms", c2.speed == 160, c2.speed)
-check("the map codes and all creatures", c2.rows()[2][19:27] == "QoOqCbBc" and c2.rows()[1][7] == "w",
-      c2.rows()[1:3])
-check("amoeba threshold other than 200: noted", any("200 cells, not 88" in n for n in c2.notes), c2.notes)
-check("intermission: top left, the rest steel",
-      c3.rows()[11] == "W" * 40 and c3.rows()[5][19] == "X" and any("20x12" in n for n in c3.notes),
-      c3.rows()[5:12])
-check("milliseconds from FrameTime", c3.speed == 120, c3.speed)
-check("an element the game has not: refused",
-      isinstance(c4, ck.CaveError) and "HEXPANDINGWALL (26x)" in str(c4), c4)
-_, sub = ck.read_bd(BD, 0, {"HEXPANDINGWALL": "w"})
-check("... unless it is replaced (--as)", not isinstance(sub[3][2], ck.CaveError) and
-      sub[3][2].rows()[5][5:31] == "w" * 26, sub[3][2])
-for c in (c1, c2, c3):
-    check(f"'{c.name}' can be played", not ck.check_cave(c), ck.check_cave(c))
+v1 = c1.v
+check("cave 1, level 1: its numbers", (v1["time"], v1["diamonds_needed"], v1["diamond_value"],
+      v1["extra_diamond_value"]) == (150, 12, 10, 15), v1)
+check("C64 timing: bd1, PAL, CaveDelay 12",
+      (v1["scheduling"], v1["pal_timing"], v1["ckdelay"]) == (1, 1, 12), v1)
+check("amoeba and magic wall in seconds", (v1["amoeba_time"], v1["magic_wall_time"]) == (20, 15), v1)
+_, lv5 = ck.read_bd(BD, 4)
+check("level 5: its own numbers", (lv5[0][2].v["time"], lv5[0][2].v["diamonds_needed"]) == (110, 16),
+      lv5[0][2].v)
+check("the C64 random numbers left by the fill, for the slime", (v1["c64_seed_1"], v1["c64_seed_2"]) != (0, 0x1E))
+v2 = c2.v
+check("one diamond value: extra 0", (v2["diamond_value"], v2["extra_diamond_value"]) == (5, 0), v2)
+check("CaveDelay alone: plck", (v2["scheduling"], v2["ckdelay"]) == (3, 8), v2)
+check("amoeba threshold as a part of the cave: 0.1 of 880", v2["amoeba_max_count"] == 88, v2)
+check("a map: the C64's random numbers as GDash sets them", (v2["c64_seed_1"], v2["c64_seed_2"]) == (0, 0x1E))
+creatures = [O[f"FIREFLY_{i}"] for i in (1, 2, 3, 4)] + [O[f"BUTTER_{i}"] for i in (1, 2, 3, 4)]
+check("the map codes and all creatures", c2.cells[2 * 40 + 19:2 * 40 + 27] == creatures and
+      c2.cells[1 * 40 + 7] == O["BRICK"], c2.cells[40:120])
+check("intermission: 20x12 to see", (c3.v["x2"], c3.v["y2"], c3.v["intermission"]) == (19, 11, 1), c3.v)
+check("FrameTime: milliseconds", (c3.v["scheduling"], c3.v["speed"]) == (0, 120), c3.v)
+check("GDash's elements: an expanding wall",
+      not isinstance(c4, ck.CaveError) and c4.cells[5 * 40 + 5] == O["H_EXPANDING_WALL"], c4)
+_, sub = ck.read_bd(BD, 0, {O["H_EXPANDING_WALL"]: O["BRICK"]})
+check("... or another one in its place (--as)", sub[3][2].cells[5 * 40 + 5] == O["BRICK"], sub[3][2])
 
 # there and back
 tmp = tempfile.mkdtemp()
 out_bd = os.path.join(tmp, "out.bd")
-ck.write_bd(out_bd, [c1, c2, c3], "test")
-_, back = ck.read_bd(out_bd, 0, {})
-same = all(vars(a) | {"notes": []} == vars(b) | {"notes": []} for a, (_, _, b) in zip((c1, c2, c3), back))
-check(".bd written and read again: the same caves", same, [vars(b) for _, _, b in back][:1])
+ck.write_bd(out_bd, [c1, c2, c3, c4], "test")
+_, back = ck.read_bd(out_bd, 0)
+for a, (_, _, b) in zip((c1, c2, c3, c4), back):
+    diff = [k for k in a.v if a.v[k] != b.v.get(k)]
+    check(f"'{a.name}' written as .bd and read again: the same", not diff and a.cells == b.cells,
+          [(k, a.v[k], b.v.get(k)) for k in diff][:5])
+raw = c1.tobytes()
+again = ck.GdCave.frombytes(raw)
+check("the disk's file layout, and back", len(raw) == ck.GD_SIZE and again.v == c1.v and again.cells == c1.cells
+      and again.name == c1.name, len(raw))
+check("time 0: an empty slot", ck.GdCave.frombytes(bytes(ck.GD_SIZE)) is None)
+cave = ck.read_cave_file(os.path.join(HERE, "..", "caves", "04-butterflies.cave"))
 out_cave = os.path.join(tmp, "out.cave")
-ck.write_cave_file(out_cave, c1)
-again = ck.read_cave_file(out_cave)
-check(".cave written and read again: the same cave", vars(again) | {"notes": []} == vars(c1) | {"notes": []},
-      vars(again))
-raw = ck.cave_bytes(c1)
-check("the disk's file layout: 912 bytes, and back", len(raw) == 912 and
-      vars(ck.cave_from_bytes(raw)) | {"notes": []} == vars(c1) | {"notes": []}, len(raw))
-check("time 0: an empty slot", ck.cave_from_bytes(bytes(912)) is None)
+ck.write_cave_file(out_cave, cave)
+check(".cave written and read again: the same", vars(ck.read_cave_file(out_cave)) == vars(cave))
+gd = ck.gd_from_cave(cave)
+check("a .cave with GDash's rules: Boulder Dash 1's, in milliseconds",
+      (gd.v["scheduling"], gd.v["pal_timing"], gd.v["speed"], gd.v["magic_wall_stops_amoeba"]) == (0, 0, cave.speed, 0),
+      gd.v)
+check("... and back to a .cave", vars(ck.game_cave(gd)) | {"notes": []} == vars(cave) | {"notes": []})
 
 print("all passed" if not failures else f"{failures} failed")
 sys.exit(1 if failures else 0)

@@ -22,6 +22,7 @@ toolchain/tools/python/
 toolchain/tools/src/
 toolchain/tools/bin/cabextract
 toolchain/tools/bin/amiga-run
+toolchain/tools/bin/gdash-oracle
 toolchain/rom/MEGA65.ROM
 toolchain/rom/c-65-19910828.rom
 toolchain/rom/work/

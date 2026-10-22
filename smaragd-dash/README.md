@@ -16,7 +16,8 @@ the game goes on with the first one of the next level.
 Right of cave 21 come the **own caves**: twenty slots on the disk for caves
 made with the game's [cave editor](#cave-editor) (E on the title), or
 brought over from [GDash](#own-caves-and-gdash), the Boulder Dash
-construction kit for PC, with `tools/cavekit.py`.
+construction kit for PC, with `tools/cavekit.py`. They play by GDash's rules,
+with all of its elements.
 
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
@@ -87,13 +88,16 @@ not saved. H shows the keys:
 | Run/Stop | back to the title |
 | H | the keys |
 
-The frame of a cave takes only steel or the exit, and there is one inbox:
-putting a new one turns the old one to dirt. A cave can be tried and saved
-when it has its inbox and an exit. What would lose changes not saved - another
-slot, Run/Stop - and the keys C and D want to be pressed twice. On the
-values page up and down choose a line, left and right change it (held:
-faster after a while), and the name is typed (Del goes back); Return or V
-go back to the cave.
+The own caves play by GDash's rules (see below): what walks off an edge
+comes back on the other side, unless the edge is steel, as in a new cave.
+There is one inbox: putting a new one turns the old one to dirt. A cave can
+be tried and saved when it has an inbox and an exit. What would lose changes
+not saved - another slot, Run/Stop - and the keys C and D want to be pressed
+twice. On the values page up and down choose a line, left and right change
+it (held: faster after a while), and the name is typed (Del goes back);
+Return or V go back to the cave. A cave from GDash keeps all its other
+properties; its speed, if it had the C64's timing, becomes milliseconds once
+it is changed.
 
 ![The editor](screenshots/editor.png)
 
@@ -117,7 +121,8 @@ smaragd-dash/build.sh                       # build only
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
 (`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
 (`CAVE01-1` ... `CAVE25-4`: cave and level), the slots for the own caves
-(`OWN01` ... `OWN20`); the screencast build adds
+(`OWN01` ... `OWN20`), GDash's engine (`SMARAGD.GD`, `SMARAGD.LOW`) and the
+editor (`SMARAGD.EDIT`); the screencast build adds
 its moves (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
 title shows the name in big letters instead of the logo, the tiles stay
@@ -144,9 +149,12 @@ cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/te
 ```
 
 and so do the tests of `tools/cavekit.py`, `python3 tests/test_cavekit.py`.
-`tests/test_editor.sh` tries the editor in Xemu: built with `-DEDITTEST=n`,
-the game takes its keys from a script (`test_script` in `src/main.c`) and
-stops at its n-th stop; the screens of the ten stops land in `build/test/`,
+`tests/test_gdengine.sh` plays caves of GDash's own collection with the
+game's GDash engine on the host, step by step beside GDash's own code (see
+[below](#own-caves-and-gdash); `--all` for all of them). `tests/test_editor.sh`
+tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
+game takes its keys from a script (`test_script` in `src/main.c`) and stops
+at its n-th stop; the screens of the eleven stops land in `build/test/`,
 and at the end the cave the script saved is checked on the disk. It builds
 the normal game again afterwards.
 
@@ -162,7 +170,7 @@ C64 games and of fans in its BDCFF files (`.bd`). `tools/cavekit.py` (it
 needs nothing but Python 3) brings them onto the game's disk and back:
 
 ```sh
-tools/cavekit.py list   game.bd                     # its caves: which can be played
+tools/cavekit.py list   game.bd                     # its caves
 tools/cavekit.py import smaragd-dash.d81 game.bd    # into the slots, from slot 1 on
 tools/cavekit.py list   smaragd-dash.d81            # what is in the slots
 tools/cavekit.py export smaragd-dash.d81 own.bd     # the own caves for GDash
@@ -171,25 +179,29 @@ tools/cavekit.py convert game.bd caves-dir/         # .bd -> .cave files (and ba
 ```
 
 `import` takes all caves of the file in level 1, or `--cave N` or `N-M`,
-`--level L` (1-5) and `--slot N` to start with. GDash draws most caves from
-objects - lines, rectangles, random fills with the C64's random numbers -,
-and `cavekit.py` draws them the same: on GDash's own collection (200 files,
-5016 caves) its maps are those of GDash's own code in all five levels, cell
-for cell, except for caves that are random anew in every game, and the
-speed is GDash's in all but 25 of 13767 cave-levels (a few ms; elements
-outside an intermission's view). GDash's timing is converted: with PAL
-timing a second of the C64 lasts 1.2 real ones, and the speed of a C64
-cave (its CaveDelay and how full it is) becomes milliseconds per step.
+`--level L` (1-5) and `--slot N` to start with; `--as NAME=NAME2` puts one
+element in place of another.
 
-The game has the elements of Boulder Dash 1. A cave with others - the
-expanding wall of Boulder Dash 2, slime, keys, ... - is named with what it
-needs and left out, unless `--as NAME=C` puts one of the game's map
-characters in their place (`--as HEXPANDINGWALL=w`). Of GDash's 5016
-caves, 2758 can be played as they are. A cave smaller than 40x22 cells (an
-intermission) goes into the top left corner, steel around it; one that
-wraps round its edge (its inbox on the edge) cannot be played. Mazes are
-drawn by GDash only: `gdash in.bd --save-flat out.bd -q` saves a file with
-the maps drawn out.
+The own caves play by GDash's rules: the game has GDash's engine for them
+(`src/gdengine.c`, a port of its `caverenderedengine.cpp`, MIT license), with
+all of its elements - the expanding walls and slime of Boulder Dash 2, keys
+and doors, bombs, bladders, biters, teleporters, water, conveyor belts, ...
+-, its properties, the timing of its engines (the C64's included, whose
+speed comes from the cave's delay and how full it is) and its wrapping round
+the edges. `cavekit.py` takes a cave as GDash draws and starts it: from its
+objects - lines, rectangles, random fills with the C64's random numbers -,
+its properties with GDash's defaults and those of the C64 engines
+(`Engine=BD1`, ...). Both are checked against GDash's own code, built as a
+test oracle (`toolchain/tools/gdash-oracle`, see `tests/test_gdengine.sh`):
+of GDash's collection (200 `.bd` files, 5016 caves) every cave starts as in
+GDash in all five levels - every value, every cell - and plays as there,
+step by step for 400 steps with the same input, in all 24764 cave-levels
+that are not random anew in every game. On the MEGA65 the game takes its
+own random numbers for them, as GDash takes new ones in every game.
+
+GDash's elements that have no graphics of their own in the game yet show
+as a grey square; caves with mazes (43) and GDash's `.gds` files (imported
+C64 games) cannot be read by `cavekit.py` yet.
 
 ### Screencast
 
@@ -234,6 +246,7 @@ there.
 | File | |
 | --- | --- |
 | `src/engine.c` | the cave rules, without hardware access |
+| `src/gdengine.c` | GDash's engine for the own caves (in bank 2, `gdengine.ld`; called through `src/gdfar.s`, entry points in `src/gdjump.s`) |
 | `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens, the cave editor |
 | `src/hiscore.c` | the high score table and its file |
 | `src/mem.h` | where everything lies that the linker does not place: DMA list, tiles, logo, framebuffers, status line, screens |
@@ -251,6 +264,7 @@ there.
 | `caves/*.cave` | the caves, as text |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
 | `memmap` | `src/mem.h` and the disk's files again, for `mega65-mem` |
+| `link.ld`, `gdengine.ld`, `shared.ld` | the program, GDash's engine, and what they share at $C000 |
 
 **The rules** follow Boulder Dash 1: the cave is scanned once per tick
 from top left to bottom right, and what moves down or right is marked so it
@@ -322,16 +336,25 @@ next note, and slowly opens and closes the filter on the bass. The left SID
 plays melody, bass and chords, the right one the echo, the bass again and
 the drums.
 
-**The title logo** does not fit into the program: below $D000 there is
-room for about 44K of code and data, the logo at 288x144 pixels takes
-41K. So it is a file of its own on the disk, loaded at the start into
-bank 1 at $15600, from where DMA copies it into both framebuffers for the
-title screen; it ends at the colour RAM at $1F800. The tiles (70 of 256
-bytes, 17.5K) lie before it at $10000, a file of their own as well: they
-are only ever copied by DMA, so they need not lie in bank 0, which keeps
-its room for code. They take the DOS's work area at $10000-$11FFF: the
-game loads with its own loader and never calls the DOS. There is room for
-86 tiles; `mem.h` checks at compile time that tiles and logo fit.
+**The memory.** The game needs neither the KERNAL nor BASIC nor the DOS:
+it switches the KERNAL out and loads with its own loader. So the RAM under
+the KERNAL at $E000 takes the editor's code (an overlay, `SMARAGD.EDIT`,
+loaded when the editor opens), and banks 2 and 3, where the C65 ROM lies,
+are made writable at the start (the hypervisor's call $70; a reset loads
+the ROM again). Bank 2 holds GDash's engine (`SMARAGD.GD`, 27K): it is
+linked on its own for $4000-$BFFF and shows there only while it runs - the
+calls in `gdfar.s`, at $1F80 behind the DMA list (`SMARAGD.LOW`), map it in
+and out with the 45GS02's MAP. What the program and the engine share -
+the cave, `moved[]`, the engine's state, the cave file - lies at $C000
+(`shared.ld`), outside that window; the program itself ends below $C000.
+The engine has the KERNAL's zero page from $90 for its own.
+
+**The title logo** (288x144 pixels, 41K) lies in bank 3, from where DMA
+copies it into both framebuffers for the title screen. The tiles (85 of 256
+bytes) have bank 1 to themselves, from $10000 up to the colour RAM at
+$1F800 - room for 248: they are only ever copied by DMA, so they need not
+lie in bank 0, which keeps its room for code. `mem.h` checks at compile
+time that tiles and logo fit.
 `mkgfx.py` scales it down and gives it palette 1: all entries the status
 font and icons do not use (they keep theirs, so the status line looks the
 same); the title screen switches the text palette to 1, the game back to 0.

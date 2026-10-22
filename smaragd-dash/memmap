@@ -4,6 +4,13 @@
 # Bank 0
 ram  $0800+6006      DMA list, 500 jobs (dma.c)
 
+ram  $1F80+128       the calls into GDash's engine (link.ld .lowcode, gdfar.s)
+ram  $E000+8186      the cave editor's code (link.ld .editor), under the KERNAL
+
+# Banks 2 and 3, the C65 ROM's place, made writable (main.c)
+ram  $24000+32768    GDash's engine (gdengine.ld), mapped to $4000 while it runs
+ram  $30000+41472    title logo, 288x144 pixels (mkgfx.py)
+
 # Banks 4 and 5: framebuffers of 40 columns x 22 characters x 64 bytes
 ram  $40000+56320    framebuffer A (video.c)
 ram  $4DC00+7680     status line: 40 columns x 3 characters (video.c)
@@ -16,8 +23,11 @@ ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
 
 # The disk (build.sh). The program itself is found by its contents.
 file SMARAGD.TILES  @$10000     the tiles, 16x16 pixels (mkgfx.py)
-file SMARAGD.LOGO   @$15600     title logo, 288x144 pixels (mkgfx.py)
+file SMARAGD.LOGO   @$30000     title logo, 288x144 pixels (mkgfx.py)
+file SMARAGD.EDIT   @$E000      the cave editor's code, an overlay (link.ld)
+file SMARAGD.LOW    @$1F80      the calls into GDash's engine (gdfar.s)
+file SMARAGD.GD     @$24000     GDash's engine for the own caves (gdengine.ld)
 file SMARAGD.SCORES @file       high score table, written by the game (hiscore.c)
-file CAVE??-?       @cave_file  a cave in one of its four levels (mkcave.py)
-file OWN??          @cave_file  an own cave, a slot of the editor (mkcave.py, cavekit.py)
+file CAVE??-?       @file       a cave in one of its four levels (mkcave.py)
+file OWN??          @file       an own cave, a slot of the editor (mkcave.py, cavekit.py)
 file DEMO??         @demo_moves the screencast's moves for a cave (solve.c)

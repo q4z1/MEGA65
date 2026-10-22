@@ -27,17 +27,47 @@
 #define DMA_LIST_SIZE (6 + DMA_JOBS * 12)  // header and jobs of 12 bytes
 _Static_assert(0x0800 + DMA_LIST_SIZE <= 0x2000, "the DMA list reaches the program");
 
+// The calls into GDash's engine (link.ld's .lowcode, src/gdfar.s), behind
+// the DMA list: SMARAGD.LOW, loaded at the start
+#define LOW_AT    0x1F80
+_Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_AT, "the DMA list reaches the calls into GDash's engine");
+
+// What the program shares with GDash's engine lies at $C000, outside the
+// engine's $4000-$BFFF (shared.ld, which has these numbers): cave[] and
+// moved[] (engine.h), gd (gdengine.h), the cave being played (main.c's
+// file); the C stack behind it, below $D000
+#define GD_STATE_SIZE 256u    // gd at $C6E0
+#define FILE_SIZE     0x410u  // file at $C7E0, to $CBF0
+
+// The cave editor's code (link.ld's .editor): an overlay in the RAM under
+// the KERNAL, which main.c switches out at the start; loaded from the disk
+// (SMARAGD.EDIT) when the editor is opened
+#define EDIT_AT   0xE000
+#define EDIT_SIZE 0x1FFAu  // up to the CPU's vectors
+
 // ---------------------------------------------------------------- bank 1
 
-// The graphics from the disk, which only DMA reads: bank 0 keeps its room
-// for the program. The tiles take the DOS's work area as well (the game
-// loads with its own loader and never calls the DOS), the logo ends at the
-// colour RAM's first 2K at $1F800. In between there is room for more tiles.
+// The tiles from the disk, which only DMA reads: bank 0 keeps its room for
+// the program. They take the DOS's work area as well (the game loads with
+// its own loader and never calls the DOS), up to the colour RAM's first 2K
+// at $1F800.
 #define GFX_BANK  1
 #define TILES_OFF 0x0000u  // SMARAGD.TILES at $10000, TILE_COUNT x 256 bytes
-#define LOGO_OFF  0x5600u  // SMARAGD.LOGO at $15600, LOGO_W x LOGO_H pixels
-_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= LOGO_OFF, "the tiles reach the logo");
-_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0xF800, "the logo reaches the colour RAM at $1F800");
+_Static_assert(TILES_OFF + TILE_COUNT * 256ul <= 0xF800, "the tiles reach the colour RAM at $1F800");
+
+// ---------------------------------------------------------------- banks 2 and 3
+
+// Where the C65 ROM is. The game needs none of it - the KERNAL is switched
+// out, the disk read without the DOS - and makes it writable at the start
+// (main.c; a reset loads the ROM again): GDash's engine for the own caves
+// (gdengine.ld, linked for $4000-$BFFF, where gdfar.s maps it while it
+// runs) and the title logo.
+#define GD_BANK   2
+#define GD_OFF    0x4000u  // SMARAGD.GD at $24000-$2BFFF
+#define GD_SIZE   0x8000u
+#define LOGO_BANK 3
+#define LOGO_OFF  0x0000u  // SMARAGD.LOGO at $30000, LOGO_W x LOGO_H pixels
+_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0x10000, "the logo leaves bank 3");
 
 // ---------------------------------------------------------------- banks 4 and 5
 

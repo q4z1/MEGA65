@@ -93,12 +93,14 @@ struct game {
     uint8_t sound;            // SND_* of the last tick
 };
 
+// cave[] and moved[] are GDash's engine's as well (gdengine.h): on the
+// MEGA65 they lie where both see them (shared.ld, mem.h)
 extern uint8_t cave[CAVE_SIZE];
 extern struct game game;
 
 // The moves of the last tick, for drawing them smoothly: per cell the
 // direction its content moved in to get there, DIR_NONE if it did not move.
-// The rules do not use it.
+// The rules do not use it. GDash's engine fills it as well.
 extern uint8_t moved[CAVE_SIZE];
 
 // What else happened in the last tick, for the drawing's little effects

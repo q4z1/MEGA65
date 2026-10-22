@@ -4,9 +4,11 @@
 
 #include <string.h>
 
+#ifndef __mos__  // on the MEGA65 at fixed places (shared.ld)
 uint8_t cave[CAVE_SIZE];
-struct game game;
 uint8_t moved[CAVE_SIZE];
+#endif
+struct game game;
 Event events[MAX_EVENTS];
 uint8_t nevents;
 
