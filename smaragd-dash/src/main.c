@@ -179,9 +179,9 @@ static const uint8_t test_script[][3] = {
     STEP1('T'), STEP1('U'), STEP1('N'), STEP1('N'), STEP1('E'), STEP1('L'), {60, 0, 0},
     SHOT,                                                 // 6: editor-values
     {1, '\r', 0}, {80, 0, 0},
-    {1, 'T', 0}, {TRY_WAIT, 0, 0}, {75, 0, IN_RIGHT},     // trying it: to the exit
+    {1, 'T', 0}, {TRY_WAIT, 0, 0}, {45, 0, IN_RIGHT},     // trying it: to the exit
     SHOT,                                                 // 7: editor-try
-    {45, 0, IN_RIGHT}, {250, 0, 0}, {150, 0, 0},
+    {75, 0, IN_RIGHT}, {250, 0, 0}, {150, 0, 0},
     {1, 'S', 0}, {60, 0, 0},                              // saved
     SHOT,                                                 // 8: editor-saved
     {60, 0, 0},
@@ -381,40 +381,60 @@ static void draw_trails(void) {
 // Each emerald sparkles at its own moment
 static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4};
 
-// GDash's elements in this frame: their tiles (gd_tile) and frames
-// (gd_anim), the ones the game has too as its own (etile, just set), and
-// what GDash shows of the switches and the "looks like" effects
+// The tile of one of GDash's elements in frame f: its own (gd_tile) and
+// frames (gd_anim), or the game's for the ones it has too (etile, just set)
+static uint8_t gtile_of(uint8_t e, uint8_t f) {
+    uint8_t t = gd_tile[e];
+    uint8_t a = gd_anim[e];
+    if (a & 3)
+        t += (f >> (a >> 2)) & ((1 << (a & 3)) - 1);
+    switch (t) {
+    case T_FIREFLY0:
+        return etile[E_FIREFLY];
+    case T_BUTTERFLY0:
+        return etile[E_BUTTERFLY];
+    case T_AMOEBA0:
+        return etile[E_AMOEBA];
+    case T_MAGIC0:
+        return etile[E_MAGIC];
+    case T_INBOX0:
+        return etile[E_INBOX];
+    case T_OUTBOX0:
+        return etile[E_OUTBOX_OPEN];
+    case T_RF_VIEW4:
+        return etile[E_ROCKFORD];
+    }
+    return t;
+}
+
+// The elements whose tile can change from frame to frame: the ones above
+// that move, and the ones the switches and "looks like" set below
+static const uint8_t gtile_set[] = {
+    O_CREATURE_SWITCH, O_EXPANDING_WALL_SWITCH, O_GRAVITY_SWITCH, O_REPLICATOR_SWITCH, O_REPLICATOR,
+    O_CONVEYOR_DIR_SWITCH, O_CONVEYOR_SWITCH, O_CONVEYOR_LEFT, O_CONVEYOR_RIGHT, O_DIRT, O_EXPANDING_WALL,
+    O_V_EXPANDING_WALL, O_H_EXPANDING_WALL, O_AMOEBA_2, O_PRE_OUTBOX, O_PRE_INVIS_OUTBOX};
+static uint8_t gtile_dyn[GD_MOVING + sizeof gtile_set], gtile_ndyn;
+
+// GDash's elements in this frame (gtile[]); what GDash shows of the
+// switches and the "looks like" effects. The tiles that never change are
+// set once.
 static void update_gtiles(void) {
     uint8_t f = frame;
-    for (uint8_t e = 0; e < O_COUNT; e++) {
-        uint8_t t = gd_tile[e];
-        uint8_t a = gd_anim[e];
-        if (a & 3)
-            t += (f >> (a >> 2)) & ((1 << (a & 3)) - 1);
-        switch (t) {
-        case T_FIREFLY0:
-            t = etile[E_FIREFLY];
-            break;
-        case T_BUTTERFLY0:
-            t = etile[E_BUTTERFLY];
-            break;
-        case T_AMOEBA0:
-            t = etile[E_AMOEBA];
-            break;
-        case T_MAGIC0:
-            t = etile[E_MAGIC];
-            break;
-        case T_INBOX0:
-            t = etile[E_INBOX];
-            break;
-        case T_OUTBOX0:
-            t = etile[E_OUTBOX_OPEN];
-            break;
-        case T_RF_VIEW4:
-            t = etile[E_ROCKFORD];
-            break;
+    if (!gtile_ndyn) {
+        for (uint8_t e = 0; e < O_COUNT; e++) {
+            uint8_t t = gd_tile[e];
+            bool dyn = (gd_anim[e] & 3) || t == T_FIREFLY0 || t == T_BUTTERFLY0 || t == T_AMOEBA0 ||
+                       t == T_MAGIC0 || t == T_INBOX0 || t == T_OUTBOX0 || t == T_RF_VIEW4 ||
+                       memchr(gtile_set, e, sizeof gtile_set);
+            gtile[e] = gtile_of(e, f);
+            if (dyn)  // at most GD_MOVING + those of gtile_set
+                gtile_dyn[gtile_ndyn++] = e;
         }
-        gtile[e] = t;
+    } else {
+        for (uint8_t k = 0; k < gtile_ndyn; k++) {
+            uint8_t e = gtile_dyn[k];
+            gtile[e] = gtile_of(e, f);
+        }
     }
     uint32_t fl = gd.flags;
     if (fl & GDF_CREATURES_BACKWARDS)
@@ -1415,6 +1435,7 @@ static uint8_t play_cave(void) {
     bool fire_latched = false;
     bool paused = false;
     uint8_t after = 0;  // frames since Rockford died
+    uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
 
     rules_start();
     tick_len = (by_gdash ? gd.speed : d->tick_ms) * 3;
@@ -1436,6 +1457,7 @@ static uint8_t play_cave(void) {
         }
         if (paused) {
             next_frame();
+            last_frame = PEEK(0xD7FA);
             continue;
         }
         if ((pressed & IN_RESTART) && game.state == PS_ALIVE) {
@@ -1455,7 +1477,15 @@ static uint8_t play_cave(void) {
         if (held & IN_BUTTON)
             fire_latched = true;
 
-        tick_acc += frame_len;
+        // The time goes by the frames shown: a step that takes longer than
+        // a frame (GDash's engine in a full cave) does not slow the cave down
+        uint8_t now = PEEK(0xD7FA), frames = now - last_frame;
+        last_frame = now;
+        if (frames == 0)
+            frames = 1;
+        else if (frames > 3)  // a pause or the start: no steps to catch up
+            frames = 3;
+        tick_acc += frame_len * frames;
         if (tick_acc >= tick_len && game.state != PS_TIMEOUT && game.state != PS_EXITED) {
             tick_acc -= tick_len;
             uint8_t in = dir != DIR_NONE ? dir : latched;

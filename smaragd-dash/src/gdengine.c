@@ -140,13 +140,24 @@ static bool flag(uint32_t f) {
     return (gd.flags & f) != 0;
 }
 
+// 1 << n without a loop: the 6502 shifts one bit at a time
+static const uint8_t bit_of[8] = {1, 2, 4, 8, 16, 32, 64, 128};
+
 static bool has_twin(uint8_t e) {
-    return (gd_twin[e >> 3] >> (e & 7)) & 1;
+    return (gd_twin[e >> 3] & bit_of[e & 7]) != 0;
 }
+
+static const uint16_t row_at[CAVE_H] = {  // y * CAVE_W without multiplying
+    0 * CAVE_W,  1 * CAVE_W,  2 * CAVE_W,  3 * CAVE_W,  4 * CAVE_W,  5 * CAVE_W,  6 * CAVE_W,  7 * CAVE_W,
+    8 * CAVE_W,  9 * CAVE_W,  10 * CAVE_W, 11 * CAVE_W, 12 * CAVE_W, 13 * CAVE_W, 14 * CAVE_W, 15 * CAVE_W,
+    16 * CAVE_W, 17 * CAVE_W, 18 * CAVE_W, 19 * CAVE_W, 20 * CAVE_W, 21 * CAVE_W};
+_Static_assert(CAVE_H == 22, "row_at[]");
 
 // The cell of x, y, wrapped round the cave as GDash does (perfectly or, as
 // on the C64, line-shifted: off the right edge into the next row)
 static uint16_t cell(int8_t x, int8_t y) {
+    if ((uint8_t)x < gd.w && (uint8_t)y < gd.h)  // inside, as nearly always
+        return row_at[(uint8_t)y] + (uint8_t)x;
     if (x < 0) {
         x += gd.w;
         if (flag(GDF_LINESHIFT))
@@ -160,11 +171,11 @@ static uint16_t cell(int8_t x, int8_t y) {
         y += gd.h;
     else if (y >= gd.h)
         y -= gd.h;
-    return (uint16_t)y * CAVE_W + x;
+    return row_at[(uint8_t)y] + (uint8_t)x;
 }
 
 static bool scan_bit(uint16_t i) {
-    return (scanned[i >> 3] >> (i & 7)) & 1;
+    return (scanned[i >> 3] & bit_of[i & 7]) != 0;
 }
 
 static uint16_t get_at(uint16_t i) {
@@ -248,18 +259,13 @@ static void store(int8_t x, int8_t y, uint8_t e) {
         return;
     cave[i] = e;
     if (has_twin(e))
-        scanned[i >> 3] |= 1 << (i & 7);
+        scanned[i >> 3] |= bit_of[i & 7];
     else
-        scanned[i >> 3] &= ~(1 << (i & 7));
+        scanned[i >> 3] &= ~bit_of[i & 7];
 }
 
 static void store_dir(int8_t x, int8_t y, uint8_t dir, uint8_t e) {
     store(x + gd_dx[dir], y + gd_dy[dir], e);
-}
-
-static void unscan(int8_t x, int8_t y) {
-    uint16_t i = cell(x, y);
-    scanned[i >> 3] &= ~(1 << (i & 7));
 }
 
 static void next(int8_t x, int8_t y) {
@@ -1192,14 +1198,24 @@ static void scan(uint8_t player_move, bool player_fire, bool *inbox_toggle, bool
     const GdCaveFile *f = gd.f;
     uint8_t ymin = flag(GDF_BORDER_SCAN_FIRST_AND_LAST) ? 0 : 1;
     uint8_t ymax = flag(GDF_BORDER_SCAN_FIRST_AND_LAST) ? gd.h - 1 : gd.h - 2;
-    for (int8_t y = ymin; y <= (int8_t)ymax; y++)
+    uint32_t ckdelay = 0;  // GDash adds it to ckdelay_current cell by cell
+    _Static_assert(CAVE_W % 8 == 0, "a row starts a byte of scanned[]");
+    for (int8_t y = ymin; y <= (int8_t)ymax; y++) {
+        // the cell itself, inside the cave (is_scanned, unscan, get): row[x],
+        // its bit in scanned[] (*sp & bit)
+        const uint8_t *row = cave + row_at[(uint8_t)y];
+        uint8_t *srow = scanned + row_at[(uint8_t)y] / 8;
+        uint16_t row_ckdelay = 0;  // at most 40 x 518
         for (int8_t x = 0; x < gd.w; x++) {
-            if (is_scanned(x, y)) {
-                unscan(x, y);
+            uint8_t e = row[(uint8_t)x];
+            uint8_t *sp = srow + ((uint8_t)x >> 3), bit = bit_of[x & 7];
+            if (e <= O_DIRT || e == O_BRICK || e == O_STEEL || (*sp & bit)) {
+                // most of a cave: nothing to do for them (and no delay), or
+                // scanned already
+                *sp &= ~bit;
                 continue;
             }
-            uint16_t e = get(x, y);
-            gd.ckdelay_current += gd_ckdelay[e];
+            row_ckdelay += gd_ckdelay[e];
             switch (e) {
             case O_PLAYER:
             case O_PLAYER_BOMB:
@@ -1737,8 +1753,11 @@ static void scan(uint8_t player_move, bool player_fire, bool *inbox_toggle, bool
                     gd.sound |= SND_MAGIC;
                 break;
             }
-            unscan(x, y);
+            *sp &= ~bit;  // unscan(x, y)
         }
+        ckdelay += row_ckdelay;
+    }
+    gd.ckdelay_current += ckdelay;
 }
 
 // ---------------------------------------------------------------- a step
@@ -1793,14 +1812,22 @@ static void ckdelay_extra(void) {
 }
 
 // The last inbox (inbox) or player in the cave, from the top left
+// The last one in the cave, or the first with GDF_ACTIVE_IS_FIRST_FOUND
+// (GDash searches backwards for that); no cell is scanned here
 static void find_player(bool inbox) {
-    for (int8_t y = 0; y < gd.h; y++)
+    bool first = flag(GDF_ACTIVE_IS_FIRST_FOUND);
+    for (int8_t y = 0; y < gd.h; y++) {
+        const uint8_t *row = cave + (uint16_t)y * CAVE_W;
         for (int8_t x = 0; x < gd.w; x++) {
-            if (inbox ? get(x, y) == O_INBOX : is_player(x, y)) {
+            uint8_t e = row[x];
+            if (inbox ? e == O_INBOX : (gd_flags[e] & P_PLAYER) != 0) {
                 gd.player_x = x;
                 gd.player_y = y;
+                if (first)
+                    return;
             }
         }
+    }
 }
 
 #ifdef GD_FAR
@@ -1844,15 +1871,7 @@ void gd_start(const GdCaveFile *f, uint32_t seed) {
 
     // setup_for_game: where the player will be, the time in "milliseconds",
     // the speed
-    if (!flag(GDF_ACTIVE_IS_FIRST_FOUND))
-        find_player(true);
-    else
-        for (int8_t y = gd.h - 1; y >= 0; y--)
-            for (int8_t x = gd.w - 1; x >= 0; x--)
-                if (get(x, y) == O_INBOX) {
-                    gd.player_x = x;
-                    gd.player_y = y;
-                }
+    find_player(true);
     for (uint8_t i = 0; i < 16; i++) {
         gd.player_x_mem[i] = gd.player_x;
         gd.player_y_mem[i] = gd.player_y;
@@ -1897,6 +1916,7 @@ static int32_t count_down(int32_t t) {
     return t < 0 ? 0 : t;
 }
 
+
 void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
     const GdCaveFile *f = gd.f;
     bool amoeba_found_enclosed = true, amoeba_2_found_enclosed = true;
@@ -1932,38 +1952,33 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
                     store(x, y, O_BRICK);
             }
     gd.ckdelay_current = 0;
-
     scan(player_move, player_fire, &inbox_toggle, &amoeba_found_enclosed, &amoeba_2_found_enclosed,
          &amoeba_count, &amoeba_2_count);
 
     // forget the scanned marks; a destroyed voodoo costs time
     memset(scanned, 0, sizeof scanned);
-    for (uint8_t y = 0; y < gd.h; y++)
-        for (uint8_t x = 0; x < gd.w; x++) {
-            uint16_t i = (uint16_t)y * CAVE_W + x;
-            if (cave[i] == O_TIME_PENALTY) {
+    for (uint8_t y = 0; y < gd.h; y++) {
+        const uint8_t *row = cave + row_at[y];
+        for (uint8_t x = 0; x < gd.w; x++)
+            if (row[x] == O_TIME_PENALTY) {
                 store(x, y, O_GRAVESTONE);
                 time_decrement_sec += f->time_penalty;
             }
-        }
-    memset(scanned, 0, sizeof scanned);
-    if (flag(GDF_SHORT_EXPLOSIONS))
-        for (uint8_t y = 0; y < gd.h; y++)
-            for (uint8_t x = 0; x < gd.w; x++)
-                if (gd_flags[cave[(uint16_t)y * CAVE_W + x]] & P_EXPLOSION_FIRST_STAGE)
-                    next(x, y);
-    if (gd.player_state == GD_PL_LIVING) {
-        if (flag(GDF_ACTIVE_IS_FIRST_FOUND)) {
-            for (int8_t y = gd.h - 1; y >= 0; y--)
-                for (int8_t x = gd.w - 1; x >= 0; x--)
-                    if (is_player(x, y)) {
-                        gd.player_x = x;
-                        gd.player_y = y;
-                    }
-        } else {
-            find_player(false);
-        }
     }
+    memset(scanned, 0, sizeof scanned);
+    _Static_assert(P_EXPLOSION_FIRST_STAGE <= 0xFFFF, "in the low half of gd_flags[]");
+    if (flag(GDF_SHORT_EXPLOSIONS))
+        for (uint8_t y = 0; y < gd.h; y++) {
+            const uint8_t *row = cave + row_at[y];
+            for (uint8_t x = 0; x < gd.w; x++) {
+                uint8_t e = row[x];
+                if (e > O_DIRT && e != O_BRICK && e != O_STEEL &&  // most of a cave
+                    ((uint16_t)gd_flags[e] & (uint16_t)P_EXPLOSION_FIRST_STAGE))
+                    next(x, y);
+            }
+        }
+    if (gd.player_state == GD_PL_LIVING)
+        find_player(false);
     memmove(gd.player_x_mem, gd.player_x_mem + 1, 15);
     memmove(gd.player_y_mem, gd.player_y_mem + 1, 15);
     gd.player_x_mem[15] = gd.player_x;
