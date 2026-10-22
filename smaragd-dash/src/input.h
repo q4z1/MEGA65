@@ -3,6 +3,7 @@
 //   Space / Return     fire (with a direction: snap)
 //   P                  pause
 //   Run/Stop           give up the life (as in the original)
+//   I                  held: what Rockford carries (GDash's caves)
 
 #ifndef INPUT_H
 #define INPUT_H
@@ -16,6 +17,7 @@
 #define IN_BUTTON  0x10
 #define IN_PAUSE   0x20
 #define IN_RESTART 0x40
+#define IN_ITEMS   0x80
 
 uint8_t input_read(void);
 

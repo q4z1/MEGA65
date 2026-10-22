@@ -38,6 +38,8 @@ uint8_t input_read(void) {
         in |= IN_RESTART;
     if (column(0xDF) & 0x02)  // P
         in |= IN_PAUSE;
+    if (column(0xEF) & 0x02)  // I
+        in |= IN_ITEMS;
     POKE(0xDC00, 0xFF);
     return in;
 }

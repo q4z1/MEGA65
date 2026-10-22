@@ -62,6 +62,7 @@ before building.
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
+| I (held, in a cave from GDash) | what Rockford carries and where gravity pulls |
 | up/down, fire/right, left; or type | the name for the high score table |
 | E (on the title) | the cave editor |
 
@@ -205,7 +206,11 @@ Mazes are carved as GDash carves them; one that GDash makes anew in every
 game gets a maze of its own. Each of GDash's elements has a tile of its own
 (115 more of them, after the game's own), animated where GDash's are; the
 switches show whether they are on, and a cave's "looks like" effects (dirt,
-expanding walls, the second amoeba) are drawn as in GDash.
+expanding walls, the second amoeba) are drawn as in GDash. GDash's second
+status line is there too: the keys, skeletons, the sweet, the hammer and the
+diamond key Rockford has, and where gravity pulls (with the seconds until it
+turns). It shows for three seconds when any of it changes, while gravity is
+about to turn, and while I is held.
 
 GDash's `.gds` files - the C64 games it imports, about 1850 of its
 collection - go through GDash: open one there and save it (*File → Save

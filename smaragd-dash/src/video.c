@@ -105,7 +105,7 @@ void video_init(void) {
     dma_begin(0, 0);
     dma_fill(0, 0x0000, FB_BANK_A, 0);           // 0 = 64K
     dma_fill(0, 0x0000, FB_BANK_B, 0);
-    dma_fill(0, TILES_OFF, GFX_BANK, TILE_COUNT * 256);
+    dma_fill(0, TILES_OFF, GFX_BANK, TILE_COUNT * 256u);
     for (uint8_t c = 0; c < COLS; c++)
         dma_copy((uint16_t)sep_gfx, 0, STATUS_OFF + c * (STATUS_ROWS * 64) + 128, STATUS_BANK, 64);
     dma_run();

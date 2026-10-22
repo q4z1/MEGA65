@@ -555,6 +555,74 @@ static void status_game(void) {
     valid = true;
 }
 
+// GDash's caves: what Rockford carries - keys, skeletons, the sweet, the
+// hammer, the diamond key - and where gravity pulls, as GDash's second
+// status line. It shows for three seconds when any of it changes, while
+// gravity is about to turn, and while I is held. False if it does not show.
+static bool items_fresh;  // a new cave: what it starts with is no change
+
+static uint8_t gd_secs(int32_t t) {  // GDash's time_visible, up to 99
+    uint8_t s = 0;
+    while (t > 0 && s < 99) {
+        t -= gd.timing_factor;
+        s++;
+    }
+    return s;
+}
+
+static bool status_items(void) {
+    static uint8_t last[8], left, shown_secs;
+    bool pending = gd.gravity_will_change > 0;
+    uint8_t now[8] = {gd.key1 > 9 ? 9 : gd.key1, gd.key2 > 9 ? 9 : gd.key2, gd.key3 > 9 ? 9 : gd.key3,
+                      gd.skeletons_collected, gd.sweet_eaten, gd.got_pneumatic_hammer,
+                      gd.diamond_key_collected, pending ? gd.gravity_next_direction : gd.gravity};
+    bool changed = memcmp(now, last, sizeof now) != 0;
+    if (changed) {
+        memcpy(last, now, sizeof now);
+        left = items_fresh ? 0 : pal ? 150 : 180;
+        items_fresh = false;
+    }
+    bool gravity = pending || now[7] != MV_DOWN;
+    bool any = gravity;
+    for (uint8_t k = 0; k < 7; k++)
+        any |= now[k] != 0;
+    if (left)
+        left--;
+    if (!any || !(left || pending || (held & IN_ITEMS)))
+        return false;
+    uint8_t secs = pending ? gd_secs(gd.gravity_will_change) : 0;
+    if (!changed && secs == shown_secs && status_code_at(2) == 0xFF)
+        return true;  // as it is
+    shown_secs = secs;
+    status_clear();
+    static const uint8_t tile[7] = {T_KEY1, T_KEY2, T_KEY3, T_SKELETON, T_SWEET, T_HAMMER, T_DIAMOND_KEY};
+    uint8_t col = 2;
+    for (uint8_t k = 0; k < 7; k++) {
+        if (!now[k])
+            continue;
+        status_tile(col, tile[k]);
+        col += 2;
+        if (k < 4) {  // how many
+            uint8_t digits = k < 3 ? 1 : 2;
+            put_num(col, now[k], digits);
+            col += digits;
+        }
+        col++;
+    }
+    if (gravity) {
+        status_tile(col, T_GRAVITY_SWITCH);
+        status_put(col + 2, now[7] == MV_UP ? '^' : now[7] == MV_LEFT ? '<' : now[7] == MV_RIGHT ? '>' : '_');
+        if (pending)
+            put_num(col + 3, secs, 2);
+    }
+    return true;
+}
+
+static void status_play(void) {
+    if (!by_gdash || !status_items())
+        status_game();
+}
+
 // "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12" for an
 // own cave, "TEST" for the one in the editor
 static void status_intro(void) {
@@ -1247,6 +1315,7 @@ static void rules_start(void) {
     game.def = &cave_def;
     game.facing = DIR_DOWN;
     gd_suicide = false;
+    items_fresh = true;
     gd_start(&file.own, (uint32_t)rnd() << 16 | (uint16_t)rnd() << 8 | frame);
     nevents = 0;
     game_from_gd();
@@ -1372,11 +1441,11 @@ static uint8_t play_cave(void) {
         switch (game.state) {
         case PS_ALIVE:
         case PS_HATCHING:
-            status_game();
+            status_play();
             camera(false);
             break;
         case PS_DEAD:
-            status_game();
+            status_play();
             // the cave goes on; after a while the button ends it
             if (after < 255)
                 after++;
