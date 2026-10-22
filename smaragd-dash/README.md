@@ -68,6 +68,10 @@ before building.
 
 ## Cave editor
 
+**[Video: the editor](screenshots/cave-editor.mp4)** (1¼ minutes: loading
+slots, putting and drawing elements, values and name, trying the changed
+cave to its exit, saving it and loading it again)
+
 E on the title screen opens the editor on the first slot. It shows the
 cave as it starts, with a cursor; the status line names the element
 chosen, where the cursor is, the slot, and a `*` while there are changes
@@ -259,7 +263,10 @@ MEGA65_CFLAGS=-DDEMO_LAST=6 MEGA65_CAST=1 MEGA65_CAST_OPTS="-x 1 -s 2" \
 ```
 
 (the first six caves, original size, without the boot screen) and copied
-there.
+there. `tools/record-editor.sh` records `screenshots/cave-editor.mp4` as
+`build/cave-editor.mp4`: built with `-DEDITDEMO`, the game plays the
+editor's video script (in `src/main.c`, beside the editor's test script) on
+a disk with the caves of `tools/editor-demo/` in its slots.
 
 ## How it works
 
@@ -279,6 +286,7 @@ there.
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`), makes the empty slots |
 | `tools/cavekit.py` | own caves: GDash's files onto the disk and back, `.cave` files |
+| `tools/record-editor.sh`, `tools/editor-demo/` | the editor's video and its caves |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |

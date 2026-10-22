@@ -1,0 +1,54 @@
+; The cave in slot 3 of the editor's video (tools/record-editor.sh): some
+; of GDash's elements, as a cave from GDash brings them.
+[BDCFF]
+Version=0.5
+[game]
+Name=editor video
+Caves=1
+Levels=1
+[cave]
+Name=GDash elements
+Size=40 22 0 0 39 21
+CaveTime=200
+DiamondsRequired=10
+DiamondValue=10 15
+CaveScheduling=ms
+FrameTime=150
+RandSeed=7
+RandomFill=DIRT 40 BOULDER 30 DIAMOND 12 SPACE
+[objects]
+Point=2 2 INBOX
+Point=38 19 OUTBOX
+FillRect=4 4 15 9 WALL SPACE
+FillRect=6 6 13 7 WATER
+Line=4 11 15 11 CONVEYORLEFT
+Line=4 12 15 12 CONVEYORRIGHT
+Point=3 11 CONVEYORSWITCH
+FillRect=18 3 28 8 STEELWALL SPACE
+Point=20 5 KEY1
+Point=22 5 KEY2
+Point=24 5 KEY3
+Line=19 7 27 7 DOOR1
+Line=20 4 20 4 SWEET
+Point=26 4 CLOCK
+FillRect=31 3 37 8 WALL SPACE
+Point=33 5 BITERr
+Point=35 6 REPLICATOR
+Point=32 7 TELEPORTER
+Point=36 4 TELEPORTER
+Line=4 15 15 15 SLIME
+Line=4 17 15 17 EXPANDINGWALL
+FillRect=18 12 28 18 WALL SPACE
+Point=20 14 A_FIREFLYl
+Point=26 16 A_BUTTERFLYr
+Point=23 15 BOMB
+Point=31 12 POT
+Point=33 12 SKELETON
+Point=35 12 DUMMY
+Point=31 15 ACID
+Point=34 15 LAVA
+Point=31 18 COWl
+Point=34 18 GHOST
+Point=36 17 NITRO
+[/objects]
+[/cave]

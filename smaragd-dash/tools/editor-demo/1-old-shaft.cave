@@ -1,0 +1,31 @@
+# The cave in slot 1 of the editor's video (tools/record-editor.sh): the
+# video adds three emeralds, an exit, two boulders and a wall near the inbox.
+name     = OLD SHAFT
+time     = 150
+diamonds = 12
+value    = 10
+extra    = 15
+speed    = 150
+map:
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W............ ..r...r.....d....r.....d.W
+W.P.......... r.. ..d...r....... rr....W
+W............ ..r.r....r..d..r.........W
+W..r...r..d.. .... ...r..rr...d.r...r..W
+W.d..r...r....r.d. ..r....r......r.....W
+W....r.....r......r....d...r.r..r..d...W
+W.r....d.......r...r...r........r......W
+Wwwwwwwwwwwww....r....d.r...r.....r....W
+W..r....d..r...r....r......wwwwwww.....W
+W.r..r.......d.....r...r...w     w.r...W
+W...r....r.......r....r....w  B  w.....W
+W.d...r.....r..d.....r..d..w     w..d..W
+W....r....r..........r.....wwwwwww.....W
+W..r....d.....r...d.....r........r.....W
+W.wwwwwwwr.d.....r....r......d..r......W
+W.w     w....r....d.......r......r.....W
+Wrw  Q  w..r....r...r....r....r.....r..W
+W.w     w.....d......r.....d...r.......X
+W.wwwwwww...r.....r....r.....r.....r...W
+W....r......d...r.....r.....d....r.....W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
