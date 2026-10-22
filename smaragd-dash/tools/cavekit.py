@@ -2,11 +2,12 @@
 """Smaragd Dash cave kit: caves between the game's disk, its .cave files
 and GDash (BDCFF, .bd files). Needs nothing but Python 3.
 
-  cavekit.py list    <disk.d81 | game.bd | file.cave>
-  cavekit.py import  <disk.d81> <game.bd | file.cave>... [options]
+  cavekit.py list    <disk.d81 | game.bd | game.gds | file.cave>
+  cavekit.py import  <disk.d81> <game.bd | game.gds | file.cave>... [options]
+  cavekit.py disks   <disk.d81> <game.bd | game.gds | file.cave>... [--out DIR] [options]
   cavekit.py export  <disk.d81> <game.bd> [--slot N[-M]]
   cavekit.py empty   <disk.d81> [--slot N[-M]]
-  cavekit.py convert <game.bd | file.cave> <out.cave | out.bd | directory>
+  cavekit.py convert <game.bd | game.gds | file.cave> <out.cave | out.bd | directory>
 
 list shows the own caves on a disk (the slots OWN01, OWN02, ... that the
 game's editor saves into and plays), or the caves of a file.
@@ -15,6 +16,16 @@ import puts caves into the slots of the disk, from slot 1 on (or --slot N),
 over what is there. From a .bd file it takes all its caves (or --cave N or
 N-M, counted from 1) in level 1 (or --level L, 1-5). A cave that cannot be
 imported is named with the reason and left out; the others are written.
+
+disks makes disks to play a whole game from: copies of the disk (the
+game's), each with as many caves of the files as it has slots, the other
+slots empty - <name>.d81, or <name>-1.d81, <name>-2.d81, ... for more, in
+DIR (default: the current directory), <name> after the first file.
+
+A .gds file (a C64 game, as GDash imports them) is read through GDash's
+own code: toolchain/tools/bin/gdash-oracle of this repository (built by
+toolchain/tools/build-tools.sh), or the program $GDASH_ORACLE names, saves
+it as .bd first - as GDash itself does with File / Save as.
 
 export writes the own caves of the disk (or --slot N-M) as a .bd file for
 GDash. empty empties all slots of the disk (or --slot N-M).
@@ -43,8 +54,11 @@ its map characters are the ones BDCFF uses.
 
 import os
 import re
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 
 W, H = 40, 22
 NAME_LEN = 21          # what the status line has room for
@@ -1812,8 +1826,26 @@ def options(args):
     return opts, rest
 
 
+def gds_to_bd(path, out):
+    """A .gds file as GDash saves it as .bd, into out"""
+    here = os.path.dirname(os.path.abspath(__file__))
+    oracle = os.environ.get("GDASH_ORACLE") or \
+        os.path.join(here, "..", "..", "toolchain", "tools", "bin", "gdash-oracle")
+    if not os.access(oracle, os.X_OK):
+        raise CaveError(f"{path}: a .gds file needs GDash - open it there and save it as .bd, "
+                        "or build toolchain/tools/bin/gdash-oracle (toolchain/tools/build-tools.sh)")
+    subprocess.run([oracle, "save", path, out], capture_output=True)
+    if not os.path.exists(out):
+        raise CaveError(f"{path}: GDash cannot read it")
+
+
 def load_caves(path, opts):
-    """[(label, GdCave or CaveError)] of a .bd or .cave file"""
+    """[(label, GdCave or CaveError)] of a .bd, .gds or .cave file"""
+    if path.lower().endswith(".gds"):
+        with tempfile.TemporaryDirectory() as tmp:
+            bd = os.path.join(tmp, "game.bd")
+            gds_to_bd(path, bd)
+            return load_caves(bd, opts)
     if path.lower().endswith(".cave"):
         try:
             return [(os.path.basename(path), gd_from_cave(read_cave_file(path)))]
@@ -1880,6 +1912,48 @@ def cmd_import(args):
     print(f"{len(good)} of {len(todo)} caves written to {rest[0]}")
 
 
+def cmd_disks(args):
+    opts, rest = options(args)
+    out = "."
+    if "--out" in rest:
+        i = rest.index("--out")
+        if i + 1 >= len(rest):
+            raise CaveError("--out needs a directory")
+        out = rest.pop(i + 1)
+        rest.pop(i)
+    src, files = rest[0], rest[1:]
+    if not files:
+        raise CaveError("disks: which caves?")
+    per = len(Disk(src).slots())
+    if not per:
+        raise CaveError(f"{src}: no slots ({SLOT}01, ...) - not a disk of Smaragd Dash with the editor?")
+    todo = []
+    for path in files:
+        todo += load_caves(path, opts)
+    good = []
+    for label, cave in todo:
+        if isinstance(cave, CaveError):
+            show(label, cave)
+        else:
+            good.append((label, cave))
+    if not good:
+        raise CaveError("no caves to put on a disk")
+    os.makedirs(out, exist_ok=True)
+    base = re.sub(r"[^A-Za-z0-9_.-]+", "-", os.path.splitext(os.path.basename(files[0]))[0])
+    parts = [good[i:i + per] for i in range(0, len(good), per)]
+    for k, part in enumerate(parts):
+        path = os.path.join(out, f"{base}.d81" if len(parts) == 1 else f"{base}-{k + 1}.d81")
+        shutil.copyfile(src, path)
+        disk = Disk(path)
+        slots = disk.slots()
+        for i, name in enumerate(slots):
+            write_slot(disk, name, part[i][1] if i < len(part) else None)
+        disk.save()
+        print(f"{path}: {len(part)} caves - {part[0][1].name} ... {part[-1][1].name}")
+    print(f"{len(good)} of {len(todo)} caves on {len(parts)} disk{'s' if len(parts) > 1 else ''} "
+          f"(level {opts['level']})")
+
+
 def cmd_export(args):
     opts, rest = options(args)
     disk = Disk(rest[0])
@@ -1941,7 +2015,7 @@ def cmd_convert(args):
     print(f"{n} caves written to {dst}")
 
 
-COMMANDS = {"list": (cmd_list, 1), "import": (cmd_import, 2), "export": (cmd_export, 2),
+COMMANDS = {"list": (cmd_list, 1), "import": (cmd_import, 2), "disks": (cmd_disks, 2), "export": (cmd_export, 2),
             "empty": (cmd_empty, 1), "convert": (cmd_convert, 2)}
 
 

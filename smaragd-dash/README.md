@@ -184,11 +184,16 @@ tools/cavekit.py list   smaragd-dash.d81            # what is in the slots
 tools/cavekit.py export smaragd-dash.d81 own.bd     # the own caves for GDash
 tools/cavekit.py empty  smaragd-dash.d81 --slot 3   # empty a slot
 tools/cavekit.py convert game.bd caves-dir/         # .bd -> .cave files (and back)
+tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/  # disks to play a whole game on
 ```
 
 `import` takes all caves of the file in level 1, or `--cave N` or `N-M`,
 `--level L` (1-5) and `--slot N` to start with; `--as NAME=NAME2` puts one
-element in place of another.
+element in place of another. `disks` puts a whole game onto copies of the
+disk, 20 caves each (`game.d81` or `game-1.d81`, `game-2.d81`, ...), to be
+played as the own caves. All commands also take GDash's `.gds` files: they
+go through GDash's own code, `toolchain/tools/bin/gdash-oracle` (or
+`$GDASH_ORACLE`), which saves them as `.bd` as GDash does.
 
 The own caves play by GDash's rules: the game has GDash's engine for them
 (`src/gdengine.c`, a port of its `caverenderedengine.cpp`, MIT license), with
@@ -219,7 +224,8 @@ about to turn, and while I is held.
 
 GDash's `.gds` files - the C64 games it imports, about 1850 of its
 collection - go through GDash: open one there and save it (*File → Save
-as*), which writes BDCFF for `cavekit.py`. That way is checked too
+as*), which writes BDCFF for `cavekit.py` (or let `cavekit.py` do it with
+the oracle, as above). That way is checked too
 (`tests/test_gdengine.sh --gds`): of their 33411 caves 33409 play as GDash
 plays the original for 200 steps. In one GDash saves a probability rounded
 to four places; in the other the amoeba starts as "already scanned", which

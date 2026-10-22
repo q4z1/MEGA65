@@ -250,6 +250,7 @@ tools/cavekit.py export smaragd-dash.d81 my-caves.bd     # all own caves as one 
 tools/cavekit.py import smaragd-dash.d81 game.bd         # into the slots, from slot 1 on
 tools/cavekit.py import smaragd-dash.d81 game.bd --cave 3 --slot 5
 tools/cavekit.py empty  smaragd-dash.d81 --slot 3
+tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game on its own disks
 ```
 
 - **Sharing your caves:** `export` writes them as a BDCFF file (`.bd`), the
@@ -259,7 +260,25 @@ tools/cavekit.py empty  smaragd-dash.d81 --slot 3
   and of fans. `import` takes `.bd` files; `--cave N` (or `N-M`) picks
   caves, `--level L` (1-5) the level, `--slot N` the first slot. GDash's
   `.gds` files (imported C64 games) go through GDash: open one there and
-  save it (*File → Save as*), which writes a `.bd` file.
+  save it (*File → Save as*), which writes a `.bd` file. In this repository
+  `cavekit.py` does that by itself, with GDash's own code that
+  `toolchain/tools/build-tools.sh` builds (`toolchain/tools/bin/gdash-oracle`;
+  elsewhere `GDASH_ORACLE=` names the program): then all commands take
+  `.gds` files as well.
+- **A whole game:** `disks` makes disks to play a game from GDash on. Each
+  is a copy of the game's disk with as many of the game's caves as there are
+  slots (20), the rest empty: `game.d81`, or `game-1.d81`, `game-2.d81`, ...
+  for a bigger game. Start one and choose OWN CAVES on the title. The
+  options of `import` work here too, e.g. `--level 3` for the game's third
+  level. The caves of the game itself stay on every disk.
+
+  ```sh
+  tools/cavekit.py disks build/smaragd-dash.d81 Boulder_Dash_1.bd --out disks/
+  # disks/Boulder_Dash_1.d81: 20 caves - A: INTRO ... INTERMISSION 4
+  ```
+
+  Many of GDash's caves are the caves of the original commercial games:
+  keep such disks for yourself, do not pass them on.
 - **Text files:** `convert` turns a `.bd` file into `.cave` text files, one
   per cave, with the map as 22 lines of 40 characters (described in
   `tools/mkcave.py`), and back; `import` takes `.cave` files as well. So a

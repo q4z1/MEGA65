@@ -6,7 +6,8 @@
 tests/cavekit/objects.bd has every kind of object GDash draws; the maps
 must be the ones GDash's own code draws (tests/cavekit/expected.txt), in
 all five levels. Then the values of its caves, and the ways back and
-forth: .bd, .cave, the disk's file layout. (tests/test_gdengine.sh compares
+forth: .bd, .cave, the disk's file layout, and disks for a whole game
+(with a built disk). (tests/test_gdengine.sh compares
 with GDash itself, on all of its caves.)
 """
 
@@ -110,6 +111,27 @@ check("a .cave with GDash's rules: Boulder Dash 1's, in milliseconds",
       (gd.v["scheduling"], gd.v["pal_timing"], gd.v["speed"], gd.v["magic_wall_stops_amoeba"]) == (0, 0, cave.speed, 0),
       gd.v)
 check("... and back to a .cave", vars(ck.game_cave(gd)) | {"notes": []} == vars(cave) | {"notes": []})
+
+# a whole game on disks: 4 caves on 1 disk, 25 copies of them on 2 (needs a built disk)
+game_disk = os.path.join(HERE, "..", "build", "smaragd-dash.d81")
+if os.path.exists(game_disk):
+    import contextlib
+    import io
+    out_dir = os.path.join(tmp, "disks")
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_disks([game_disk, BD, "--out", out_dir])
+    d = ck.Disk(os.path.join(out_dir, "objects.d81"))
+    got = [ck.read_slot(d, n) for n in d.slots()]
+    check("disks: the caves in slots 1-4, the others empty",
+          [c.name for c in got[:4]] == [c.name for c in (c1, c2, c3, c4)] and not any(got[4:]),
+          [c and c.name for c in got])
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_disks([game_disk] + [BD] * 7 + ["--out", out_dir, "--cave", "1-4"])
+    parts = sorted(f for f in os.listdir(out_dir) if f.startswith("objects-"))
+    last = ck.Disk(os.path.join(out_dir, parts[-1]))
+    check("disks: 28 caves on two disks of 20 and 8",
+          parts == ["objects-1.d81", "objects-2.d81"] and
+          sum(1 for n in last.slots() if ck.read_slot(last, n)) == 8, parts)
 
 print("all passed" if not failures else f"{failures} failed")
 sys.exit(1 if failures else 0)
