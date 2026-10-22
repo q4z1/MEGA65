@@ -166,6 +166,18 @@ at its n-th stop; the screens of the eleven stops land in `build/test/`,
 and at the end the cave the script saved is checked on the disk. It builds
 the normal game again afterwards.
 
+What runs on the MEGA65 in assembler has its C original beside it, which
+the host's tests check; two tests check the assembler against it in Xemu.
+`python3 tests/test_gdmega65.py` plays some 200 caves of GDash's
+collection (or the files given) with GDash's engine as the MEGA65 runs it
+(built with `-DGDCHECK`: a digest of every step, `src/gddigest.h`, into
+bank 4) and compares each step with `tests/gdplay.c` on the host.
+`tests/test_render.sh` lets the screencast build make each frame's DMA
+jobs with `src/render.s` and with the C loop (`-DRENDER_CHECK`) and counts
+the frames where they differ. Built with `-DGDPROF`, the game measures how
+long GDash's engine and the frames take (by CIA 1's timer, read from a
+memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
+
 The slots for the own caves (`OWN01` ... `OWN20`, see `tools/mkcave.py`)
 go onto the disk empty; like the high scores, a new build keeps them from
 the old disk.
@@ -283,10 +295,13 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | --- | --- |
 | `src/engine.c` | the cave rules, without hardware access |
 | `src/gdengine.c` | GDash's engine for the own caves (in bank 2, `gdengine.ld`; called through `src/gdfar.s`, entry points in `src/gdjump.s`) |
+| `src/gdscan.s`, `src/gdcell.s` | its passes over the cave and its cell access in assembler |
+| `src/gddigest.h` | a step's digest, to compare the engine on the MEGA65 with the host's |
 | `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens, the cave editor |
 | `src/hiscore.c` | the high score table and its file |
 | `src/mem.h` | where everything lies that the linker does not place: DMA list, tiles, logo, framebuffers, status line, screens |
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
+| `src/render.s` | the DMA jobs of a frame's playfield in assembler |
 | `src/input.c` | joysticks and keyboard |
 | `src/sound.c` | sound effects on the first and third SID (left and right) |
 | `src/music.c` | music player on the second and fourth SID |
@@ -384,7 +399,19 @@ calls in `gdfar.s`, at $1F80 behind the DMA list (`SMARAGD.LOW`), map it in
 and out with the 45GS02's MAP. What the program and the engine share -
 the cave, `moved[]`, the engine's state, the cave file - lies at $C000
 (`shared.ld`), outside that window; the program itself ends below $C000.
-The engine has the KERNAL's zero page from $90 for its own.
+The engine has the KERNAL's zero page from $90 for its own, and two
+variables of the program (`tiles[]`, `glyph[]`) lie in the KERNAL's and
+BASIC's work area at $0200 (`link.ld`'s `.lowbss`).
+
+**The assembler.** What runs most often is 45GS02 assembly, each beside
+the C it replaces (which the host's tests use, see above): in GDash's
+engine the pass over the cave (`src/gdscan.s`: the cells, the ones that
+only lie still skipped at once, the player found on the way) and the
+access to a cell (`src/gdcell.s`: `cell`, `get`, `store`, `has_flag`);
+in the program the DMA jobs of a frame (`src/render.s`). A step of GDash's
+engine takes 2.5-6 ms in a full cave (it took up to 50 ms in C), and the
+cave's clock goes by the MEGA65's frame counter, so a longer one does not
+slow it down.
 
 **The title logo** (288x144 pixels, 41K) lies in bank 3, from where DMA
 copies it into both framebuffers for the title screen. The tiles (200 of 256

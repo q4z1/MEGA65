@@ -9,12 +9,13 @@
 // GDash marks what moved down or right in a step as "scanned" - an element
 // of its own, a twin, which GDash compares as another element and which has
 // no properties but P_SCANNED (but for three expanding steel walls and the
-// player). Here the cell keeps its element and a bit in scanned[] says it
+// player). Here the cell keeps its element and a bit in gd_scanned[] says it
 // is the twin: get() gives it as code | SCAN, so it compares unequal as in
 // GDash, and flags() gives the twin's flags.
 
 #include "gdengine.h"
 
+#include <stddef.h>
 #include <string.h>
 
 // On the MEGA65 where the program sees it as well (shared.ld)
@@ -24,8 +25,8 @@ GdState gd;
 
 #define SCAN 0x100  // get(): the scanned twin of the element
 
-static const int8_t gd_dx[] = {0, 0, 1, 1, 1, 0, -1, -1, -1, 0, 2, 2, 2, 0, -2, -2, -2};
-static const int8_t gd_dy[] = {0, -1, -1, 0, 1, 1, 1, 0, -1, -2, -2, 0, 2, 2, 2, 0, -2};
+const int8_t gd_dx[] = {0, 0, 1, 1, 1, 0, -1, -1, -1, 0, 2, 2, 2, 0, -2, -2, -2};  // also src/gdcell.s
+const int8_t gd_dy[] = {0, -1, -1, 0, 1, 1, 1, 0, -1, -2, -2, 0, 2, 2, 2, 0, -2};
 static const uint8_t ccw_eighth[] = {MV_STILL, MV_UP_LEFT, MV_UP, MV_UP_RIGHT, MV_RIGHT, MV_DOWN_RIGHT,
                                      MV_DOWN, MV_DOWN_LEFT};
 static const uint8_t ccw_fourth[] = {MV_STILL, MV_LEFT, MV_UP_LEFT, MV_UP, MV_UP_RIGHT, MV_RIGHT,
@@ -133,19 +134,21 @@ static uint8_t c64_random(void) {
 
 // ---------------------------------------------------------------- the cave
 
-static uint8_t scanned[(CAVE_SIZE + 7) / 8];
+uint8_t gd_scanned[(CAVE_SIZE + 7) / 8];  // global: src/gdscan.s
 static uint8_t hammered[CAVE_SIZE];  // frames until a hammered wall comes back
 
 static bool flag(uint32_t f) {
     return (gd.flags & f) != 0;
 }
 
+#ifndef GD_FAR  // src/gdcell.s and src/gdscan.s on the MEGA65
 // 1 << n without a loop: the 6502 shifts one bit at a time
 static const uint8_t bit_of[8] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 static bool has_twin(uint8_t e) {
     return (gd_twin[e >> 3] & bit_of[e & 7]) != 0;
 }
+#endif
 
 static const uint16_t row_at[CAVE_H] = {  // y * CAVE_W without multiplying
     0 * CAVE_W,  1 * CAVE_W,  2 * CAVE_W,  3 * CAVE_W,  4 * CAVE_W,  5 * CAVE_W,  6 * CAVE_W,  7 * CAVE_W,
@@ -153,6 +156,68 @@ static const uint16_t row_at[CAVE_H] = {  // y * CAVE_W without multiplying
     16 * CAVE_W, 17 * CAVE_W, 18 * CAVE_W, 19 * CAVE_W, 20 * CAVE_W, 21 * CAVE_W};
 _Static_assert(CAVE_H == 22, "row_at[]");
 
+// What src/gdscan.s needs to know of each element (gd_class[], set by
+// gd_start from GDash's tables)
+#define GDC_PLAYER      0x01  // P_PLAYER
+#define GDC_FIRST_STAGE 0x02  // P_EXPLOSION_FIRST_STAGE
+#define GDC_PENALTY     0x04  // O_TIME_PENALTY
+#define GDC_FALLS       0x08  // does nothing in the scan but do_start_fall with gravity
+#define GDC_SPACE       0x10  // is_like_space
+#define GDC_SLOPED_UP   0x20  // P_SLOPED_UP
+#define GDC_IDLE        0x80  // does nothing in the scan, adds no delay (bit 7: bmi)
+
+#ifndef GD_FAR
+#define clear_moved() memset(moved, DIR_NONE, CAVE_SIZE)
+#endif
+
+#ifdef GD_FAR
+// On the MEGA65: src/gdcell.s, which knows where these are
+uint16_t cell(int8_t x, int8_t y);
+uint16_t get(int8_t x, int8_t y);
+void store(int8_t x, int8_t y, uint8_t e);
+bool has_flag(int8_t x, int8_t y, uint8_t dir, uint32_t f);
+_Static_assert(O_LAVA == 116 && O_H_EXPANDING_STEEL_WALL == 47 && O_V_EXPANDING_STEEL_WALL == 48 &&
+                   O_EXPANDING_STEEL_WALL == 49 && O_PLAYER == 163 && P_SCANNED == 0x1 &&
+                   P_BLOWS_UP_FLIES == 0x100 && P_NON_EXPLODABLE == 0x800,
+               "src/gdcell.s");
+_Static_assert(offsetof(GdState, w) == 2 && offsetof(GdState, h) == 3 && offsetof(GdState, flags) == 4 &&
+                   GDF_LINESHIFT == 0x02000000ul && CAVE_W == 40 && CAVE_H == 22,
+               "src/gdcell.s");
+
+uint8_t gd_class[256];
+void gd_clear_moved(void);
+_Static_assert(DIR_NONE == 4 && CAVE_SIZE == 880, "src/gdscan.s");
+#define clear_moved gd_clear_moved
+uint8_t gd_cave_classes(bool first);
+void gd_clear_scanned(void);
+bool gd_find_player(bool first);
+extern int8_t gd_found_x, gd_found_y;
+_Static_assert(offsetof(GdState, gravity) == 46 && offsetof(GdState, gravity_disabled) == 92 && MV_DOWN == 5,
+               "src/gdscan.s");
+
+static void set_classes(void) {
+    for (uint8_t e = 0; e < O_COUNT; e++) {
+        uint32_t p = gd_flags[e];
+        uint8_t c = 0;
+        if (p & P_PLAYER)
+            c |= GDC_PLAYER;
+        if (p & P_EXPLOSION_FIRST_STAGE)
+            c |= GDC_FIRST_STAGE;
+        if (e == O_TIME_PENALTY)
+            c |= GDC_PENALTY;
+        if (e == O_STONE || e == O_MEGA_STONE || e == O_DIAMOND || e == O_NUT || e == O_DIRT_BALL ||
+            e == O_DIRT_LOOSE)
+            c |= GDC_FALLS;
+        if (e == O_SPACE || e == O_LAVA)
+            c |= GDC_SPACE;
+        if (p & P_SLOPED_UP)
+            c |= GDC_SLOPED_UP;
+        if (e <= O_DIRT || e == O_BRICK || e == O_STEEL)
+            c |= GDC_IDLE;
+        gd_class[e] = c;
+    }
+}
+#else
 // The cell of x, y, wrapped round the cave as GDash does (perfectly or, as
 // on the C64, line-shifted: off the right edge into the next row)
 static uint16_t cell(int8_t x, int8_t y) {
@@ -173,18 +238,21 @@ static uint16_t cell(int8_t x, int8_t y) {
         y -= gd.h;
     return row_at[(uint8_t)y] + (uint8_t)x;
 }
+#endif
 
+#ifndef GD_FAR  // src/gdcell.s on the MEGA65
 static bool scan_bit(uint16_t i) {
-    return (scanned[i >> 3] & bit_of[i & 7]) != 0;
+    return (gd_scanned[i >> 3] & bit_of[i & 7]) != 0;
 }
+#endif
 
-static uint16_t get_at(uint16_t i) {
+#ifndef GD_FAR
+// The element at x, y; with SCAN if it is scanned in this step
+static uint16_t get(int8_t x, int8_t y) {
+    uint16_t i = cell(x, y);
     return scan_bit(i) ? cave[i] | SCAN : cave[i];
 }
-
-static uint16_t get(int8_t x, int8_t y) {
-    return get_at(cell(x, y));
-}
+#endif
 
 static uint16_t get_dir(int8_t x, int8_t y, uint8_t dir) {
     return get(x + gd_dx[dir], y + gd_dy[dir]);
@@ -201,9 +269,11 @@ static uint32_t flags_of(uint16_t e) {
     return gd_flags[e];
 }
 
+#ifndef GD_FAR  // src/gdcell.s on the MEGA65
 static bool has_flag(int8_t x, int8_t y, uint8_t dir, uint32_t f) {
     return (flags_of(get_dir(x, y, dir)) & f) != 0;
 }
+#endif
 
 #define explodes_by_hit(x, y, dir) has_flag(x, y, dir, P_EXPLODES_BY_HIT)
 #define non_explodable(x, y)       has_flag(x, y, MV_STILL, P_NON_EXPLODABLE)
@@ -253,16 +323,18 @@ static bool is_like_space(int8_t x, int8_t y, uint8_t dir) {
 
 // GDash keeps an element stored in a step as its scanned twin; lava takes
 // what comes into it
+#ifndef GD_FAR  // src/gdcell.s on the MEGA65
 static void store(int8_t x, int8_t y, uint8_t e) {
     uint16_t i = cell(x, y);
     if (cave[i] == O_LAVA && !scan_bit(i))
         return;
     cave[i] = e;
     if (has_twin(e))
-        scanned[i >> 3] |= bit_of[i & 7];
+        gd_scanned[i >> 3] |= bit_of[i & 7];
     else
-        scanned[i >> 3] &= ~bit_of[i & 7];
+        gd_scanned[i >> 3] &= ~bit_of[i & 7];
 }
+#endif
 
 static void store_dir(int8_t x, int8_t y, uint8_t dir, uint8_t e) {
     store(x + gd_dx[dir], y + gd_dy[dir], e);
@@ -1193,572 +1265,612 @@ static const uint8_t ghost_explode_to[] = {
     O_SPACE, O_SPACE, O_DIRT, O_DIRT, O_CLOCK, O_CLOCK, O_PRE_OUTBOX, O_BOMB, O_BOMB, O_PLAYER, O_GHOST,
     O_BLADDER, O_DIAMOND, O_SWEET, O_WAITING_STONE, O_BITER_1};
 
-static void scan(uint8_t player_move, bool player_fire, bool *inbox_toggle, bool *amoeba_found_enclosed,
-                 bool *amoeba_2_found_enclosed, uint16_t *amoeba_count, uint16_t *amoeba_2_count) {
+#if defined(GD_FAR) && defined(GDPROF_ENGINE)
+// Built with -DGDPROF_ENGINE: where the time of a step goes (main.c's GDPROF
+// reads it from a memory dump), by CIA 1's timer A
+volatile uint32_t gd_prof[8];  // timer ticks: before the scan, scan, after it, find_player, rest;
+                               // 5: in scan_cell, 6: its calls
+static uint16_t prof_t;
+static uint16_t prof_now(void) {
+    uint8_t lo, hi;
+    do {
+        hi = *(volatile uint8_t *)0xDC05;
+        lo = *(volatile uint8_t *)0xDC04;
+    } while (hi != *(volatile uint8_t *)0xDC05);
+    return (uint16_t)hi << 8 | lo;
+}
+static void prof_mark(uint8_t n) {
+    uint16_t t = prof_now();
+    if (n < 8)
+        gd_prof[n] += (uint16_t)(prof_t - t);
+    prof_t = t;
+}
+#define PROF_START uint16_t prof_c0 = prof_now(); gd_prof[6]++;
+#define PROF_END   gd_prof[5] += (uint16_t)(prof_c0 - prof_now());
+#else
+#define prof_mark(n)
+#define PROF_START
+#define PROF_END
+#endif
+
+// What scan_cell needs of the step besides the cell, and what it finds out
+static uint8_t sc_move;
+static bool sc_fire, sc_inbox_toggle, sc_amoeba_found_enclosed, sc_amoeba_2_found_enclosed;
+static uint16_t sc_amoeba_count, sc_amoeba_2_count;
+uint32_t gd_scan_ckdelay;  // the C64's delay of the cells scan_cells passed
+
+// One cell of the scan, not scanned yet in this step: its element e does
+// what it does (scan_cells unscans it afterwards). Called from
+// src/gdscan.s on the MEGA65.
+void scan_cell(int8_t x, int8_t y, uint8_t e) {
     const GdCaveFile *f = gd.f;
-    uint8_t ymin = flag(GDF_BORDER_SCAN_FIRST_AND_LAST) ? 0 : 1;
-    uint8_t ymax = flag(GDF_BORDER_SCAN_FIRST_AND_LAST) ? gd.h - 1 : gd.h - 2;
-    uint32_t ckdelay = 0;  // GDash adds it to ckdelay_current cell by cell
-    _Static_assert(CAVE_W % 8 == 0, "a row starts a byte of scanned[]");
-    for (int8_t y = ymin; y <= (int8_t)ymax; y++) {
-        // the cell itself, inside the cave (is_scanned, unscan, get): row[x],
-        // its bit in scanned[] (*sp & bit)
-        const uint8_t *row = cave + row_at[(uint8_t)y];
-        uint8_t *srow = scanned + row_at[(uint8_t)y] / 8;
+    PROF_START
+    switch (e) {
+    case O_PLAYER:
+    case O_PLAYER_BOMB:
+    case O_PLAYER_ROCKET_LAUNCHER:
+    case O_PLAYER_STIRRING:
+    case O_PLAYER_PNEUMATIC_LEFT:
+    case O_PLAYER_PNEUMATIC_RIGHT:
+        player(x, y, e, sc_move, sc_fire);
+        break;
+    case O_PNEUMATIC_ACTIVE_RIGHT:
+    case O_PNEUMATIC_ACTIVE_LEFT:
+        if (gd.pneumatic_hammer_active_delay == 0) {
+            store(x, y, O_SPACE);
+            uint16_t below = get_dir(x, y, MV_DOWN);
+            uint8_t new_elem = below & SCAN ? O_NONE : gd_hammered[below];
+            if (new_elem != O_NONE && new_elem != 255) {
+                store_dir(x, y, MV_DOWN, new_elem);
+                if (flag(GDF_HAMMERED_WALLS_REAPPEAR))
+                    hammered[cell(x, (y + 1) % gd.h)] = f->hammered_wall_reappear_frame;
+            }
+        }
+        break;
+    case O_STONE:
+        do_start_fall(x, y, gd.gravity, f->stone_falling_effect);
+        break;
+    case O_MEGA_STONE:
+        do_start_fall(x, y, gd.gravity, O_MEGA_STONE_F);
+        break;
+    case O_DIAMOND:
+        do_start_fall(x, y, gd.gravity, f->diamond_falling_effect);
+        break;
+    case O_NUT:
+        do_start_fall(x, y, gd.gravity, O_NUT_F);
+        break;
+    case O_DIRT_BALL:
+        do_start_fall(x, y, gd.gravity, O_DIRT_BALL_F);
+        break;
+    case O_DIRT_LOOSE:
+        do_start_fall(x, y, gd.gravity, O_DIRT_LOOSE_F);
+        break;
+    case O_FLYING_STONE:
+        do_start_fall(x, y, opposite[gd.gravity], O_FLYING_STONE_F);
+        break;
+    case O_FLYING_DIAMOND:
+        do_start_fall(x, y, opposite[gd.gravity], O_FLYING_DIAMOND_F);
+        break;
+    case O_DIRT_BALL_F:
+        if (!gd.gravity_disabled)
+            do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_BALL);
+        break;
+    case O_DIRT_LOOSE_F:
+        if (!gd.gravity_disabled)
+            do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_LOOSE);
+        break;
+    case O_STONE_F:
+        if (!gd.gravity_disabled) {
+            if (do_fall_try_crush_voodoo(x, y, gd.gravity) ||
+                do_fall_try_crack_nut(x, y, gd.gravity, f->stone_bouncing_effect) ||
+                do_fall_try_magic(x, y, gd.gravity, f->magic_stone_to) ||
+                do_fall_try_crush(x, y, gd.gravity))
+                break;
+            do_fall_roll_or_stop(x, y, gd.gravity, f->stone_bouncing_effect);
+        }
+        break;
+    case O_MEGA_STONE_F:
+        if (!gd.gravity_disabled) {
+            if (do_fall_try_crush_voodoo(x, y, gd.gravity) ||
+                do_fall_try_crack_nut(x, y, gd.gravity, O_MEGA_STONE) ||
+                do_fall_try_magic(x, y, gd.gravity, f->magic_mega_stone_to) ||
+                do_fall_try_crush(x, y, gd.gravity))
+                break;
+            do_fall_roll_or_stop(x, y, gd.gravity, O_MEGA_STONE);
+        }
+        break;
+    case O_DIAMOND_F:
+        if (!gd.gravity_disabled) {
+            if (do_fall_try_eat_voodoo(x, y, gd.gravity) ||
+                do_fall_try_magic(x, y, gd.gravity, f->magic_diamond_to) ||
+                do_fall_try_crush(x, y, gd.gravity))
+                break;
+            do_fall_roll_or_stop(x, y, gd.gravity, f->diamond_bouncing_effect);
+        }
+        break;
+    case O_NUT_F:
+        if (!gd.gravity_disabled) {
+            if (do_fall_try_magic(x, y, gd.gravity, f->magic_nut_to) || do_fall_try_crush(x, y, gd.gravity))
+                break;
+            do_fall_roll_or_stop(x, y, gd.gravity, O_NUT);
+        }
+        break;
+    case O_FLYING_STONE_F:
+        if (!gd.gravity_disabled) {
+            uint8_t fall_dir = opposite[gd.gravity];
+            if (do_fall_try_crush_voodoo(x, y, fall_dir) ||
+                do_fall_try_crack_nut(x, y, fall_dir, O_FLYING_STONE) ||
+                do_fall_try_magic(x, y, fall_dir, f->magic_flying_stone_to) ||
+                do_fall_try_crush(x, y, fall_dir))
+                break;
+            do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_STONE);
+        }
+        break;
+    case O_FLYING_DIAMOND_F:
+        if (!gd.gravity_disabled) {
+            uint8_t fall_dir = opposite[gd.gravity];
+            if (do_fall_try_eat_voodoo(x, y, fall_dir) ||
+                do_fall_try_magic(x, y, fall_dir, f->magic_flying_diamond_to) ||
+                do_fall_try_crush(x, y, fall_dir))
+                break;
+            do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_DIAMOND);
+        }
+        break;
+    case O_NITRO_PACK:
+        do_start_fall(x, y, gd.gravity, O_NITRO_PACK_F);
+        break;
+    case O_NITRO_PACK_F:
+        if (!gd.gravity_disabled) {
+            if (is_like_space(x, y, gd.gravity))
+                move(x, y, gd.gravity, O_NITRO_PACK_F);
+            else if (do_fall_try_magic(x, y, gd.gravity, f->magic_nitro_pack_to)) {
+            } else if (is_like_dirt(x, y, gd.gravity))
+                store(x, y, O_NITRO_PACK);
+            else
+                explode(x, y);
+        }
+        break;
+    case O_NITRO_PACK_EXPLODE:
+        explode(x, y);
+        break;
+    case O_COW_1:
+    case O_COW_2:
+    case O_COW_3:
+    case O_COW_4:
+        if (!is_like_space(x, y, MV_UP) && !is_like_space(x, y, MV_DOWN) && !is_like_space(x, y, MV_LEFT) &&
+            !is_like_space(x, y, MV_RIGHT))
+            store(x, y, O_COW_ENCLOSED_1);
+        else
+            creature_move(x, y, O_COW_1);
+        break;
+    case O_COW_ENCLOSED_1:
+    case O_COW_ENCLOSED_2:
+    case O_COW_ENCLOSED_3:
+    case O_COW_ENCLOSED_4:
+    case O_COW_ENCLOSED_5:
+    case O_COW_ENCLOSED_6:
+    case O_COW_ENCLOSED_7:
+        if (is_like_space(x, y, MV_UP) || is_like_space(x, y, MV_LEFT) || is_like_space(x, y, MV_RIGHT) ||
+            is_like_space(x, y, MV_DOWN))
+            store(x, y, O_COW_1);
+        else if (e == O_COW_ENCLOSED_7)
+            store(x, y, O_SKELETON);
+        else
+            next(x, y);
+        break;
+    case O_FIREFLY_1:
+    case O_FIREFLY_2:
+    case O_FIREFLY_3:
+    case O_FIREFLY_4:
+    case O_ALT_FIREFLY_1:
+    case O_ALT_FIREFLY_2:
+    case O_ALT_FIREFLY_3:
+    case O_ALT_FIREFLY_4:
+    case O_BUTTER_1:
+    case O_BUTTER_2:
+    case O_BUTTER_3:
+    case O_BUTTER_4:
+    case O_ALT_BUTTER_1:
+    case O_ALT_BUTTER_2:
+    case O_ALT_BUTTER_3:
+    case O_ALT_BUTTER_4:
+    case O_STONEFLY_1:
+    case O_STONEFLY_2:
+    case O_STONEFLY_3:
+    case O_STONEFLY_4:
+        if (touches(x, y, O_VOODOO))
+            gd.voodoo_touched = true;
+        if (flies_blow_up(x, y))
+            explode(x, y);
+        else
+            creature_move(x, y, e >= O_FIREFLY_1 && e <= O_FIREFLY_4 ? O_FIREFLY_1
+                              : e >= O_BUTTER_1 && e <= O_BUTTER_4 ? O_BUTTER_1
+                              : e >= O_STONEFLY_1 && e <= O_STONEFLY_4 ? O_STONEFLY_1
+                              : e >= O_ALT_FIREFLY_1 && e <= O_ALT_FIREFLY_4 ? O_ALT_FIREFLY_1
+                              : O_ALT_BUTTER_1);
+        break;
+    case O_WAITING_STONE: {
+        uint8_t gc = grav_compat();
+        if (is_like_space(x, y, gc)) {
+            move(x, y, gc, O_CHASING_STONE);
+        } else if (sloped(x, y, gc, opposite[gc])) {
+            if (sloped(x, y, gc, cw_fourth[gc]) && is_like_space(x, y, cw_fourth[gc]) &&
+                is_like_space(x, y, cw_eighth[gc]))
+                move(x, y, cw_fourth[gc], O_WAITING_STONE);
+            else if (sloped(x, y, gc, ccw_fourth[gc]) && is_like_space(x, y, ccw_fourth[gc]) &&
+                     is_like_space(x, y, ccw_eighth[gc]))
+                move(x, y, ccw_fourth[gc], O_WAITING_STONE);
+        }
+        break;
+    }
+    case O_CHASING_STONE:
+        chasing_stone(x, y);
+        break;
+    case O_REPLICATOR:
+        if (gd.replicators_wait_frame == 0 && flag(GDF_REPLICATORS_ACTIVE) && !gd.gravity_disabled) {
+            if (is_like_space(x, y, gd.gravity) && !is_player_dir(x, y, opposite[gd.gravity]) &&
+                !is_scanned_dir(x, y, opposite[gd.gravity]))
+                store_dir(x, y, gd.gravity, get_dir(x, y, opposite[gd.gravity]));
+        }
+        break;
+    case O_BITER_1:
+    case O_BITER_2:
+    case O_BITER_3:
+    case O_BITER_4:
+        if (gd.biters_wait_frame == 0)
+            biter(x, y);
+        break;
+    case O_DRAGONFLY_1:
+    case O_DRAGONFLY_2:
+    case O_DRAGONFLY_3:
+    case O_DRAGONFLY_4:
+        if (touches(x, y, O_VOODOO))
+            gd.voodoo_touched = true;
+        if (flies_blow_up(x, y)) {
+            explode(x, y);
+        } else {
+            bool ccw = rotates_ccw(x, y);
+            uint8_t dir = e - O_DRAGONFLY_1, dirn;
+            const uint8_t *cm = flag(GDF_CREATURES_BACKWARDS) ? creature_chdir : creature_dir;
+            if (flag(GDF_CREATURES_BACKWARDS))
+                ccw = !ccw;
+            dirn = ccw ? (dir + 3) & 3 : (dir + 1) & 3;
+            if (is_like_space(x, y, cm[dir]))
+                move(x, y, cm[dir], O_DRAGONFLY_1 + dir);
+            else
+                store(x, y, O_DRAGONFLY_1 + dirn);
+        }
+        break;
+    case O_BLADDER:
+        store(x, y, O_BLADDER_1);
+        break;
+    case O_BLADDER_1:
+    case O_BLADDER_2:
+    case O_BLADDER_3:
+    case O_BLADDER_4:
+    case O_BLADDER_5:
+    case O_BLADDER_6:
+    case O_BLADDER_7:
+    case O_BLADDER_8:
+        bladder(x, y);
+        break;
+    case O_GHOST:
+        if (flies_blow_up(x, y)) {
+            explode(x, y);
+        } else {
+            static const uint8_t dirs[] = {MV_UP, MV_DOWN, MV_LEFT, MV_RIGHT};
+            for (uint8_t i = 0; i < 4; i++) {
+                uint8_t random_dir = dirs[rand_below(4)];
+                if (is_like_space(x, y, random_dir)) {
+                    move(x, y, random_dir, O_GHOST);
+                    break;
+                }
+            }
+        }
+        break;
+    case O_AMOEBA:
+        if (gd.hatched && gd.amoeba_state == GD_AM_AWAKE)
+            gd.sound |= SND_AMOEBA;
+        if (gd.convert_amoeba_this_frame && sc_amoeba_found_enclosed) {
+            store(x, y, f->amoeba_enclosed_effect);
+            break;
+        }
+        sc_amoeba_count++;
+        switch (gd.amoeba_state) {
+        case GD_AM_TOO_BIG:
+            store(x, y, f->amoeba_too_big_effect);
+            break;
+        case GD_AM_ENCLOSED:
+            store(x, y, f->amoeba_enclosed_effect);
+            break;
+        default:
+            if (sc_amoeba_found_enclosed && amoeba_has_room(x, y)) {
+                sc_amoeba_found_enclosed = false;
+                gd.amoeba_state = GD_AM_AWAKE;
+            }
+            if (gd.amoeba_state == GD_AM_AWAKE && chance(gd.amoeba_growth_prob))
+                amoeba_grow(x, y, O_AMOEBA);
+            break;
+        }
+        break;
+    case O_AMOEBA_2:
+        if (gd.hatched && gd.amoeba_2_state == GD_AM_AWAKE)
+            gd.sound |= SND_AMOEBA;
+        sc_amoeba_2_count++;
+        if (flag(GDF_AMOEBA_2_EXPLODES_BY_AMOEBA) &&
+            (is_like_element(x, y, MV_DOWN, O_AMOEBA) || is_like_element(x, y, MV_UP, O_AMOEBA) ||
+             is_like_element(x, y, MV_LEFT, O_AMOEBA) || is_like_element(x, y, MV_RIGHT, O_AMOEBA))) {
+            explode(x, y);
+        } else {
+            switch (gd.amoeba_2_state) {
+            case GD_AM_TOO_BIG:
+                store(x, y, f->amoeba_2_too_big_effect);
+                break;
+            case GD_AM_ENCLOSED:
+                store(x, y, f->amoeba_2_enclosed_effect);
+                break;
+            default:
+                if (sc_amoeba_2_found_enclosed && amoeba_has_room(x, y)) {
+                    sc_amoeba_2_found_enclosed = false;
+                    gd.amoeba_2_state = GD_AM_AWAKE;
+                }
+                if (gd.amoeba_2_state == GD_AM_AWAKE && chance(gd.amoeba_2_growth_prob))
+                    amoeba_grow(x, y, O_AMOEBA_2);
+                break;
+            }
+        }
+        break;
+    case O_ACID:
+        if (rand_below(1000000) <= f->acid_spread_ratio) {
+            store(x, y, f->acid_turns_to);
+            if (is_like_element(x, y, MV_UP, f->acid_eats_this))
+                store_dir(x, y, MV_UP, O_ACID);
+            if (is_like_element(x, y, MV_DOWN, f->acid_eats_this))
+                store_dir(x, y, MV_DOWN, O_ACID);
+            if (is_like_element(x, y, MV_LEFT, f->acid_eats_this))
+                store_dir(x, y, MV_LEFT, O_ACID);
+            if (is_like_element(x, y, MV_RIGHT, f->acid_eats_this))
+                store_dir(x, y, MV_RIGHT, O_ACID);
+        }
+        break;
+    case O_WATER:
+        if (!flag(GDF_WATER_DOES_NOT_FLOW_DOWN) && is_like_space(x, y, MV_DOWN))
+            store_dir(x, y, MV_DOWN, O_WATER_1);
+        if (is_like_space(x, y, MV_UP))
+            store_dir(x, y, MV_UP, O_WATER_1);
+        if (is_like_space(x, y, MV_LEFT))
+            store_dir(x, y, MV_LEFT, O_WATER_1);
+        if (is_like_space(x, y, MV_RIGHT))
+            store_dir(x, y, MV_RIGHT, O_WATER_1);
+        break;
+    case O_WATER_16:
+        store(x, y, O_WATER);
+        break;
+    case O_H_EXPANDING_WALL:
+    case O_V_EXPANDING_WALL:
+    case O_H_EXPANDING_STEEL_WALL:
+    case O_V_EXPANDING_STEEL_WALL:
+        if (((e == O_H_EXPANDING_WALL || e == O_H_EXPANDING_STEEL_WALL) && !flag(GDF_EXPANDING_WALL_CHANGED)) ||
+            ((e == O_V_EXPANDING_WALL || e == O_V_EXPANDING_STEEL_WALL) && flag(GDF_EXPANDING_WALL_CHANGED)))
+            expanding(x, y, MV_LEFT, MV_RIGHT);
+        else
+            expanding(x, y, MV_UP, MV_DOWN);
+        break;
+    case O_EXPANDING_WALL:
+    case O_EXPANDING_STEEL_WALL:
+        if (is_like_space(x, y, MV_LEFT))
+            store_dir(x, y, MV_LEFT, e);
+        if (is_like_space(x, y, MV_RIGHT))
+            store_dir(x, y, MV_RIGHT, e);
+        if (is_like_space(x, y, MV_UP))
+            store_dir(x, y, MV_UP, e);
+        if (is_like_space(x, y, MV_DOWN))
+            store_dir(x, y, MV_DOWN, e);
+        break;
+    case O_SLIME:
+        slime(x, y);
+        break;
+    case O_FALLING_WALL: {
+        uint8_t gc = grav_compat();
+        if (is_like_space(x, y, gc)) {
+            int8_t yy;
+            for (yy = y + 1; yy < y + gd.h; yy++)
+                if (!is_like_space(x, yy, MV_STILL))
+                    break;
+            uint16_t below = get(x, yy);
+            if (below == O_PLAYER || below == O_PLAYER_GLUED || below == O_PLAYER_BOMB)
+                move(x, y, gc, O_FALLING_WALL_F);
+        }
+        break;
+    }
+    case O_FALLING_WALL_F: {
+        uint8_t gc = grav_compat();
+        if (is_player_dir(x, y, gc))
+            explode(x, y);
+        else if (is_like_space(x, y, gc))
+            move(x, y, gc, O_FALLING_WALL_F);
+        else
+            store(x, y, O_FALLING_WALL);
+        break;
+    }
+    case O_CONVEYOR_RIGHT:
+    case O_CONVEYOR_LEFT:
+        conveyor(x, y);
+        break;
+    case O_ROCKET_1:
+        rocket(x, y, MV_RIGHT, O_ROCKET_1);
+        break;
+    case O_ROCKET_2:
+        rocket(x, y, MV_UP, O_ROCKET_2);
+        break;
+    case O_ROCKET_3:
+        rocket(x, y, MV_LEFT, O_ROCKET_3);
+        break;
+    case O_ROCKET_4:
+        rocket(x, y, MV_DOWN, O_ROCKET_4);
+        break;
+    case O_EXPLODE_3:
+        store(x, y, f->explosion_3_effect);
+        break;
+    case O_EXPLODE_5:
+        store(x, y, f->explosion_effect);
+        break;
+    case O_NUT_CRACK_4:
+        store(x, y, O_DIAMOND);
+        break;
+    case O_PRE_DIA_5:
+        store(x, y, f->diamond_birth_effect);
+        break;
+    case O_PRE_STONE_4:
+        store(x, y, O_STONE);
+        break;
+    case O_NITRO_EXPL_4:
+        store(x, y, f->nitro_explosion_effect);
+        break;
+    case O_BOMB_EXPL_4:
+        store(x, y, f->bomb_explosion_effect);
+        break;
+    case O_AMOEBA_2_EXPL_4:
+        store(x, y, f->amoeba_2_explosion_effect);
+        break;
+    case O_GHOST_EXPL_4:
+        store(x, y, ghost_explode_to[rand_below(16)]);
+        break;
+    case O_PRE_STEEL_4:
+        store(x, y, O_STEEL);
+        break;
+    case O_PRE_CLOCK_4:
+        store(x, y, O_CLOCK);
+        break;
+    case O_BOMB_TICK_7:
+        explode(x, y);
+        break;
+    case O_TRAPPED_DIAMOND:
+        if (gd.diamond_key_collected)
+            store(x, y, O_DIAMOND);
+        break;
+    case O_PRE_OUTBOX:
+        if (gd.gate_open)
+            store(x, y, O_OUTBOX);
+        break;
+    case O_PRE_INVIS_OUTBOX:
+        if (gd.gate_open)
+            store(x, y, O_INVIS_OUTBOX);
+        break;
+    case O_INBOX:
+        gd.player_seen_ago = 0;
+        if (gd.hatched && !sc_inbox_toggle)
+            store(x, y, O_PRE_PL_1);
+        sc_inbox_toggle = !sc_inbox_toggle;
+        break;
+    case O_PRE_PL_1:
+        gd.player_seen_ago = 0;
+        store(x, y, O_PRE_PL_2);
+        break;
+    case O_PRE_PL_2:
+        gd.player_seen_ago = 0;
+        store(x, y, O_PRE_PL_3);
+        break;
+    case O_PRE_PL_3:
+        gd.player_seen_ago = 0;
+        store(x, y, O_PLAYER);
+        break;
+    case O_PRE_DIA_1:
+    case O_PRE_DIA_2:
+    case O_PRE_DIA_3:
+    case O_PRE_DIA_4:
+    case O_PRE_STONE_1:
+    case O_PRE_STONE_2:
+    case O_PRE_STONE_3:
+    case O_BOMB_TICK_1:
+    case O_BOMB_TICK_2:
+    case O_BOMB_TICK_3:
+    case O_BOMB_TICK_4:
+    case O_BOMB_TICK_5:
+    case O_BOMB_TICK_6:
+    case O_PRE_STEEL_1:
+    case O_PRE_STEEL_2:
+    case O_PRE_STEEL_3:
+    case O_BOMB_EXPL_1:
+    case O_BOMB_EXPL_2:
+    case O_BOMB_EXPL_3:
+    case O_NUT_CRACK_1:
+    case O_NUT_CRACK_2:
+    case O_NUT_CRACK_3:
+    case O_GHOST_EXPL_1:
+    case O_GHOST_EXPL_2:
+    case O_GHOST_EXPL_3:
+    case O_EXPLODE_1:
+    case O_EXPLODE_2:
+    case O_EXPLODE_4:
+    case O_PRE_CLOCK_1:
+    case O_PRE_CLOCK_2:
+    case O_PRE_CLOCK_3:
+    case O_NITRO_EXPL_1:
+    case O_NITRO_EXPL_2:
+    case O_NITRO_EXPL_3:
+    case O_AMOEBA_2_EXPL_1:
+    case O_AMOEBA_2_EXPL_2:
+    case O_AMOEBA_2_EXPL_3:
+    case O_WATER_1:
+    case O_WATER_2:
+    case O_WATER_3:
+    case O_WATER_4:
+    case O_WATER_5:
+    case O_WATER_6:
+    case O_WATER_7:
+    case O_WATER_8:
+    case O_WATER_9:
+    case O_WATER_10:
+    case O_WATER_11:
+    case O_WATER_12:
+    case O_WATER_13:
+    case O_WATER_14:
+    case O_WATER_15:
+        next(x, y);
+        break;
+    case O_BLADDER_SPENDER: {
+        uint8_t up = opposite[grav_compat()];
+        if (is_like_space(x, y, up)) {
+            store_dir(x, y, up, O_BLADDER);
+            store(x, y, O_PRE_STEEL_1);
+        }
+        break;
+    }
+    case O_MAGIC_WALL:
+        if (gd.magic_wall_state == GD_MW_ACTIVE)
+            gd.sound |= SND_MAGIC;
+        break;
+    }
+    PROF_END
+}
+
+void scan_cells(uint8_t ymin, uint8_t ymax, uint8_t w);
+
+#ifndef GD_FAR
+// The scan of rows ymin-ymax, w cells each, in GDash's order: each cell not
+// scanned yet whose element does something goes to scan_cell, and all are
+// unscanned. Space, dirt and walls do nothing and add no delay. On the
+// MEGA65 this is src/gdscan.s.
+void scan_cells(uint8_t ymin, uint8_t ymax, uint8_t w) {
+    _Static_assert(CAVE_W % 8 == 0, "a row starts a byte of gd_scanned[]");
+    for (uint8_t y = ymin; y <= ymax; y++) {
+        const uint8_t *row = cave + row_at[y];
+        uint8_t *srow = gd_scanned + row_at[y] / 8;
         uint16_t row_ckdelay = 0;  // at most 40 x 518
-        for (int8_t x = 0; x < gd.w; x++) {
-            uint8_t e = row[(uint8_t)x];
-            uint8_t *sp = srow + ((uint8_t)x >> 3), bit = bit_of[x & 7];
-            if (e <= O_DIRT || e == O_BRICK || e == O_STEEL || (*sp & bit)) {
-                // most of a cave: nothing to do for them (and no delay), or
-                // scanned already
-                *sp &= ~bit;
-                continue;
-            }
-            row_ckdelay += gd_ckdelay[e];
-            switch (e) {
-            case O_PLAYER:
-            case O_PLAYER_BOMB:
-            case O_PLAYER_ROCKET_LAUNCHER:
-            case O_PLAYER_STIRRING:
-            case O_PLAYER_PNEUMATIC_LEFT:
-            case O_PLAYER_PNEUMATIC_RIGHT:
-                player(x, y, e, player_move, player_fire);
-                break;
-            case O_PNEUMATIC_ACTIVE_RIGHT:
-            case O_PNEUMATIC_ACTIVE_LEFT:
-                if (gd.pneumatic_hammer_active_delay == 0) {
-                    store(x, y, O_SPACE);
-                    uint16_t below = get_dir(x, y, MV_DOWN);
-                    uint8_t new_elem = below & SCAN ? O_NONE : gd_hammered[below];
-                    if (new_elem != O_NONE && new_elem != 255) {
-                        store_dir(x, y, MV_DOWN, new_elem);
-                        if (flag(GDF_HAMMERED_WALLS_REAPPEAR))
-                            hammered[cell(x, (y + 1) % gd.h)] = f->hammered_wall_reappear_frame;
-                    }
-                }
-                break;
-            case O_STONE:
-                do_start_fall(x, y, gd.gravity, f->stone_falling_effect);
-                break;
-            case O_MEGA_STONE:
-                do_start_fall(x, y, gd.gravity, O_MEGA_STONE_F);
-                break;
-            case O_DIAMOND:
-                do_start_fall(x, y, gd.gravity, f->diamond_falling_effect);
-                break;
-            case O_NUT:
-                do_start_fall(x, y, gd.gravity, O_NUT_F);
-                break;
-            case O_DIRT_BALL:
-                do_start_fall(x, y, gd.gravity, O_DIRT_BALL_F);
-                break;
-            case O_DIRT_LOOSE:
-                do_start_fall(x, y, gd.gravity, O_DIRT_LOOSE_F);
-                break;
-            case O_FLYING_STONE:
-                do_start_fall(x, y, opposite[gd.gravity], O_FLYING_STONE_F);
-                break;
-            case O_FLYING_DIAMOND:
-                do_start_fall(x, y, opposite[gd.gravity], O_FLYING_DIAMOND_F);
-                break;
-            case O_DIRT_BALL_F:
-                if (!gd.gravity_disabled)
-                    do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_BALL);
-                break;
-            case O_DIRT_LOOSE_F:
-                if (!gd.gravity_disabled)
-                    do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_LOOSE);
-                break;
-            case O_STONE_F:
-                if (!gd.gravity_disabled) {
-                    if (do_fall_try_crush_voodoo(x, y, gd.gravity) ||
-                        do_fall_try_crack_nut(x, y, gd.gravity, f->stone_bouncing_effect) ||
-                        do_fall_try_magic(x, y, gd.gravity, f->magic_stone_to) ||
-                        do_fall_try_crush(x, y, gd.gravity))
-                        break;
-                    do_fall_roll_or_stop(x, y, gd.gravity, f->stone_bouncing_effect);
-                }
-                break;
-            case O_MEGA_STONE_F:
-                if (!gd.gravity_disabled) {
-                    if (do_fall_try_crush_voodoo(x, y, gd.gravity) ||
-                        do_fall_try_crack_nut(x, y, gd.gravity, O_MEGA_STONE) ||
-                        do_fall_try_magic(x, y, gd.gravity, f->magic_mega_stone_to) ||
-                        do_fall_try_crush(x, y, gd.gravity))
-                        break;
-                    do_fall_roll_or_stop(x, y, gd.gravity, O_MEGA_STONE);
-                }
-                break;
-            case O_DIAMOND_F:
-                if (!gd.gravity_disabled) {
-                    if (do_fall_try_eat_voodoo(x, y, gd.gravity) ||
-                        do_fall_try_magic(x, y, gd.gravity, f->magic_diamond_to) ||
-                        do_fall_try_crush(x, y, gd.gravity))
-                        break;
-                    do_fall_roll_or_stop(x, y, gd.gravity, f->diamond_bouncing_effect);
-                }
-                break;
-            case O_NUT_F:
-                if (!gd.gravity_disabled) {
-                    if (do_fall_try_magic(x, y, gd.gravity, f->magic_nut_to) || do_fall_try_crush(x, y, gd.gravity))
-                        break;
-                    do_fall_roll_or_stop(x, y, gd.gravity, O_NUT);
-                }
-                break;
-            case O_FLYING_STONE_F:
-                if (!gd.gravity_disabled) {
-                    uint8_t fall_dir = opposite[gd.gravity];
-                    if (do_fall_try_crush_voodoo(x, y, fall_dir) ||
-                        do_fall_try_crack_nut(x, y, fall_dir, O_FLYING_STONE) ||
-                        do_fall_try_magic(x, y, fall_dir, f->magic_flying_stone_to) ||
-                        do_fall_try_crush(x, y, fall_dir))
-                        break;
-                    do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_STONE);
-                }
-                break;
-            case O_FLYING_DIAMOND_F:
-                if (!gd.gravity_disabled) {
-                    uint8_t fall_dir = opposite[gd.gravity];
-                    if (do_fall_try_eat_voodoo(x, y, fall_dir) ||
-                        do_fall_try_magic(x, y, fall_dir, f->magic_flying_diamond_to) ||
-                        do_fall_try_crush(x, y, fall_dir))
-                        break;
-                    do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_DIAMOND);
-                }
-                break;
-            case O_NITRO_PACK:
-                do_start_fall(x, y, gd.gravity, O_NITRO_PACK_F);
-                break;
-            case O_NITRO_PACK_F:
-                if (!gd.gravity_disabled) {
-                    if (is_like_space(x, y, gd.gravity))
-                        move(x, y, gd.gravity, O_NITRO_PACK_F);
-                    else if (do_fall_try_magic(x, y, gd.gravity, f->magic_nitro_pack_to)) {
-                    } else if (is_like_dirt(x, y, gd.gravity))
-                        store(x, y, O_NITRO_PACK);
-                    else
-                        explode(x, y);
-                }
-                break;
-            case O_NITRO_PACK_EXPLODE:
-                explode(x, y);
-                break;
-            case O_COW_1:
-            case O_COW_2:
-            case O_COW_3:
-            case O_COW_4:
-                if (!is_like_space(x, y, MV_UP) && !is_like_space(x, y, MV_DOWN) && !is_like_space(x, y, MV_LEFT) &&
-                    !is_like_space(x, y, MV_RIGHT))
-                    store(x, y, O_COW_ENCLOSED_1);
-                else
-                    creature_move(x, y, O_COW_1);
-                break;
-            case O_COW_ENCLOSED_1:
-            case O_COW_ENCLOSED_2:
-            case O_COW_ENCLOSED_3:
-            case O_COW_ENCLOSED_4:
-            case O_COW_ENCLOSED_5:
-            case O_COW_ENCLOSED_6:
-            case O_COW_ENCLOSED_7:
-                if (is_like_space(x, y, MV_UP) || is_like_space(x, y, MV_LEFT) || is_like_space(x, y, MV_RIGHT) ||
-                    is_like_space(x, y, MV_DOWN))
-                    store(x, y, O_COW_1);
-                else if (e == O_COW_ENCLOSED_7)
-                    store(x, y, O_SKELETON);
-                else
-                    next(x, y);
-                break;
-            case O_FIREFLY_1:
-            case O_FIREFLY_2:
-            case O_FIREFLY_3:
-            case O_FIREFLY_4:
-            case O_ALT_FIREFLY_1:
-            case O_ALT_FIREFLY_2:
-            case O_ALT_FIREFLY_3:
-            case O_ALT_FIREFLY_4:
-            case O_BUTTER_1:
-            case O_BUTTER_2:
-            case O_BUTTER_3:
-            case O_BUTTER_4:
-            case O_ALT_BUTTER_1:
-            case O_ALT_BUTTER_2:
-            case O_ALT_BUTTER_3:
-            case O_ALT_BUTTER_4:
-            case O_STONEFLY_1:
-            case O_STONEFLY_2:
-            case O_STONEFLY_3:
-            case O_STONEFLY_4:
-                if (touches(x, y, O_VOODOO))
-                    gd.voodoo_touched = true;
-                if (flies_blow_up(x, y))
-                    explode(x, y);
-                else
-                    creature_move(x, y, e >= O_FIREFLY_1 && e <= O_FIREFLY_4 ? O_FIREFLY_1
-                                      : e >= O_BUTTER_1 && e <= O_BUTTER_4 ? O_BUTTER_1
-                                      : e >= O_STONEFLY_1 && e <= O_STONEFLY_4 ? O_STONEFLY_1
-                                      : e >= O_ALT_FIREFLY_1 && e <= O_ALT_FIREFLY_4 ? O_ALT_FIREFLY_1
-                                      : O_ALT_BUTTER_1);
-                break;
-            case O_WAITING_STONE: {
-                uint8_t gc = grav_compat();
-                if (is_like_space(x, y, gc)) {
-                    move(x, y, gc, O_CHASING_STONE);
-                } else if (sloped(x, y, gc, opposite[gc])) {
-                    if (sloped(x, y, gc, cw_fourth[gc]) && is_like_space(x, y, cw_fourth[gc]) &&
-                        is_like_space(x, y, cw_eighth[gc]))
-                        move(x, y, cw_fourth[gc], O_WAITING_STONE);
-                    else if (sloped(x, y, gc, ccw_fourth[gc]) && is_like_space(x, y, ccw_fourth[gc]) &&
-                             is_like_space(x, y, ccw_eighth[gc]))
-                        move(x, y, ccw_fourth[gc], O_WAITING_STONE);
-                }
-                break;
-            }
-            case O_CHASING_STONE:
-                chasing_stone(x, y);
-                break;
-            case O_REPLICATOR:
-                if (gd.replicators_wait_frame == 0 && flag(GDF_REPLICATORS_ACTIVE) && !gd.gravity_disabled) {
-                    if (is_like_space(x, y, gd.gravity) && !is_player_dir(x, y, opposite[gd.gravity]) &&
-                        !is_scanned_dir(x, y, opposite[gd.gravity]))
-                        store_dir(x, y, gd.gravity, get_dir(x, y, opposite[gd.gravity]));
-                }
-                break;
-            case O_BITER_1:
-            case O_BITER_2:
-            case O_BITER_3:
-            case O_BITER_4:
-                if (gd.biters_wait_frame == 0)
-                    biter(x, y);
-                break;
-            case O_DRAGONFLY_1:
-            case O_DRAGONFLY_2:
-            case O_DRAGONFLY_3:
-            case O_DRAGONFLY_4:
-                if (touches(x, y, O_VOODOO))
-                    gd.voodoo_touched = true;
-                if (flies_blow_up(x, y)) {
-                    explode(x, y);
-                } else {
-                    bool ccw = rotates_ccw(x, y);
-                    uint8_t dir = e - O_DRAGONFLY_1, dirn;
-                    const uint8_t *cm = flag(GDF_CREATURES_BACKWARDS) ? creature_chdir : creature_dir;
-                    if (flag(GDF_CREATURES_BACKWARDS))
-                        ccw = !ccw;
-                    dirn = ccw ? (dir + 3) & 3 : (dir + 1) & 3;
-                    if (is_like_space(x, y, cm[dir]))
-                        move(x, y, cm[dir], O_DRAGONFLY_1 + dir);
-                    else
-                        store(x, y, O_DRAGONFLY_1 + dirn);
-                }
-                break;
-            case O_BLADDER:
-                store(x, y, O_BLADDER_1);
-                break;
-            case O_BLADDER_1:
-            case O_BLADDER_2:
-            case O_BLADDER_3:
-            case O_BLADDER_4:
-            case O_BLADDER_5:
-            case O_BLADDER_6:
-            case O_BLADDER_7:
-            case O_BLADDER_8:
-                bladder(x, y);
-                break;
-            case O_GHOST:
-                if (flies_blow_up(x, y)) {
-                    explode(x, y);
-                } else {
-                    static const uint8_t dirs[] = {MV_UP, MV_DOWN, MV_LEFT, MV_RIGHT};
-                    for (uint8_t i = 0; i < 4; i++) {
-                        uint8_t random_dir = dirs[rand_below(4)];
-                        if (is_like_space(x, y, random_dir)) {
-                            move(x, y, random_dir, O_GHOST);
-                            break;
-                        }
-                    }
-                }
-                break;
-            case O_AMOEBA:
-                if (gd.hatched && gd.amoeba_state == GD_AM_AWAKE)
-                    gd.sound |= SND_AMOEBA;
-                if (gd.convert_amoeba_this_frame && *amoeba_found_enclosed) {
-                    store(x, y, f->amoeba_enclosed_effect);
-                    break;
-                }
-                (*amoeba_count)++;
-                switch (gd.amoeba_state) {
-                case GD_AM_TOO_BIG:
-                    store(x, y, f->amoeba_too_big_effect);
-                    break;
-                case GD_AM_ENCLOSED:
-                    store(x, y, f->amoeba_enclosed_effect);
-                    break;
-                default:
-                    if (*amoeba_found_enclosed && amoeba_has_room(x, y)) {
-                        *amoeba_found_enclosed = false;
-                        gd.amoeba_state = GD_AM_AWAKE;
-                    }
-                    if (gd.amoeba_state == GD_AM_AWAKE && chance(gd.amoeba_growth_prob))
-                        amoeba_grow(x, y, O_AMOEBA);
-                    break;
-                }
-                break;
-            case O_AMOEBA_2:
-                if (gd.hatched && gd.amoeba_2_state == GD_AM_AWAKE)
-                    gd.sound |= SND_AMOEBA;
-                (*amoeba_2_count)++;
-                if (flag(GDF_AMOEBA_2_EXPLODES_BY_AMOEBA) &&
-                    (is_like_element(x, y, MV_DOWN, O_AMOEBA) || is_like_element(x, y, MV_UP, O_AMOEBA) ||
-                     is_like_element(x, y, MV_LEFT, O_AMOEBA) || is_like_element(x, y, MV_RIGHT, O_AMOEBA))) {
-                    explode(x, y);
-                } else {
-                    switch (gd.amoeba_2_state) {
-                    case GD_AM_TOO_BIG:
-                        store(x, y, f->amoeba_2_too_big_effect);
-                        break;
-                    case GD_AM_ENCLOSED:
-                        store(x, y, f->amoeba_2_enclosed_effect);
-                        break;
-                    default:
-                        if (*amoeba_2_found_enclosed && amoeba_has_room(x, y)) {
-                            *amoeba_2_found_enclosed = false;
-                            gd.amoeba_2_state = GD_AM_AWAKE;
-                        }
-                        if (gd.amoeba_2_state == GD_AM_AWAKE && chance(gd.amoeba_2_growth_prob))
-                            amoeba_grow(x, y, O_AMOEBA_2);
-                        break;
-                    }
-                }
-                break;
-            case O_ACID:
-                if (rand_below(1000000) <= f->acid_spread_ratio) {
-                    store(x, y, f->acid_turns_to);
-                    if (is_like_element(x, y, MV_UP, f->acid_eats_this))
-                        store_dir(x, y, MV_UP, O_ACID);
-                    if (is_like_element(x, y, MV_DOWN, f->acid_eats_this))
-                        store_dir(x, y, MV_DOWN, O_ACID);
-                    if (is_like_element(x, y, MV_LEFT, f->acid_eats_this))
-                        store_dir(x, y, MV_LEFT, O_ACID);
-                    if (is_like_element(x, y, MV_RIGHT, f->acid_eats_this))
-                        store_dir(x, y, MV_RIGHT, O_ACID);
-                }
-                break;
-            case O_WATER:
-                if (!flag(GDF_WATER_DOES_NOT_FLOW_DOWN) && is_like_space(x, y, MV_DOWN))
-                    store_dir(x, y, MV_DOWN, O_WATER_1);
-                if (is_like_space(x, y, MV_UP))
-                    store_dir(x, y, MV_UP, O_WATER_1);
-                if (is_like_space(x, y, MV_LEFT))
-                    store_dir(x, y, MV_LEFT, O_WATER_1);
-                if (is_like_space(x, y, MV_RIGHT))
-                    store_dir(x, y, MV_RIGHT, O_WATER_1);
-                break;
-            case O_WATER_16:
-                store(x, y, O_WATER);
-                break;
-            case O_H_EXPANDING_WALL:
-            case O_V_EXPANDING_WALL:
-            case O_H_EXPANDING_STEEL_WALL:
-            case O_V_EXPANDING_STEEL_WALL:
-                if (((e == O_H_EXPANDING_WALL || e == O_H_EXPANDING_STEEL_WALL) && !flag(GDF_EXPANDING_WALL_CHANGED)) ||
-                    ((e == O_V_EXPANDING_WALL || e == O_V_EXPANDING_STEEL_WALL) && flag(GDF_EXPANDING_WALL_CHANGED)))
-                    expanding(x, y, MV_LEFT, MV_RIGHT);
-                else
-                    expanding(x, y, MV_UP, MV_DOWN);
-                break;
-            case O_EXPANDING_WALL:
-            case O_EXPANDING_STEEL_WALL:
-                if (is_like_space(x, y, MV_LEFT))
-                    store_dir(x, y, MV_LEFT, e);
-                if (is_like_space(x, y, MV_RIGHT))
-                    store_dir(x, y, MV_RIGHT, e);
-                if (is_like_space(x, y, MV_UP))
-                    store_dir(x, y, MV_UP, e);
-                if (is_like_space(x, y, MV_DOWN))
-                    store_dir(x, y, MV_DOWN, e);
-                break;
-            case O_SLIME:
-                slime(x, y);
-                break;
-            case O_FALLING_WALL: {
-                uint8_t gc = grav_compat();
-                if (is_like_space(x, y, gc)) {
-                    int8_t yy;
-                    for (yy = y + 1; yy < y + gd.h; yy++)
-                        if (!is_like_space(x, yy, MV_STILL))
-                            break;
-                    uint16_t below = get(x, yy);
-                    if (below == O_PLAYER || below == O_PLAYER_GLUED || below == O_PLAYER_BOMB)
-                        move(x, y, gc, O_FALLING_WALL_F);
-                }
-                break;
-            }
-            case O_FALLING_WALL_F: {
-                uint8_t gc = grav_compat();
-                if (is_player_dir(x, y, gc))
-                    explode(x, y);
-                else if (is_like_space(x, y, gc))
-                    move(x, y, gc, O_FALLING_WALL_F);
-                else
-                    store(x, y, O_FALLING_WALL);
-                break;
-            }
-            case O_CONVEYOR_RIGHT:
-            case O_CONVEYOR_LEFT:
-                conveyor(x, y);
-                break;
-            case O_ROCKET_1:
-                rocket(x, y, MV_RIGHT, O_ROCKET_1);
-                break;
-            case O_ROCKET_2:
-                rocket(x, y, MV_UP, O_ROCKET_2);
-                break;
-            case O_ROCKET_3:
-                rocket(x, y, MV_LEFT, O_ROCKET_3);
-                break;
-            case O_ROCKET_4:
-                rocket(x, y, MV_DOWN, O_ROCKET_4);
-                break;
-            case O_EXPLODE_3:
-                store(x, y, f->explosion_3_effect);
-                break;
-            case O_EXPLODE_5:
-                store(x, y, f->explosion_effect);
-                break;
-            case O_NUT_CRACK_4:
-                store(x, y, O_DIAMOND);
-                break;
-            case O_PRE_DIA_5:
-                store(x, y, f->diamond_birth_effect);
-                break;
-            case O_PRE_STONE_4:
-                store(x, y, O_STONE);
-                break;
-            case O_NITRO_EXPL_4:
-                store(x, y, f->nitro_explosion_effect);
-                break;
-            case O_BOMB_EXPL_4:
-                store(x, y, f->bomb_explosion_effect);
-                break;
-            case O_AMOEBA_2_EXPL_4:
-                store(x, y, f->amoeba_2_explosion_effect);
-                break;
-            case O_GHOST_EXPL_4:
-                store(x, y, ghost_explode_to[rand_below(16)]);
-                break;
-            case O_PRE_STEEL_4:
-                store(x, y, O_STEEL);
-                break;
-            case O_PRE_CLOCK_4:
-                store(x, y, O_CLOCK);
-                break;
-            case O_BOMB_TICK_7:
-                explode(x, y);
-                break;
-            case O_TRAPPED_DIAMOND:
-                if (gd.diamond_key_collected)
-                    store(x, y, O_DIAMOND);
-                break;
-            case O_PRE_OUTBOX:
-                if (gd.gate_open)
-                    store(x, y, O_OUTBOX);
-                break;
-            case O_PRE_INVIS_OUTBOX:
-                if (gd.gate_open)
-                    store(x, y, O_INVIS_OUTBOX);
-                break;
-            case O_INBOX:
-                gd.player_seen_ago = 0;
-                if (gd.hatched && !*inbox_toggle)
-                    store(x, y, O_PRE_PL_1);
-                *inbox_toggle = !*inbox_toggle;
-                break;
-            case O_PRE_PL_1:
-                gd.player_seen_ago = 0;
-                store(x, y, O_PRE_PL_2);
-                break;
-            case O_PRE_PL_2:
-                gd.player_seen_ago = 0;
-                store(x, y, O_PRE_PL_3);
-                break;
-            case O_PRE_PL_3:
-                gd.player_seen_ago = 0;
-                store(x, y, O_PLAYER);
-                break;
-            case O_PRE_DIA_1:
-            case O_PRE_DIA_2:
-            case O_PRE_DIA_3:
-            case O_PRE_DIA_4:
-            case O_PRE_STONE_1:
-            case O_PRE_STONE_2:
-            case O_PRE_STONE_3:
-            case O_BOMB_TICK_1:
-            case O_BOMB_TICK_2:
-            case O_BOMB_TICK_3:
-            case O_BOMB_TICK_4:
-            case O_BOMB_TICK_5:
-            case O_BOMB_TICK_6:
-            case O_PRE_STEEL_1:
-            case O_PRE_STEEL_2:
-            case O_PRE_STEEL_3:
-            case O_BOMB_EXPL_1:
-            case O_BOMB_EXPL_2:
-            case O_BOMB_EXPL_3:
-            case O_NUT_CRACK_1:
-            case O_NUT_CRACK_2:
-            case O_NUT_CRACK_3:
-            case O_GHOST_EXPL_1:
-            case O_GHOST_EXPL_2:
-            case O_GHOST_EXPL_3:
-            case O_EXPLODE_1:
-            case O_EXPLODE_2:
-            case O_EXPLODE_4:
-            case O_PRE_CLOCK_1:
-            case O_PRE_CLOCK_2:
-            case O_PRE_CLOCK_3:
-            case O_NITRO_EXPL_1:
-            case O_NITRO_EXPL_2:
-            case O_NITRO_EXPL_3:
-            case O_AMOEBA_2_EXPL_1:
-            case O_AMOEBA_2_EXPL_2:
-            case O_AMOEBA_2_EXPL_3:
-            case O_WATER_1:
-            case O_WATER_2:
-            case O_WATER_3:
-            case O_WATER_4:
-            case O_WATER_5:
-            case O_WATER_6:
-            case O_WATER_7:
-            case O_WATER_8:
-            case O_WATER_9:
-            case O_WATER_10:
-            case O_WATER_11:
-            case O_WATER_12:
-            case O_WATER_13:
-            case O_WATER_14:
-            case O_WATER_15:
-                next(x, y);
-                break;
-            case O_BLADDER_SPENDER: {
-                uint8_t up = opposite[grav_compat()];
-                if (is_like_space(x, y, up)) {
-                    store_dir(x, y, up, O_BLADDER);
-                    store(x, y, O_PRE_STEEL_1);
-                }
-                break;
-            }
-            case O_MAGIC_WALL:
-                if (gd.magic_wall_state == GD_MW_ACTIVE)
-                    gd.sound |= SND_MAGIC;
-                break;
+        for (uint8_t x = 0; x < w; x++) {
+            uint8_t e = row[x];
+            uint8_t *sp = srow + (x >> 3), bit = bit_of[x & 7];
+            if (e > O_DIRT && e != O_BRICK && e != O_STEEL && !(*sp & bit)) {
+                row_ckdelay += gd_ckdelay[e];
+                scan_cell(x, y, e);
             }
             *sp &= ~bit;  // unscan(x, y)
         }
-        ckdelay += row_ckdelay;
+        gd_scan_ckdelay += row_ckdelay;
     }
-    gd.ckdelay_current += ckdelay;
 }
+#endif
 
 // ---------------------------------------------------------------- a step
 
@@ -1816,6 +1928,15 @@ static void ckdelay_extra(void) {
 // (GDash searches backwards for that); no cell is scanned here
 static void find_player(bool inbox) {
     bool first = flag(GDF_ACTIVE_IS_FIRST_FOUND);
+#ifdef GD_FAR
+    if (!inbox) {  // src/gdscan.s, by gd_class[]
+        if (gd_find_player(first)) {
+            gd.player_x = gd_found_x;
+            gd.player_y = gd_found_y;
+        }
+        return;
+    }
+#endif
     for (int8_t y = 0; y < gd.h; y++) {
         const uint8_t *row = cave + (uint16_t)y * CAVE_W;
         for (int8_t x = 0; x < gd.w; x++) {
@@ -1841,6 +1962,12 @@ void gd_start(const GdCaveFile *f, uint32_t seed) {
     memcpy(__zp_data_start, __zp_data_load_start, (uint16_t)__zp_data_size);
 #endif
     memset(&gd, 0, sizeof gd);
+#if defined(GD_FAR) && defined(GDPROF_ENGINE)
+    memset((void *)gd_prof, 0, sizeof gd_prof);
+#endif
+#ifdef GD_FAR
+    set_classes();
+#endif
     gd.f = f;
     gd.w = f->w;
     gd.h = f->h;
@@ -1865,9 +1992,9 @@ void gd_start(const GdCaveFile *f, uint32_t seed) {
     c64_seed_2 = f->c64_seed_2;
     rand_seed(seed);
     memcpy(cave, f->map, CAVE_SIZE);
-    memset(scanned, 0, sizeof scanned);
+    memset(gd_scanned, 0, sizeof gd_scanned);
     memset(hammered, 0, sizeof hammered);
-    memset(moved, DIR_NONE, CAVE_SIZE);
+    clear_moved();
 
     // setup_for_game: where the player will be, the time in "milliseconds",
     // the speed
@@ -1918,6 +2045,7 @@ static int32_t count_down(int32_t t) {
 
 
 void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
+    prof_mark(255);
     const GdCaveFile *f = gd.f;
     bool amoeba_found_enclosed = true, amoeba_2_found_enclosed = true;
     uint16_t amoeba_count = 0, amoeba_2_count = 0;
@@ -1925,7 +2053,7 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
     int16_t time_decrement_sec = 0;
 
     gd.sound = 0;
-    memset(moved, DIR_NONE, CAVE_SIZE);
+    clear_moved();
     if (!flag(GDF_DIAGONAL_MOVEMENTS)) {
         if (player_move == MV_UP_RIGHT || player_move == MV_DOWN_RIGHT)
             player_move = MV_RIGHT;
@@ -1952,33 +2080,82 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
                     store(x, y, O_BRICK);
             }
     gd.ckdelay_current = 0;
-    scan(player_move, player_fire, &inbox_toggle, &amoeba_found_enclosed, &amoeba_2_found_enclosed,
-         &amoeba_count, &amoeba_2_count);
+    sc_move = player_move;
+    sc_fire = player_fire;
+    sc_inbox_toggle = inbox_toggle;
+    sc_amoeba_found_enclosed = amoeba_found_enclosed;
+    sc_amoeba_2_found_enclosed = amoeba_2_found_enclosed;
+    sc_amoeba_count = amoeba_count;
+    sc_amoeba_2_count = amoeba_2_count;
+    gd_scan_ckdelay = 0;
+    prof_mark(0);
+    if (flag(GDF_BORDER_SCAN_FIRST_AND_LAST))
+        scan_cells(0, gd.h - 1, gd.w);
+    else
+        scan_cells(1, gd.h - 2, gd.w);
+    prof_mark(1);
+    gd.ckdelay_current += gd_scan_ckdelay;
+    inbox_toggle = sc_inbox_toggle;
+    amoeba_found_enclosed = sc_amoeba_found_enclosed;
+    amoeba_2_found_enclosed = sc_amoeba_2_found_enclosed;
+    amoeba_count = sc_amoeba_count;
+    amoeba_2_count = sc_amoeba_2_count;
 
     // forget the scanned marks; a destroyed voodoo costs time
-    memset(scanned, 0, sizeof scanned);
-    for (uint8_t y = 0; y < gd.h; y++) {
-        const uint8_t *row = cave + row_at[y];
-        for (uint8_t x = 0; x < gd.w; x++)
-            if (row[x] == O_TIME_PENALTY) {
-                store(x, y, O_GRAVESTONE);
-                time_decrement_sec += f->time_penalty;
-            }
-    }
-    memset(scanned, 0, sizeof scanned);
+#ifdef GD_FAR
+    // what the cave has, for the passes below; and where the player is
+    uint8_t classes = gd_cave_classes(flag(GDF_ACTIVE_IS_FIRST_FOUND));
+    bool changed = false;  // the cave since: then gd_found_x, gd_found_y are no longer right
+    gd_clear_scanned();
+#else
+    uint8_t classes = 0xFF;
+    memset(gd_scanned, 0, sizeof gd_scanned);
+#endif
+    if (classes & GDC_PENALTY)
+        for (uint8_t y = 0; y < gd.h; y++) {
+            const uint8_t *row = cave + row_at[y];
+            for (uint8_t x = 0; x < gd.w; x++)
+                if (row[x] == O_TIME_PENALTY) {
+                    store(x, y, O_GRAVESTONE);
+                    time_decrement_sec += f->time_penalty;
+#ifdef GD_FAR
+                    changed = true;
+#endif
+                }
+        }
+#ifdef GD_FAR
+    gd_clear_scanned();
+#else
+    memset(gd_scanned, 0, sizeof gd_scanned);
+#endif
     _Static_assert(P_EXPLOSION_FIRST_STAGE <= 0xFFFF, "in the low half of gd_flags[]");
-    if (flag(GDF_SHORT_EXPLOSIONS))
+    if (flag(GDF_SHORT_EXPLOSIONS) && (classes & GDC_FIRST_STAGE))
         for (uint8_t y = 0; y < gd.h; y++) {
             const uint8_t *row = cave + row_at[y];
             for (uint8_t x = 0; x < gd.w; x++) {
                 uint8_t e = row[x];
                 if (e > O_DIRT && e != O_BRICK && e != O_STEEL &&  // most of a cave
-                    ((uint16_t)gd_flags[e] & (uint16_t)P_EXPLOSION_FIRST_STAGE))
+                    ((uint16_t)gd_flags[e] & (uint16_t)P_EXPLOSION_FIRST_STAGE)) {
                     next(x, y);
+#ifdef GD_FAR
+                    changed = true;
+#endif
+                }
             }
         }
-    if (gd.player_state == GD_PL_LIVING)
-        find_player(false);
+    prof_mark(2);
+    if (gd.player_state == GD_PL_LIVING) {
+#ifdef GD_FAR
+        if (!changed) {  // as gd_cave_classes found it
+            if (classes & GDC_PLAYER) {
+                gd.player_x = gd_found_x;
+                gd.player_y = gd_found_y;
+            }
+        } else
+#endif
+            find_player(false);
+    }
+    prof_mark(3);
     memmove(gd.player_x_mem, gd.player_x_mem + 1, 15);
     memmove(gd.player_y_mem, gd.player_y_mem + 1, 15);
     gd.player_x_mem[15] = gd.player_x;
@@ -2074,4 +2251,5 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
     if (gd.player_state != GD_PL_TIMEOUT && gd.time == 0)
         gd.player_state = GD_PL_TIMEOUT;
     gd.last_direction = player_move;
+    prof_mark(4);
 }

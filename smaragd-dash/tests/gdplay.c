@@ -5,13 +5,18 @@
 //
 //   gdplay cave <file>                   the values after the start
 //   gdplay play <file> <steps> <seed>    playing; seed: of the input
+//   gdplay check <file> <steps> <seed>   the same, a digest per step
+//                                        (gddigest.h), as the game built
+//                                        with -DGDCHECK writes them
 //
-// <file> holds a GdCaveFile (tools/cavekit.py). Built with GD_EXACT.
+// <file> holds a GdCaveFile (tools/cavekit.py). Built with GD_EXACT for
+// GDash's random numbers, without it for the game's (tests/test_gdmega65.py).
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "gddigest.h"
 #include "gdengine.h"
 
 static GdCaveFile cave_file;
@@ -54,6 +59,10 @@ int main(int argc, char **argv) {
     for (int t = 0; t < steps; t++) {
         unsigned in = next_rand();
         gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+        if (!strcmp(argv[1], "check")) {
+            printf("%08x\n", gd_digest());
+            continue;
+        }
         printf("%d %08x st=%d dia=%d time=%d score=%d speed=%d px=%d py=%d\n", t, hash_map(), gd.player_state,
                gd.diamonds_collected, (int)gd.time, gd.score, gd.speed, gd.player_x, gd.player_y);
         if (getenv("REFDUMP_STATE"))

@@ -274,6 +274,28 @@ static void draw_sprites(const Sprite *s, uint8_t n, uint16_t cam_x, uint16_t ca
     sprite_run(p);
 }
 
+#ifdef RENDER_CHECK
+// Built with -DRENDER_CHECK (tests/test_render.sh): each frame's jobs made
+// by the C loop and by src/render.s, compared by a checksum
+volatile uint16_t render_bad, render_frames;
+
+static uint16_t render_sum(const uint8_t *from, const uint8_t *to) {
+    uint8_t a = 0, b = 0;
+    for (; from < to; from++) {
+        a += *from;
+        b += a;
+    }
+    return (uint16_t)b << 8 | a;
+}
+#endif
+
+// src/render.s
+extern uint8_t *rd_p;
+extern const uint8_t *rd_top;
+extern int8_t rd_wc;
+extern uint8_t rd_yo8, rd_first8, rd_nfull, rd_last8, rd_bank, rd_gfx_bank, rd_space;
+void render_columns(void);
+
 void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sprite *sprites, uint8_t n) {
     const uint8_t bank = back ? FB_BANK_B : FB_BANK_A;
     int8_t wc = (int8_t)(cam_x >> 3) - 1;  // cave character column of FB column 0
@@ -284,9 +306,19 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
     uint16_t dcol = 0;
     uint8_t *p;
 
+#ifdef GDPROF
+    extern uint16_t prof_timer(void);
+    uint16_t prof_t0 = prof_timer();
+#endif
     drawn_fx = cam_x & 7;
     dma_begin(0, 0);
     p = dma_p;
+#if defined(RENDER_C) || defined(RENDER_CHECK)
+    // the reference for src/render.s (tests/test_render.sh)
+#ifdef RENDER_CHECK
+    uint8_t *const p0 = p;
+    const int8_t wc0 = wc;
+#endif
     for (uint8_t c = 0; c < COLS; c++, wc++, dcol += FB_COL) {
         const uint8_t *tp = top + (wc >> 1);
         uint16_t gfx = TILES_OFF + ((wc & 1) ? 128 : 0);
@@ -299,10 +331,54 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
         if (y < VIEW_H)
             JOB(p, outside ? space : gfx + (*tp << 8), d, bank, (VIEW_H - y) * 8);
     }
+#endif
+#ifdef RENDER_CHECK
+    uint16_t sum_c = render_sum(p0, p), sum_asm;
+    uint8_t *p_c = p;
+    p = p0;
+    wc = wc0;
+#endif
+#ifndef RENDER_C
+    // the same in src/render.s
+    _Static_assert(TILES_OFF == 0 && COLS == 40 && FB_COL == 22 * 64 && CAVE_W == 40, "src/render.s");
+    rd_p = p;
+    rd_top = top;
+    rd_wc = wc;
+    rd_yo8 = yo * 8;
+    rd_first8 = first * 8;
+    rd_nfull = (VIEW_H - first) / 16;
+    rd_last8 = (VIEW_H - first) % 16 * 8;
+    rd_bank = bank;
+    rd_gfx_bank = GFX_BANK;
+    rd_space = T_SPACE;
+    render_columns();
+    p = rd_p;
+    (void)dcol;
+    (void)space;
+#endif
+#ifdef RENDER_CHECK
+    sum_asm = render_sum(p0, p);
+    if (sum_asm != sum_c || p != p_c)
+        render_bad++;
+    render_frames++;
+#endif
     dma_last = p - 12;
+#ifdef GDPROF
+    extern volatile uint32_t prof_render[3];
+    extern uint16_t prof_timer(void);
+    uint16_t t1 = prof_timer();
+#endif
     dma_run();
+#ifdef GDPROF
+    uint16_t t2 = prof_timer();
+#endif
     if (n)
         draw_sprites(sprites, n, cam_x, cam_y, bank);
+#ifdef GDPROF
+    prof_render[0] += (uint16_t)(prof_t0 - t1);
+    prof_render[1] += (uint16_t)(t1 - t2);
+    prof_render[2] += (uint16_t)(t2 - prof_timer());
+#endif
 }
 
 void video_flash(bool on) {
@@ -324,7 +400,7 @@ static uint8_t font_index(uint8_t ch) {
     return gi;
 }
 
-static uint8_t glyph[512];
+static uint8_t glyph[512] __attribute__((section(".lowbss")));  // no value needed (link.ld)
 
 // Colour a character of the font into glyph[] (8x16, rows of 8 bytes), with
 // the palette entry rows[r] for pixel row r, and return where its pixels

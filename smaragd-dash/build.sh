@@ -38,7 +38,7 @@ build/solve build/gen build/caves
 # The program: all but GDash's engine (src/gdengine.c, build/gen/gdcave.c),
 # which is linked on its own below
 set --
-for f in src/*.c src/gdfar.s build/gen/*.c; do
+for f in src/*.c src/gdfar.s src/render.s build/gen/*.c; do
     case "$f" in
         src/gdengine.c | build/gen/gdcave.c) ;;
         *) set -- "$@" "$f" ;;
@@ -55,8 +55,8 @@ OBJCOPY=${MEGA65_OBJCOPY:-../toolchain/llvm-mos/bin/llvm-objcopy}
 { printf '\000\000'; cat build/gen/lowcode.bin; } > build/gen/low.prg
 # GDash's engine on its own (gdengine.ld; what it shares with the program:
 # shared.ld): on the disk as SMARAGD.GD
-"$CC" -Os -g -Wall -DGD_FAR -Isrc -Ibuild/gen -nostartfiles -T gdengine.ld \
-    -Wl,-Map=build/gdengine.map -o build/gdengine.bin src/gdengine.c src/gdjump.s build/gen/gdcave.c
+"$CC" -Os -g -Wall -DGD_FAR $SMARAGD_CFLAGS -Isrc -Ibuild/gen -nostartfiles -T gdengine.ld \
+    -Wl,-Map=build/gdengine.map -o build/gdengine.bin src/gdengine.c src/gdjump.s src/gdscan.s src/gdcell.s build/gen/gdcave.c
 { printf '\000\000'; cat build/gdengine.bin; } > build/gen/gd.prg
 # The caves; the moves only for the screencast build, which loads them
 case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in

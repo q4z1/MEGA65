@@ -6,6 +6,10 @@
  *             SMARAGD.EDIT, which main.c loads when the editor is opened
  *   .lowcode  the calls into GDash's engine (src/gdfar.s) at $1F80, behind
  *             the DMA list: on the disk as SMARAGD.LOW, loaded at the start
+ *   .lowbss   variables without a value at $0200-$07FF, the KERNAL's and
+ *             BASIC's work area, which the game does not need (main.c
+ *             switches the KERNAL out, no interrupts; NMI returns at once):
+ *             not cleared at the start
  * What it shares with GDash's engine lies at $C000 (shared.ld), the C stack
  * behind it. The numbers are src/mem.h's. */
 
@@ -15,12 +19,14 @@ __basic_zp_end = 0x0090;
 MEMORY {
     ram (rw) : ORIGIN = 0x2001, LENGTH = 0x9fff
     lowcode (rx) : ORIGIN = 0x1f80, LENGTH = 0x80
+    lowbss (rw) : ORIGIN = 0x0200, LENGTH = 0x600
     editor (rx) : ORIGIN = 0xe000, LENGTH = 0x1ffa
 }
 
 SECTIONS {
     .editor : { *(.editor .editor.*) } >editor
     .lowcode : { *(.lowcode .lowcode.*) } >lowcode
+    .lowbss (NOLOAD) : { *(.lowbss .lowbss.*) } >lowbss
 }
 
 INCLUDE commodore.ld

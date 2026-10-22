@@ -55,7 +55,8 @@
 
 #define ICON(n) (0x80 + (n))
 
-static uint8_t tiles[CAVE_SIZE];    // tile per cell, for video_render
+// tile per cell, for video_render; written in every frame before it is read
+static uint8_t tiles[CAVE_SIZE] __attribute__((section(".lowbss")));
 static uint8_t covered[CAVE_SIZE];  // 1: cell still hidden (start and end)
 static bool any_covered;
 static uint8_t etile[E_COUNT];      // tile per element, animated
@@ -377,6 +378,27 @@ static void draw_trails(void) {
         }
     }
 }
+
+#ifdef GDPROF
+// Built with -DGDPROF: how long GDash's engine and the frames take while a
+// cave from GDash plays, read from a memory dump (CIA 1's timer A runs
+// free at about 1 MHz; the game uses no CIA interrupts)
+volatile uint32_t prof_engine;    // timer ticks in gd_iterate since the cave started
+volatile uint16_t prof_steps;     // its steps
+volatile uint16_t prof_busy[16];  // frames by their work before the wait, 2 ms each
+
+volatile uint32_t prof_render[3];  // video_render: building the jobs, running them, sprites
+
+uint16_t prof_timer(void) {
+    uint8_t lo, hi;
+    do {
+        hi = PEEK(0xDC05);
+        lo = PEEK(0xDC04);
+    } while (hi != PEEK(0xDC05));
+    return (uint16_t)hi << 8 | lo;
+}
+static uint16_t prof_synced;
+#endif
 
 // Each emerald sparkles at its own moment
 static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4};
@@ -733,7 +755,16 @@ static void status_intro(void) {
 // ---------------------------------------------------------------- frames
 
 static void next_frame(void) {
+#ifdef GDPROF
+    if (by_gdash && !show_cursor) {
+        uint16_t busy = (uint16_t)(prof_synced - prof_timer()) / 2000;
+        prof_busy[busy > 15 ? 15 : busy]++;
+    }
+#endif
     video_sync();
+#ifdef GDPROF
+    prof_synced = prof_timer();
+#endif
     update_tiles();
     if (show_cursor && (frame & 31) < 24 && nsprites < MAX_SPRITES) {
         Sprite *s = &sprites[nsprites++];
@@ -1400,6 +1431,14 @@ static void rules_start(void) {
     game.facing = DIR_DOWN;
     gd_suicide = false;
     items_fresh = true;
+#ifdef GDPROF
+    prof_engine = 0;
+    prof_steps = 0;
+    memset((void *)prof_busy, 0, sizeof prof_busy);
+    POKE(0xDC04, 0xFF);  // timer A from $FFFF, free running
+    POKE(0xDC05, 0xFF);
+    POKE(0xDC0E, 0x11);
+#endif
     gd_start(&file.own, (uint32_t)rnd() << 16 | (uint16_t)rnd() << 8 | frame);
     nevents = 0;
     game_from_gd();
@@ -1412,7 +1451,14 @@ static void rules_tick(uint8_t in) {
     }
     static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
     uint8_t dir = in & 7;
+#ifdef GDPROF
+    uint16_t t0 = prof_timer();
+#endif
     gd_iterate(mv[dir], (in & IN_FIRE) != 0, gd_suicide);
+#ifdef GDPROF
+    prof_engine += (uint16_t)(t0 - prof_timer());
+    prof_steps++;
+#endif
     gd_suicide = false;
     nevents = 0;
     game.moving = dir != DIR_NONE;
@@ -2189,6 +2235,48 @@ static bool rom_writable(void) {
     return rom_takes(0xA5) && rom_takes(0x5A);
 }
 
+#ifdef GDCHECK
+// tests/test_gdmega65.py: every own cave on the disk played for
+// GDCHECK_STEPS steps with the input tests/gdplay.c gives it (seed: the
+// slot's number), the digest of each step (gddigest.h) into bank 4, slot
+// after slot; then the emulator is told to stop.
+#include "gddigest.h"
+#ifndef GDCHECK_STEPS
+#define GDCHECK_STEPS 200
+#endif
+#define GDCHECK_BANK 4
+_Static_assert(OWN_SLOTS * GDCHECK_STEPS * 4UL <= 0x10000, "the digests in one bank");
+
+static void gd_check(void) {
+    static const uint8_t dirs[] = {MV_STILL, MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT,
+                                   MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_UP_RIGHT};
+    static uint32_t d;
+    dma_begin(0, 0);
+    dma_fill(0, 0, GDCHECK_BANK, 0);
+    dma_run();
+    for (uint8_t n = 0; n < OWN_SLOTS; n++) {
+        if (!load_own(n) || !file.own.time)
+            continue;
+        gd_start(&file.own, 0);
+        uint32_t lcg = n + 1;
+        uint16_t at = (uint16_t)n * GDCHECK_STEPS * 4;
+        for (uint16_t t = 0; t < GDCHECK_STEPS; t++, at += 4) {
+            lcg = lcg * 1103515245u + 12345u;
+            uint16_t in = (lcg >> 16) & 0x7FFF;
+            gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+            d = gd_digest();
+            dma_begin(0, 0);
+            dma_copy((uint16_t)&d, 0, at, GDCHECK_BANK, 4);
+            dma_run();
+        }
+    }
+    POKE(0xD6CF, 0);
+    POKE(0xD6CF, 0x42);
+    for (;;)
+        ;
+}
+#endif
+
 int main(void) {
     __asm__ volatile("sei");
     POKE(0x00, 65);                     // 40 MHz
@@ -2220,6 +2308,9 @@ int main(void) {
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);
     hiscore_load();
+#ifdef GDCHECK
+    gd_check();
+#endif
 
     for (bool scores = false;;) {
         if (title_screen(scores)) {
