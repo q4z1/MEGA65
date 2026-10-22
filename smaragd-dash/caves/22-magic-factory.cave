@@ -6,7 +6,7 @@ time     = 120
 diamonds = 32
 value    = 15
 extra    = 25
-speed    = 135
+speed    = 155
 magic    = 25
 demo     = 4D 37R 7D 37L
 map:

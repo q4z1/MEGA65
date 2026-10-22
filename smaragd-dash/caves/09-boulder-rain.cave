@@ -5,7 +5,7 @@ time     = 120
 diamonds = 20
 value    = 10
 extra    = 15
-speed    = 140
+speed    = 160
 shuffle  = 1 2 3
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

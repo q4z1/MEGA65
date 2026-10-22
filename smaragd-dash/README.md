@@ -167,7 +167,7 @@ four). Fireflies try to turn left, butterflies right; touching Rockford or
 the amoeba blows them up, and butterflies leave nine emeralds. The amoeba
 grows slowly, then fast; shut in it turns to emeralds, at 200 cells to
 boulders. The magic wall turns boulders into emeralds and back for a while.
-A tick takes the cave's `speed` (140 ms in the first cave); Rockford moves
+A tick takes the cave's `speed` (160 ms in the first cave); Rockford moves
 one cell per tick and the screen is redrawn every frame. What moved in a
 tick - Rockford, boulders, emeralds, fireflies, butterflies - slides from
 its old cell into the new one until the next tick, so it always ends up in

@@ -5,7 +5,7 @@ time     = 100
 diamonds = 26
 value    = 10
 extra    = 20
-speed    = 140
+speed    = 160
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.................r......d....r .....d.W

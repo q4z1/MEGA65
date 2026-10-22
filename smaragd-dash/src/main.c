@@ -968,6 +968,7 @@ static uint8_t play_cave(void) {
     uint16_t tick_acc = 0;
     uint8_t sec = 0;
     uint8_t latched = DIR_NONE;
+    uint8_t last_dir = DIR_NONE;  // the direction held in the frame before
     bool fire_latched = false;
     bool paused = false;
     uint8_t after = 0;  // frames since Rockford died
@@ -997,10 +998,12 @@ static uint8_t play_cave(void) {
             cave_suicide();
 
         // A direction or the button pressed only briefly between two ticks
-        // still counts in the next tick.
+        // still counts in the next tick. Only a new press is kept: one that
+        // was still held at the last tick has had its step.
         uint8_t dir = joy_dir(held);
-        if (dir != DIR_NONE)
+        if (dir != DIR_NONE && dir != last_dir)
             latched = dir;
+        last_dir = dir;
         if (held & IN_BUTTON)
             fire_latched = true;
 

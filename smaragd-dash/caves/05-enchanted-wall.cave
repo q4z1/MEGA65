@@ -6,7 +6,7 @@ time     = 150
 diamonds = 30
 value    = 10
 extra    = 20
-speed    = 140
+speed    = 160
 magic    = 20
 demo     = 9D 35R
 map:

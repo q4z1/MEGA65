@@ -6,7 +6,7 @@ time     = 150 145 140 135
 diamonds = 40
 value    = 10
 extra    = 20
-speed    = 140
+speed    = 160
 amoeba   = 30
 demo     = 5D 14R D r 2U 5R 2D r 2U 300. 2R 2D 12L D
 map:
