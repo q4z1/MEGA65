@@ -1228,11 +1228,127 @@ class Renderer:
 
 
 class Maze:
-    """GDash's maze objects (CaveMaze): perfect, braid or unicursal"""
+    """GDash's maze objects (CaveMaze): perfect, braid or unicursal, carved
+    with GLib's random numbers from the level's seed"""
 
     def __init__(self, r, a):
-        raise CaveError("has a maze, which only GDash draws: save the file flat first "
-                        "(gdash in.bd --save-flat out.bd -q)")
+        self.r = r
+        num = lambda i: int(a[i])
+        self.x1, self.x2 = sorted((num(0), num(2)))
+        self.y1, self.y2 = sorted((num(1), num(3)))
+        self.wall_width, self.path_width, self.horiz = num(4), num(5), num(6)
+        self.seed = [num(7 + i) for i in range(5)]
+        self.wall, self.path = r.element(a[12]), r.element(a[13])
+        if self.wall is None or self.path is None:
+            raise ValueError("not an element")
+        kind = a[14].lower()
+        self.kind = kind if kind in ("unicursal", "braid") else "perfect"
+
+    def mazegen(self, maze, w, h, rand, x, y):
+        maze[y][x] = True
+        dirmask = 15
+        while dirmask:
+            d = 2 if rand.range(0, 100) < self.horiz else 0
+            if d == 2 and not dirmask & 12:
+                d = 0
+            elif d == 0 and not dirmask & 3:
+                d = 2
+            d += rand.range(0, 2)
+            if dirmask & (1 << d):
+                dirmask &= ~(1 << d)
+                if d == 0 and y >= 2 and not maze[y - 2][x]:
+                    maze[y - 1][x] = True
+                    self.mazegen(maze, w, h, rand, x, y - 2)
+                elif d == 1 and y < h - 2 and not maze[y + 2][x]:
+                    maze[y + 1][x] = True
+                    self.mazegen(maze, w, h, rand, x, y + 2)
+                elif d == 2 and x >= 2 and not maze[y][x - 2]:
+                    maze[y][x - 1] = True
+                    self.mazegen(maze, w, h, rand, x - 2, y)
+                elif d == 3 and x < w - 2 and not maze[y][x + 2]:
+                    maze[y][x + 1] = True
+                    self.mazegen(maze, w, h, rand, x + 2, y)
+
+    @staticmethod
+    def braid(maze, w, h, rand):
+        """Dead ends opened in a random direction"""
+        for y in range(0, h, 2):
+            for x in range(0, w, 2):
+                closed, dirs = 0, []
+                if x < 1 or not maze[y][x - 1]:
+                    closed += 1
+                    if x > 0:
+                        dirs.append((-1, 0))
+                if y < 1 or not maze[y - 1][x]:
+                    closed += 1
+                    if y > 0:
+                        dirs.append((0, -1))
+                if x >= w - 1 or not maze[y][x + 1]:
+                    closed += 1
+                    if x < w - 1:
+                        dirs.append((1, 0))
+                if y >= h - 1 or not maze[y + 1][x]:
+                    closed += 1
+                    if y < h - 1:
+                        dirs.append((0, 1))
+                if closed == 3 and dirs:
+                    dx, dy = dirs[rand.range(0, len(dirs))]
+                    maze[y + dy][x + dx] = True
+
+    @staticmethod
+    def unicursal(maze, w, h):
+        """The maze as one path along its walls: twice the size"""
+        u = [[False] * (w * 2 + 1) for _ in range(h * 2 + 1)]
+        for y in range(h):
+            for x in range(w):
+                if maze[y][x]:
+                    for yy, xx in ((y * 2, x * 2), (y * 2, x * 2 + 2), (y * 2 + 2, x * 2), (y * 2 + 2, x * 2 + 2)):
+                        u[yy][xx] = True
+                    if x < 1 or not maze[y][x - 1]:
+                        u[y * 2 + 1][x * 2] = True
+                    if y < 1 or not maze[y - 1][x]:
+                        u[y * 2][x * 2 + 1] = True
+                    if x >= w - 1 or not maze[y][x + 1]:
+                        u[y * 2 + 1][x * 2 + 2] = True
+                    if y >= h - 1 or not maze[y + 1][x]:
+                        u[y * 2 + 2][x * 2 + 1] = True
+        return u, w * 2 - 1, h * 2 - 1
+
+    def draw(self):
+        wall, path = max(1, self.wall_width), max(1, self.path_width)
+        w = (self.x2 - self.x1 + 1 + wall) // (path + wall)
+        h = (self.y2 - self.y1 + 1 + wall) // (path + wall)
+        if self.kind == "unicursal":
+            w, h = w // 2 * 2, h // 2 * 2
+        else:
+            w, h = 2 * (w - 1) + 1, 2 * (h - 1) + 1
+        seed = self.seed[self.r.level]
+        rand = GlibRandom(seed if seed != -1 else self.r.level)  # -1: new in every game in GDash
+        maze = [[False] * max(w, 0) for _ in range(max(h, 0))]
+        if w >= 1 and h >= 1:
+            old = sys.getrecursionlimit()
+            sys.setrecursionlimit(max(old, 10000))
+            self.mazegen(maze, w, h, rand, 0, 0)
+            sys.setrecursionlimit(old)
+        if self.kind == "braid":
+            self.braid(maze, w, h, rand)
+        if w >= 1 and h >= 1 and self.kind == "unicursal":
+            maze, w, h = self.unicursal(maze, w, h)
+        put = self.r.put
+        yk = self.y1
+        for y in range(h):
+            for _ in range(path if y % 2 == 0 else wall):
+                xk = self.x1
+                for x in range(w):
+                    for _ in range(path if x % 2 == 0 else wall):
+                        put(xk, yk, self.path if maze[y][x] else self.wall)
+                        xk += 1
+                for x in range(xk, self.x2 + 1):
+                    put(x, yk, self.wall)
+                yk += 1
+        for y in range(yk, self.y2 + 1):
+            for x in range(self.x1, self.x2 + 1):
+                put(x, y, self.wall)
 
 
 # ---------------------------------------------------------------- the caves of GDash, as the game keeps them

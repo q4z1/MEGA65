@@ -199,9 +199,10 @@ step by step for 400 steps with the same input, in all 24764 cave-levels
 that are not random anew in every game. On the MEGA65 the game takes its
 own random numbers for them, as GDash takes new ones in every game.
 
-GDash's elements that have no graphics of their own in the game yet show
-as a grey square; caves with mazes (43) and GDash's `.gds` files (imported
-C64 games) cannot be read by `cavekit.py` yet.
+Mazes are carved as GDash carves them; one that GDash makes anew in every
+game gets a maze of its own. GDash's elements that have no graphics of
+their own in the game yet show as a grey square, and GDash's `.gds` files
+(imported C64 games) cannot be read by `cavekit.py` yet.
 
 ### Screencast
 

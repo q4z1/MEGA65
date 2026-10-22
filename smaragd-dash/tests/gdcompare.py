@@ -31,7 +31,8 @@ def random_in_gdash(cave, level):
         if name.lower() in ("randomfill", "randomfillc64") and len(a) > 8 and \
                 any(x.lstrip("-").isdigit() and int(x) < 0 for x in a[4:9]):
             return True
-        if name.lower() == "maze":
+        if name.lower() == "maze" and len(a) > 11 and a[7 + level].lstrip("-").isdigit() and \
+                int(a[7 + level]) < 0:
             return True
     return False
 
