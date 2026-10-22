@@ -25,7 +25,7 @@ CAVES=../toolchain/tools/src/gdash/caves
 mkdir -p build/gen build/caves
 python3 tools/mkcave.py build/caves build/gen caves/*.cave >/dev/null
 cc -O2 -Wall -Wno-array-bounds -DGD_EXACT -Isrc -Ibuild/gen -o build/gdplay \
-    tests/gdplay.c src/gdengine.c src/engine.c build/gen/gdcave.c
+    tests/gdplay.c src/gdengine.c build/gen/gdcave.c
 if [ "$1" = --all ]; then
     find $CAVES -name "*.bd" | sort | xargs python3 tests/gdcompare.py $ORACLE build/gdplay 1,2,3,4,5 400
 elif [ "$1" = --gds ]; then

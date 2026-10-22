@@ -1,11 +1,13 @@
-// Smaragd Dash: the cave engine. Plain C without any hardware access, so it
-// can be tested on the host as well (tests/).
+// Smaragd Dash: what the game knows of a cave while it plays: the map and
+// moves GDash's engine (gdengine.h) leaves, the player's state, and the
+// codes and events both use. GDash's engine plays every cave; struct game
+// is what main.c takes from it for the status line, the sounds and the
+// drawing.
 //
-// The rules follow the original Boulder Dash 1 engine: the cave is scanned
-// once per tick from top left to bottom right, every cell is handled at most
-// once per tick (SCANNED marks cells already moved into), boulders and
-// diamonds fall and roll off round things, fireflies turn left, butterflies
-// turn right, explosions are 3x3 and take five ticks.
+// The E_* codes are those of the game's first engine, which GDash's
+// replaced: main.c still keeps its animated tiles by them (etile[]), and
+// tools/cavekit.py's .cave files name the elements of the game's caves by
+// the same map characters.
 
 #ifndef ENGINE_H
 #define ENGINE_H
@@ -41,19 +43,16 @@ enum {
     E_COUNT = E_BIRTH + 3
 };
 
-#define SCANNED 0x80  // cell was already handled in this tick
-
 enum { DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT, DIR_NONE };
-#define IN_FIRE 0x08  // input for cave_tick: direction | IN_FIRE
+#define IN_FIRE 0x08  // input of a step: direction | IN_FIRE
 
 // Player state
 enum { PS_HATCHING, PS_ALIVE, PS_DEAD, PS_TIMEOUT, PS_EXITED };
 
-// Magic wall and amoeba state
+// Magic wall state (GDash's GD_MW_*)
 enum { MW_DORMANT, MW_ACTIVE, MW_EXPIRED };
-enum { AM_GROWING, AM_ENCLOSED, AM_TOO_BIG };
 
-// Sound events of the last tick (game.sound)
+// Sound events of the last step (game.sound, gd.sound)
 #define SND_BOULDER   0x01
 #define SND_DIAMOND   0x02  // a diamond landed
 #define SND_COLLECT   0x04
@@ -63,16 +62,12 @@ enum { AM_GROWING, AM_ENCLOSED, AM_TOO_BIG };
 #define SND_MAGIC     0x40  // magic wall is active
 #define SND_AMOEBA    0x80  // amoeba is alive
 
+// What the status line shows of the cave
 typedef struct {
     const char *name;
-    const uint8_t *map;       // CAVE_SIZE cells, E_* codes
-    uint16_t time;            // seconds
     uint8_t diamonds_needed;
     uint8_t diamond_value;    // points per diamond until the exit opens
     uint8_t extra_value;      // points per diamond after that
-    uint8_t amoeba_time;      // seconds of slow amoeba growth
-    uint8_t magic_time;       // seconds the magic wall stays active
-    uint8_t tick_ms;          // length of one cave tick
 } CaveDef;
 
 struct game {
@@ -80,45 +75,38 @@ struct game {
     uint8_t state;            // PS_*
     uint16_t player;          // cell index of Rockford (or of the inbox)
     uint8_t facing;           // direction of the last move or try (DIR_*)
-    bool moving;              // Rockford moved or tried to in the last tick
+    bool moving;              // Rockford moved or tried to in the last step
     bool snapping;
-    uint8_t hatch_ticks;      // ticks until Rockford appears
     uint16_t time;            // seconds left
     uint8_t collected;
     bool exit_open;
     bool flash;               // exit just opened: flash the screen
     uint32_t score;
-    uint8_t magic_state, magic_timer;
-    uint8_t amoeba_state, amoeba_timer;
-    uint8_t sound;            // SND_* of the last tick
+    uint8_t magic_state;      // MW_*
+    uint8_t sound;            // SND_* of the last step
 };
 
-// cave[] and moved[] are GDash's engine's as well (gdengine.h): on the
-// MEGA65 they lie where both see them (shared.ld, mem.h)
+// GDash's engine's map (its O_* codes) and moves: on the MEGA65 they lie
+// where both see them (shared.ld, mem.h)
 extern uint8_t cave[CAVE_SIZE];
 extern struct game game;
 
-// The moves of the last tick, for drawing them smoothly: per cell the
+// The moves of the last step, for drawing them smoothly: per cell the
 // direction its content moved in to get there, DIR_NONE if it did not move.
-// The rules do not use it. GDash's engine fills it as well.
+// The rules do not use it.
 extern uint8_t moved[CAVE_SIZE];
 
-// What else happened in the last tick, for the drawing's little effects
-// (the rules do not use it either): a creature left a cell, a boulder
-// landed, dirt was dug (the cell Rockford snapped, or the one he left).
+// What else happened in the last step, for the drawing's little effects
+// (gd.events; the rules do not use them): a creature left a cell, a
+// boulder landed, dirt was dug (the cell Rockford snapped, or the one he
+// left).
 enum { EV_FIREFLY, EV_BUTTERFLY, EV_LANDED, EV_DUG };
 #define MAX_EVENTS 32  // more are left out
 typedef struct {
     uint16_t cell;
     uint8_t what;  // EV_*
 } Event;
-extern Event events[MAX_EVENTS];
-extern uint8_t nevents;
 
-void cave_start(const CaveDef *def);
-void cave_tick(uint8_t input);
-void cave_second(void);  // call once per second while the player is alive
-void cave_suicide(void); // Rockford gives up (Run/Stop)
-uint8_t rnd(void);       // random numbers outside the cave (animations, sounds)
+uint8_t rnd(void);  // random numbers outside the cave: animations, sounds (main.c)
 
 #endif

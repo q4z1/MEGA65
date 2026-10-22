@@ -4,8 +4,10 @@ A Boulder Dash style game for the MEGA65: dig through the cave, collect
 emeralds, mind the boulders, reach the exit before the time runs out.
 
 The aim is to play like the original Boulder Dash on the C64, with clearly
-better graphics. The rules are the Boulder Dash 1 engine's; levels and
-graphics are our own. Rockford is the adventurer from the title logo
+better graphics. All caves play by the rules of
+[GDash](#own-caves-and-gdash), the Boulder Dash construction kit for the
+PC, whose engine the game has (with Boulder Dash 1's rules for its own
+caves); levels and graphics are our own. Rockford is the adventurer from the title logo
 (`gfx/logo.png`).
 
 There are 25 caves, each in four levels, as in the original: 100 in all.
@@ -15,9 +17,8 @@ the game goes on with the first one of the next level.
 
 Right of cave 21 come the **own caves**: twenty slots on the disk for caves
 made with the game's [cave editor](#cave-editor) (E on the title), or
-brought over from [GDash](#own-caves-and-gdash), the Boulder Dash
-construction kit for PC, with `tools/cavekit.py`. They play by GDash's rules,
-with all of its elements.
+brought over from GDash with `tools/cavekit.py`, with all of its
+elements.
 
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
@@ -149,13 +150,7 @@ shows the whole RAM with what is free, the program by source file, and the
 disk; it also checks that the caves, the moves and the high scores fit
 the variables they are loaded into.
 
-The engine tests run on the host:
-
-```sh
-cc -Wall -Isrc -o build/test_engine tests/test_engine.c src/engine.c && build/test_engine
-```
-
-and so do the tests of `tools/cavekit.py`, `python3 tests/test_cavekit.py`.
+The tests of `tools/cavekit.py` run on the host, `python3 tests/test_cavekit.py`.
 `tests/test_gdengine.sh` plays caves of GDash's own collection with the
 game's GDash engine on the host, step by step beside GDash's own code (see
 [below](#own-caves-and-gdash); `--all` for all of them, `--gds` for the C64
@@ -207,7 +202,7 @@ played as the own caves. All commands also take GDash's `.gds` files: they
 go through GDash's own code, `toolchain/tools/bin/gdash-oracle` (or
 `$GDASH_ORACLE`), which saves them as `.bd` as GDash does.
 
-The own caves play by GDash's rules: the game has GDash's engine for them
+All caves play by GDash's rules: the game has GDash's engine
 (`src/gdengine.c`, a port of its `caverenderedengine.cpp`, MIT license), with
 all of its elements - the expanding walls and slime of Boulder Dash 2, keys
 and doors, bombs, bladders, biters, teleporters, water, conveyor belts, ...
@@ -261,16 +256,17 @@ the recording. `-DDEMO_LAST=6` in `MEGA65_CFLAGS` makes it stop after the
 sixth.
 
 The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
-the host at every build. It plays the caves with the game's own engine
-(`src/engine.c`) and counts frames and ticks like `play_cave`: from the
+the host at every build. It plays the caves with GDash's engine as the game
+has it (`src/gdengine.c`), step by step as `play_cave` gives them: from the
 nearest few emeralds it picks one, walks there, round falling things and
 away from creatures, until the exit is open, and takes back any choice that
 gets Rockford killed or stuck. What it cannot find by itself - dropping
 boulders on purpose, pushing one aside - a cave gives it as opening moves
 (the `demo` key of its `.cave` file); the search goes on from there. If it
 finds no way through a cave, the screencast ends before that cave. As the
-cave's random numbers (pushing a boulder works one time in four) start the
-same in every run of a cave, the same moves play the same in the game. So a changed cave or rule gives new
+screencast build starts the engine's random numbers (pushing a boulder works
+one time in four) as the solver does, the same moves play the same in the
+game. So a changed cave or rule gives new
 moves with the next build.
 
 The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`,
@@ -293,11 +289,11 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 
 | File | |
 | --- | --- |
-| `src/engine.c` | the cave rules, without hardware access |
-| `src/gdengine.c` | GDash's engine for the own caves (in bank 2, `gdengine.ld`; called through `src/gdfar.s`, entry points in `src/gdjump.s`) |
+| `src/engine.h` | what the game knows of a cave while it plays (the player, moves, events, sounds) |
+| `src/gdengine.c` | GDash's engine, which plays all caves (in bank 2, `gdengine.ld`; called through `src/gdfar.s`, entry points in `src/gdjump.s`) |
 | `src/gdscan.s`, `src/gdcell.s` | its passes over the cave and its cell access in assembler |
 | `src/gddigest.h` | a step's digest, to compare the engine on the MEGA65 with the host's |
-| `src/main.c` | the game: title screen, covering and uncovering, ticks, camera, status line, lives, high score screens, the cave editor |
+| `src/main.c` | the game: title screen, covering and uncovering, steps, camera, status line, lives, high score screens, the cave editor |
 | `src/hiscore.c` | the high score table and its file |
 | `src/mem.h` | where everything lies that the linker does not place: DMA list, tiles, logo, framebuffers, status line, screens |
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
@@ -318,22 +314,24 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `memmap` | `src/mem.h` and the disk's files again, for `mega65-mem` |
 | `link.ld`, `gdengine.ld`, `shared.ld` | the program, GDash's engine, and what they share at $C000 |
 
-**The rules** follow Boulder Dash 1: the cave is scanned once per tick
-from top left to bottom right, and what moves down or right is marked so it
-is not moved twice. Boulders and emeralds fall, and roll off boulders,
+**The rules** of the game's caves are Boulder Dash 1's as GDash has them
+(`tools/cavekit.py`'s `gd_from_cave`, in milliseconds): the cave is scanned
+once per step from top left to bottom right, and what moves down or right
+is marked so it is not moved twice. Boulders and emeralds fall, and roll off boulders,
 emeralds and brick walls when there is room beside and below. Only a falling
 one kills. Rockford pushes a boulder sideways only now and then (one try in
 four). Fireflies try to turn left, butterflies right; touching Rockford or
 the amoeba blows them up, and butterflies leave nine emeralds. The amoeba
 grows slowly, then fast; shut in it turns to emeralds, at 200 cells to
 boulders. The magic wall turns boulders into emeralds and back for a while.
-A tick takes the cave's `speed` (160 ms in the first cave); Rockford moves
-one cell per tick and the screen is redrawn every frame. What moved in a
-tick - Rockford, boulders, emeralds, fireflies, butterflies - slides from
-its old cell into the new one until the next tick, so it always ends up in
-its cell: the rules stay in cells, only the drawing is smooth, and the game
-plays at the same speed as before. The engine notes the moves of each tick
-(`moved[]`) for that.
+A step takes the cave's `speed` (160 ms in the first cave); Rockford moves
+one cell per step and the screen is redrawn every frame. What moved in a
+step - Rockford, boulders, emeralds, fireflies, butterflies - slides from
+its old cell into the new one until the next step, so it always ends up in
+its cell: the rules stay in cells, only the drawing is smooth. The engine
+notes the moves of each step (`moved[]`) for that, and what else happened
+(`gd.events`: dust where a boulder lands, crumbs of dug dirt, sparks
+behind fireflies and butterflies).
 
 **Rockford** is drawn from eight sides (`mkgfx.py` puts him together from
 a head, a body and legs; the left sides are the right ones mirrored) and
@@ -487,7 +485,7 @@ creatures drawn over it.
 | 17 | CAVERNS | 20 in 110 s | big caverns with fireflies circling in them |
 | 18 | LABYRINTH | 24 in 150 s | a bigger maze, and fireflies in it |
 | 19 | WATERFALL | 28 in 100 s | emeralds and boulders stacked in shafts; dig below and they pour out |
-| 20 | ROCKFALL | 28 in 110 s | more boulders than dirt, and a slightly faster tick |
+| 20 | ROCKFALL | 28 in 110 s | more boulders than dirt, and a slightly faster step |
 | 21 | SWARM | 26 in 110 s | butterflies round the amoeba's nest blow up into emeralds when it reaches them |
 | 22 | MAGIC FACTORY | 32 in 120 s | two magic floors, one above the other |
 | 23 | FORTRESS | 32 in 100 s | a brick fortress full of emeralds, fireflies at the gates |
@@ -496,7 +494,7 @@ creatures drawn over it.
 
 The table shows level 1. As in Boulder Dash 1, every cave comes in four
 levels, which `mkcave.py` makes from the one map: each level gives a tenth
-less time (in steps of 5 s), asks for a tenth more emeralds and ticks 5 ms
+less time (in steps of 5 s), asks for a tenth more emeralds and steps 5 ms
 faster than the one before, and its random fill is different. The original
 fills each level of a cave from its own seed; here the dirt, boulders and
 emeralds of the fill swap places with others close by (up to three cells

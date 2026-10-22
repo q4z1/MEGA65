@@ -1,13 +1,15 @@
-// Smaragd Dash: GDash's engine, for the own caves (the slots OWN01, ...).
+// Smaragd Dash: GDash's engine, which plays all caves: the game's own
+// (CAVE01-1, ..., with Boulder Dash 1's rules) and the own ones (the slots
+// OWN01, ...).
 //
 // A port of GDash's cave engine (CaveRendered::iterate and what it calls,
 // https://github.com/revvv/gdash-export-CrLi; MIT license, Copyright (c)
 // 2007-2018 GDash Project), so the caves of GDash play as they do there:
 // all of its elements, its properties, its timing. The caves come from
 // tools/cavekit.py, as GDash draws them in a level (GdCaveFile,
-// build/gen/gdcave.h). It plays in the arrays of the game's own engine
-// (engine.h: cave[] with GDash's element codes, moved[] for the drawing) and
-// keeps `game` up to date for the status line.
+// build/gen/gdcave.h). It plays in the arrays engine.h names (cave[] with
+// GDash's element codes, moved[] for the drawing) and keeps its state in
+// gd, from which main.c takes what it shows.
 //
 // Plain C without any hardware access: tests/gdplay.c plays it on the host
 // beside GDash itself. Built with GD_EXACT it uses GDash's random numbers
@@ -67,6 +69,8 @@ typedef struct {
     int32_t ckdelay_current, ckdelay_extra_for_animation;
     uint8_t last_direction;
     uint8_t sound;                // SND_* (engine.h) of the last step
+    uint8_t nevents;              // what else happened in it, for the drawing's
+    Event events[MAX_EVENTS];     // little effects (engine.h's EV_*)
 } GdState;
 
 extern GdState gd;

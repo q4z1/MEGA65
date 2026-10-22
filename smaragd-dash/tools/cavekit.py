@@ -74,7 +74,9 @@ class CaveError(Exception):
 
 # ---------------------------------------------------------------- the game's own caves (.cave)
 
-# The codes of the game's own engine (src/engine.h; mkcave.py checks them)
+# The .cave files' elements by the codes of the game's first engine (src/engine.h,
+# whose names main.c still gives the animated tiles); GDash's engine plays them
+# as GD_CHAR says
 CODES = {"E_SPACE": 0, "E_DIRT": 1, "E_BRICK": 2, "E_STEEL": 3, "E_BOULDER": 4,
          "E_DIAMOND": 6, "E_INBOX": 9, "E_OUTBOX": 10, "E_MAGIC": 12, "E_AMOEBA": 13,
          "E_FIREFLY": 14, "E_BUTTERFLY": 18,
@@ -123,7 +125,7 @@ def clean_name(name):
 
 
 def check_map(cells):
-    """Errors of a map the game's own engine cannot play (none: it can)"""
+    """Errors of a .cave file's map (none: it can be played)"""
     errors = []
     if len(cells) != W * H:
         return [f"the map must be {W}x{H}"]

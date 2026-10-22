@@ -4,10 +4,10 @@
 // picks the level and the cave to start with, and which takes turns with
 // the high score table; then the caves: a cave is
 // loaded from the disk, uncovered, Rockford hatches, and the cave
-// runs in ticks of the cave's speed while the screen is redrawn every frame
+// runs in steps of the cave's speed while the screen is redrawn every frame
 // (50 Hz PAL, 60 Hz NTSC). After the game a good score gets three letters
-// in the table, as in the arcades. The rules are in engine.c, the display
-// in video.c, the table and its file in hiscore.c.
+// in the table, as in the arcades. The rules are GDash's (gdengine.c, in
+// bank 2), the display is in video.c, the table and its file in hiscore.c.
 //
 // E on the title opens the cave editor: it edits the own caves, which lie
 // in slots on the disk (OWN01, OWN02, ...; tools/cavekit.py puts caves from
@@ -107,27 +107,31 @@ static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static bool have_logo;              // the logo file was on the disk
 
-// The cave being played, as loaded from the disk: one of the game's
-// (CAVE01-1, ...: its layout is described in tools/mkcave.py), or an own
-// one (a slot OWN01, ...: GdCaveFile, tools/cavekit.py; time 0 is an empty
-// slot), which GDash's engine plays and which the editor edits here.
-// It lies where GDash's engine sees it (shared.ld, mem.h).
-typedef union {
-    struct {
-        uint16_t time;
-        uint8_t diamonds, value, extra, amoeba, magic, speed;
-        char name[24];
-        uint8_t map[CAVE_SIZE];
-    } game;
+// The cave being played, as loaded from the disk - one of the game's
+// (CAVE01-1, ..., tools/mkcave.py) or an own one (a slot OWN01, ...; time 0
+// is an empty slot) -, as GDash's engine plays it (GdCaveFile,
+// tools/cavekit.py), and as the editor edits it. It lies where GDash's
+// engine sees it (shared.ld, mem.h).
+typedef struct {
     GdCaveFile own;
 } CaveFile;
 extern CaveFile file;
 _Static_assert(sizeof(CaveFile) <= FILE_SIZE, "the cave reaches the C stack (shared.ld)");
 _Static_assert(sizeof(GdState) <= GD_STATE_SIZE, "GdState reaches the cave (shared.ld)");
 static CaveDef cave_def;
-static uint8_t loaded = 0xFF, loaded_level;  // cave_no and level of file.game
-static bool by_gdash;               // the cave plays by GDash's rules (an own one)
-static bool have_gdash;             // GDash's engine is there (bank 2)
+static uint8_t loaded = 0xFF, loaded_level;  // cave_no and level of file, one of the game's
+static bool have_gdash;             // GDash's engine is there (bank 2): no caves without it
+struct game game;
+
+// For everything outside the cave: animations, sounds (xorshift16)
+static uint16_t rnd_state = 0xACE1;
+
+uint8_t rnd(void) {
+    rnd_state ^= rnd_state << 7;
+    rnd_state ^= rnd_state >> 9;
+    rnd_state ^= rnd_state << 8;
+    return (uint8_t)rnd_state;
+}
 #ifdef SCREENCAST
 static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
 #endif
@@ -339,9 +343,9 @@ static void add_trail(uint16_t cell, uint8_t kind) {
 
 // After a tick: what it leaves behind (engine.h)
 static void add_trails(void) {
-    for (uint8_t k = 0; k < nevents; k++) {
-        uint16_t c = events[k].cell;
-        switch (events[k].what) {
+    for (uint8_t k = 0; k < gd.nevents; k++) {
+        uint16_t c = gd.events[k].cell;
+        switch (gd.events[k].what) {
         case EV_FIREFLY:
             add_trail(c, TR_EMBERS);
             break;
@@ -366,7 +370,7 @@ static void draw_trails(void) {
         if (!kind)
             continue;
         uint16_t c = trail_cell[k];
-        if (tiles[c] == T_SPACE && cave[c] == E_SPACE)
+        if (tiles[c] == T_SPACE && cave[c] == O_SPACE)
             tiles[c] = trail_tile[k];
         if (!--trail_wait[k]) {
             if (trail_tile[k] == trail_last[kind]) {
@@ -502,11 +506,8 @@ static void update_tiles(void) {
         etile[E_BUTTERFLY + d] = T_BUTTERFLY0 + ((f >> 2) & 3);
     }
     etile[E_ROCKFORD] = rockford_tile();
-    const uint8_t *et = etile;
-    if (by_gdash) {
-        update_gtiles();
-        et = gtile;
-    }
+    update_gtiles();  // GDash's elements: some take the tiles just set
+    const uint8_t *et = gtile;
 
     // only the cells in view, and around it what may slide into it
     uint8_t x0 = cam_x >> 4, y0 = cam_y >> 4;
@@ -753,7 +754,7 @@ static bool status_items(void) {
 }
 
 static void status_play(void) {
-    if (!by_gdash || !status_items())
+    if (!status_items())
         status_game();
 }
 
@@ -787,7 +788,7 @@ static void status_intro(void) {
 
 static void next_frame(void) {
 #ifdef GDPROF
-    if (by_gdash && !show_cursor) {
+    if (!show_cursor) {
         uint16_t busy = (uint16_t)(prof_synced - prof_timer()) / 2000;
         prof_busy[busy > 15 ? 15 : busy]++;
     }
@@ -885,7 +886,7 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
     return ok;
 }
 
-static void use_cave_file(void);
+static void use_own_cave(void);
 
 // Cave n of the level from the disk (CAVEnn-l), unless it is there already
 static bool load_cave(uint8_t n) {
@@ -905,7 +906,7 @@ static bool load_cave(uint8_t n) {
     *num++ = '1' + level;
     *num = 0;
     loaded = 0xFF;
-    if (!load(what, name, 0, (uint16_t)&file.game))
+    if (!have_gdash || !load(what, name, 0, (uint16_t)&file.own))
         return false;
 #ifdef SCREENCAST
     static char demo_file[] = "DEMO00";
@@ -916,27 +917,12 @@ static bool load_cave(uint8_t n) {
 #endif
     loaded = n;
     loaded_level = level;
-    use_cave_file();
+    use_own_cave();
     return true;
 }
 
-// The game's cave in file.game for its own engine
-static void use_cave_file(void) {
-    by_gdash = false;
-    cave_def.name = file.game.name;
-    cave_def.map = file.game.map;
-    cave_def.time = file.game.time;
-    cave_def.diamonds_needed = file.game.diamonds;
-    cave_def.diamond_value = file.game.value;
-    cave_def.extra_value = file.game.extra;
-    cave_def.amoeba_time = file.game.amoeba;
-    cave_def.magic_time = file.game.magic;
-    cave_def.tick_ms = file.game.speed;
-}
-
-// The own cave in file.own for GDash's engine
+// The cave in file for GDash's engine
 static void use_own_cave(void) {
-    by_gdash = true;
     cave_def.name = file.own.name;
 }
 
@@ -1431,10 +1417,9 @@ enum { END_DIED, END_EXITED };
 
 // ---------------------------------------------------------------- the rules
 
-// A cave plays by the game's own rules (engine.c) or, an own one, by
-// GDash's (gdengine.c, mapped in for each step by gdfar.s). The game's
-// engine keeps `game` itself; from GDash's it is taken after each step, for
-// the status line, the drawing and the sounds.
+// Every cave plays by GDash's rules (gdengine.c, mapped in for each step by
+// gdfar.s); `game` is taken from its state after each step, for the status
+// line, the drawing and the sounds.
 static bool gd_suicide;  // Run/Stop, for GDash's next step
 
 static void game_from_gd(void) {
@@ -1459,10 +1444,6 @@ static uint16_t gd_step_ms(void) {
 }
 
 static void rules_start(void) {
-    if (!by_gdash) {
-        cave_start(&cave_def);
-        return;
-    }
     memset(&game, 0, sizeof game);
     game.def = &cave_def;
     game.facing = DIR_DOWN;
@@ -1476,16 +1457,15 @@ static void rules_start(void) {
     POKE(0xDC05, 0xFF);
     POKE(0xDC0E, 0x11);
 #endif
+#ifdef SCREENCAST
+    gd_start(&file.own, 0);  // the random numbers tools/solve.c played with
+#else
     gd_start(&file.own, (uint32_t)rnd() << 16 | (uint16_t)rnd() << 8 | frame);
-    nevents = 0;
+#endif
     game_from_gd();
 }
 
 static void rules_tick(uint8_t in) {
-    if (!by_gdash) {
-        cave_tick(in);
-        return;
-    }
     static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
     uint8_t dir = in & 7;
 #ifdef GDPROF
@@ -1497,7 +1477,6 @@ static void rules_tick(uint8_t in) {
     prof_steps++;
 #endif
     gd_suicide = false;
-    nevents = 0;
     game.moving = dir != DIR_NONE;
     game.snapping = game.moving && (in & IN_FIRE);
     if (game.moving)
@@ -1506,12 +1485,9 @@ static void rules_tick(uint8_t in) {
 }
 
 static uint8_t play_cave(void) {
-    const CaveDef *d = &cave_def;
     const uint8_t frame_len = pal ? 60 : 50;
-    const uint8_t fps = pal ? 50 : 60;
     uint16_t tick_len;  // in 1/3 ms
     uint16_t tick_acc = 0;
-    uint8_t sec = 0;
     uint16_t shown_time = 0;  // for the clock's tick under ten seconds (GDash's)
     uint8_t latched = DIR_NONE;
     uint8_t last_dir = DIR_NONE;  // the direction held in the frame before
@@ -1521,7 +1497,7 @@ static uint8_t play_cave(void) {
     uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
 
     rules_start();
-    tick_len = (by_gdash ? gd_step_ms() : d->tick_ms) * 3;
+    tick_len = gd_step_ms() * 3;
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
     rf_view = VIEW_FRONT;
@@ -1543,12 +1519,8 @@ static uint8_t play_cave(void) {
             last_frame = PEEK(0xD7FA);
             continue;
         }
-        if ((pressed & IN_RESTART) && game.state == PS_ALIVE) {
-            if (by_gdash)
-                gd_suicide = true;
-            else
-                cave_suicide();
-        }
+        if ((pressed & IN_RESTART) && game.state == PS_ALIVE)
+            gd_suicide = true;
 
         // A direction or the button pressed only briefly between two ticks
         // still counts in the next tick. Only a new press is kept: one that
@@ -1580,8 +1552,7 @@ static uint8_t play_cave(void) {
             latched = DIR_NONE;
             fire_latched = false;
             rules_tick(in);
-            if (by_gdash)  // GDash's steps take as long as it says
-                tick_len = gd_step_ms() * 3;
+            tick_len = gd_step_ms() * 3;  // GDash's steps take as long as it says
             add_trails();
             if (moved[game.player] != DIR_NONE)
                 rf_foot ^= 1;
@@ -1596,15 +1567,8 @@ static uint8_t play_cave(void) {
         // How far the moves of the tick have come: they end with the next
         // one, so what stops always reaches its cell.
         slide = tick_acc >= tick_len ? 0 : 16 - tick_acc * 16 / tick_len;
-        if (by_gdash) {  // GDash's engine counts the time itself
-            if (game.state == PS_ALIVE && game.time != shown_time) {
-                shown_time = game.time;
-                if (game.time && game.time < 10)
-                    sound_clock();
-            }
-        } else if (game.state == PS_ALIVE && ++sec >= fps) {
-            sec = 0;
-            cave_second();
+        if (game.state == PS_ALIVE && game.time != shown_time) {  // GDash's engine counts the time
+            shown_time = game.time;
             if (game.time && game.time < 10)
                 sound_clock();
         }
@@ -1643,7 +1607,7 @@ static uint8_t play_cave(void) {
             // their own points per second)
             if (game.time) {
                 game.time--;
-                game.score += by_gdash ? file.own.timevalue : 1;
+                game.score += file.own.timevalue;
                 if (!(frame & 1))
                     sound_bonus();
                 status_game();
@@ -1784,7 +1748,6 @@ static EDITOR void edit_view(void) {
     memset(moved, DIR_NONE, CAVE_SIZE);
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
-    by_gdash = true;
     show_cursor = true;
     edit_shown = false;
     note = 0;

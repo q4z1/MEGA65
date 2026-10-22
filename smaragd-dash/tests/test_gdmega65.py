@@ -52,7 +52,7 @@ def main():
         sys.exit(build.stdout[-2000:] + build.stderr[-2000:])
     gdplay = os.path.join(ROOT, "build", "gdplay-mega65")
     cc = run(["cc", "-O2", "-Wall", "-Wno-array-bounds", "-Isrc", "-Ibuild/gen", "-o", gdplay,
-              "tests/gdplay.c", "src/gdengine.c", "src/engine.c", "build/gen/gdcave.c"])
+              "tests/gdplay.c", "src/gdengine.c", "build/gen/gdcave.c"])
     if cc.returncode:
         sys.exit(cc.stderr)
 

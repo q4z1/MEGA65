@@ -18,9 +18,11 @@
 #include <stddef.h>
 #include <string.h>
 
-// On the MEGA65 where the program sees it as well (shared.ld)
+// On the MEGA65 where the program sees them as well (shared.ld)
 #ifndef __mos__
 GdState gd;
+uint8_t cave[CAVE_SIZE];
+uint8_t moved[CAVE_SIZE];
 #endif
 
 #define SCAN 0x100  // get(): the scanned twin of the element
@@ -336,6 +338,22 @@ static void store(int8_t x, int8_t y, uint8_t e) {
 }
 #endif
 
+// What scan_cell needs of the step besides the cell, and what it finds out
+static uint8_t sc_move;
+static bool sc_fire, sc_inbox_toggle, sc_amoeba_found_enclosed, sc_amoeba_2_found_enclosed;
+static uint16_t sc_amoeba_count, sc_amoeba_2_count;
+uint32_t gd_scan_ckdelay;  // the C64's delay of the cells scan_cells passed
+
+// Something for the drawing's little effects at x, y (gd.events, EV_*);
+// the rules do not use them
+static void event(int8_t x, int8_t y, uint8_t what) {
+    if (gd.nevents < MAX_EVENTS) {
+        Event *ev = &gd.events[gd.nevents++];
+        ev->cell = cell(x, y);
+        ev->what = what;
+    }
+}
+
 static void store_dir(int8_t x, int8_t y, uint8_t dir, uint8_t e) {
     store(x + gd_dx[dir], y + gd_dy[dir], e);
 }
@@ -540,6 +558,7 @@ static void explode_dir(int8_t x, int8_t y, uint8_t dir) {
 // ---------------------------------------------------------------- the player
 
 static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t dir) {
+    int8_t from_x = x, from_y = y;
     x += gd_dx[dir];
     y += gd_dy[dir];
     switch (element) {
@@ -608,6 +627,10 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
     case O_STEEL_EATABLE:
     case O_BRICK_EATABLE:
         gd.sound |= SND_DIRT;
+        if (sc_fire)  // crumbs where it was snapped, or where Rockford came from
+            event(x, y, EV_DUG);
+        else
+            event(from_x, from_y, EV_DUG);
         return O_SPACE;
     case O_SPACE:
     case O_LAVA:
@@ -835,7 +858,10 @@ static bool do_fall_try_crush(int8_t x, int8_t y, uint8_t fall_dir) {
 
 static void landed(int8_t x, int8_t y) {
     uint16_t e = get(x, y);
-    gd.sound |= (e == O_DIAMOND || e == O_DIAMOND_F || e == O_FLYING_DIAMOND_F) ? SND_DIAMOND : SND_BOULDER;
+    bool diamond = e == O_DIAMOND || e == O_DIAMOND_F || e == O_FLYING_DIAMOND_F;
+    gd.sound |= diamond ? SND_DIAMOND : SND_BOULDER;
+    if (!diamond)
+        event(x, y, EV_LANDED);
 }
 
 static void do_fall_roll_or_stop(int8_t x, int8_t y, uint8_t fall_dir, uint8_t bouncing) {
@@ -881,8 +907,14 @@ static void creature_move(int8_t x, int8_t y, uint8_t base) {
         move(x, y, cm[dirn], base + dirn);
     else if (is_like_space(x, y, cm[dir]))
         move(x, y, cm[dir], base + dir);
-    else
+    else {
         store(x, y, base + dirp);
+        return;
+    }
+    if (base == O_FIREFLY_1 || base == O_ALT_FIREFLY_1)  // the cell it left
+        event(x, y, EV_FIREFLY);
+    else if (base == O_BUTTER_1 || base == O_ALT_BUTTER_1)
+        event(x, y, EV_BUTTERFLY);
 }
 
 static bool touches(int8_t x, int8_t y, uint16_t e) {
@@ -1293,11 +1325,6 @@ static void prof_mark(uint8_t n) {
 #define PROF_END
 #endif
 
-// What scan_cell needs of the step besides the cell, and what it finds out
-static uint8_t sc_move;
-static bool sc_fire, sc_inbox_toggle, sc_amoeba_found_enclosed, sc_amoeba_2_found_enclosed;
-static uint16_t sc_amoeba_count, sc_amoeba_2_count;
-uint32_t gd_scan_ckdelay;  // the C64's delay of the cells scan_cells passed
 
 // One cell of the scan, not scanned yet in this step: its element e does
 // what it does (scan_cells unscans it afterwards). Called from
@@ -2053,6 +2080,7 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
     int16_t time_decrement_sec = 0;
 
     gd.sound = 0;
+    gd.nevents = 0;
     clear_moved();
     if (!flag(GDF_DIAGONAL_MOVEMENTS)) {
         if (player_move == MV_UP_RIGHT || player_move == MV_DOWN_RIGHT)

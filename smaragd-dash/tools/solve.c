@@ -1,8 +1,8 @@
 // Smaragd Dash: finds a way through the caves for the screencast build
-// (SCREENCAST, see main.c). Runs on the host with the game's own engine, so
-// what works here works the same in the game: the cave's random numbers start
-// the same every time, and the frames and ticks are counted as play_cave does
-// it (PAL).
+// (SCREENCAST, see main.c). Runs on the host with GDash's engine as the game
+// has it (src/gdengine.c, with the game's random numbers, which the
+// screencast build starts the same as here: seed 0), so what works here
+// works the same in the game, step by step.
 //
 // Usage: solve <gendir> <diskdir>
 //   writes <gendir>/demo.h and a file per cave, <diskdir>/demoNN.bin, which
@@ -13,94 +13,88 @@
 // played first, then the search goes on from there.
 //
 // The way: from the nearest few emeralds pick one, walk there (the path is
-// planned again every tick, round boulders and away from creatures), and so
+// planned again every step, round boulders and away from creatures), and so
 // on until the exit is open, then walk out. A choice that gets Rockford
 // killed or stuck is taken back and the next one tried. The caves of level 1
 // are solved in order for the screencast; the first one without a solution
 // ends its list. The higher levels are only checked: each cave in each of
 // them is solved too, and the ones without a way through are named.
 //
-// A demo file holds the input of every tick from the start of a cave: two
+// A demo file holds the input of every step from the start of a cave: two
 // bytes of load address (not used), then pairs of (count, input) with input
-// as for cave_tick, closed by a count of 0; at most DEMO_MAX bytes after the
-// load address, the game's buffer for them. A cave whose moves do not fit
-// ends the list as well.
+// as main.c's rules_tick takes it (DIR_* | IN_FIRE), closed by a count of 0;
+// at most DEMO_MAX bytes after the load address, the game's buffer for them.
+// A cave whose moves do not fit ends the list as well.
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "caves.h"
-#include "engine.c"
+#include "gdengine.c"
 
-#define FRAME_LEN  60   // one PAL frame in 1/3 ms, as in play_cave
-#define FPS        50
 #define MAX_TICKS  4000
 #define CHOICES    3    // emeralds tried at each step
 #define MAX_NODES  5000  // solved caves need up to about 1600
-#define DEMO_MAX   384  // the game's buffer for one cave's moves (the longest: 279)
+#define DEMO_MAX   384  // the game's buffer for one cave's moves
 
+static const int16_t dir_off[4] = {-CAVE_W, 1, CAVE_W, -1};  // DIR_*
+
+// GDash's engine as it stands, and the moves so far
 typedef struct {
+    GdState gd;
     uint8_t cave[CAVE_SIZE];
-    struct game game;
-    uint16_t cave_rng;
-    uint16_t tick_acc;
-    uint8_t sec;
+    uint8_t hammered[CAVE_SIZE];
+    uint32_t rng;
+    uint8_t c64_seed_1, c64_seed_2;
     int ticks;
 } State;
 
-static uint16_t tick_acc, tick_len;
-static uint8_t sec;
 static uint8_t moves[MAX_TICKS];
 static int ticks;
 static long nodes;
 static uint16_t exit_cell;
 
 static void save(State *s) {
+    s->gd = gd;
     memcpy(s->cave, cave, CAVE_SIZE);
-    s->game = game;
-    s->cave_rng = cave_rng;
-    s->tick_acc = tick_acc;
-    s->sec = sec;
+    memcpy(s->hammered, hammered, CAVE_SIZE);
+    s->rng = rng;
+    s->c64_seed_1 = c64_seed_1;
+    s->c64_seed_2 = c64_seed_2;
     s->ticks = ticks;
 }
 
 static void load(const State *s) {
+    gd = s->gd;
     memcpy(cave, s->cave, CAVE_SIZE);
-    game = s->game;
-    cave_rng = s->cave_rng;
-    tick_acc = s->tick_acc;
-    sec = s->sec;
+    memcpy(hammered, s->hammered, CAVE_SIZE);
+    rng = s->rng;
+    c64_seed_1 = s->c64_seed_1;
+    c64_seed_2 = s->c64_seed_2;
     ticks = s->ticks;
 }
 
-// Frames as in play_cave until the next tick, which gets `in`
+static uint16_t player_cell(void) {
+    return gd.player_y * CAVE_W + gd.player_x;
+}
+
+// A step with input `in`, as rules_tick makes it; false if Rockford is no
+// longer alive (unless he got out)
 static bool tick(uint8_t in) {
-    if (ticks >= MAX_TICKS || game.state == PS_TIMEOUT || game.state == PS_EXITED)
+    static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
+    if (ticks >= MAX_TICKS || gd.player_state == GD_PL_TIMEOUT || gd.player_state == GD_PL_EXITED)
         return false;
-    for (;;) {
-        bool ticked = false;
-        tick_acc += FRAME_LEN;
-        if (tick_acc >= tick_len) {
-            tick_acc -= tick_len;
-            cave_tick(in);
-            moves[ticks++] = in;
-            ticked = true;
-        }
-        if (game.state == PS_ALIVE && ++sec >= FPS) {
-            sec = 0;
-            cave_second();
-        }
-        if (ticked)
-            return game.state == PS_ALIVE || game.state == PS_EXITED;
-    }
+    gd_iterate(mv[in & 7], (in & IN_FIRE) != 0, false);
+    moves[ticks++] = in;
+    return gd.player_state == GD_PL_LIVING || gd.player_state == GD_PL_EXITED;
 }
 
 static bool creature(uint8_t e) {
-    return e >= E_FIREFLY && e < E_BUTTERFLY + 4;
+    return (e >= O_FIREFLY_1 && e <= O_FIREFLY_4) || (e >= O_BUTTER_1 && e <= O_BUTTER_4);
 }
 
 static bool falls(uint8_t e) {
-    return e == E_BOULDER || e == E_BOULDER_F || e == E_DIAMOND || e == E_DIAMOND_F;
+    return e == O_STONE || e == O_STONE_F || e == O_DIAMOND || e == O_DIAMOND_F;
 }
 
 // Path costs from every cell to `target` (Dijkstra backwards); cells within
@@ -113,8 +107,8 @@ static void plan(uint16_t target) {
     memset(closed, 0, sizeof closed);
     for (int i = 0; i < CAVE_SIZE; i++) {
         uint8_t e = cave[i];
-        bool open = e == E_SPACE || e == E_DIRT || e == E_DIAMOND || e == E_ROCKFORD ||
-                    (i == target && (e == E_OUTBOX || e == E_OUTBOX_OPEN));
+        bool open = e == O_SPACE || e == O_DIRT || e == O_DIAMOND || i == player_cell() ||
+                    (i == target && (e == O_PRE_OUTBOX || e == O_OUTBOX));
         if (!open)
             closed[i] = true;
         if (creature(e)) {
@@ -174,15 +168,15 @@ static void plan(uint16_t target) {
 // Walks to `target` until Rockford is there (or out, for the exit)
 static bool walk(uint16_t target) {
     for (int guard = 0; guard < 300; guard++) {
-        if (game.state == PS_EXITED)
+        if (gd.player_state == GD_PL_EXITED)
             return target == exit_cell;
-        if (game.player == target)
+        if (player_cell() == target)
             return true;
         uint8_t e = cave[target];
-        if (target != exit_cell && e != E_DIAMOND)
+        if (target != exit_cell && e != O_DIAMOND)
             return false;  // it fell or was taken
         plan(target);
-        uint16_t p = game.player;
+        uint16_t p = player_cell();
         int best = DIR_NONE;
         for (int d = 0; d < 4; d++) {
             int j = p + dir_off[d];
@@ -190,27 +184,27 @@ static bool walk(uint16_t target) {
                 best = d;
         }
         if (!tick(best))  // DIR_NONE: no way now, wait
-            return game.state == PS_EXITED && target == exit_cell;
+            return gd.player_state == GD_PL_EXITED && target == exit_cell;
     }
     return false;
 }
 
 static bool solve_from_here(void) {
-    if (game.state == PS_EXITED)
+    if (gd.player_state == GD_PL_EXITED)
         return true;
     if (++nodes > MAX_NODES)
         return false;
     uint16_t targets[CAVE_SIZE];
     uint16_t dist[CAVE_SIZE];
     int n = 0;
-    if (game.exit_open) {
+    if (gd.gate_open) {
         targets[n++] = exit_cell;
     } else {
         // the nearest emeralds (by the path costs from them to Rockford,
         // close enough to the other way round)
-        plan(game.player);
+        plan(player_cell());
         for (int i = 0; i < CAVE_SIZE; i++) {
-            if (cave[i] != E_DIAMOND || cost[i] == 0xFFFF)
+            if (cave[i] != O_DIAMOND || cost[i] == 0xFFFF)
                 continue;
             int k = n++;
             while (k > 0 && dist[k - 1] > cost[i]) {
@@ -254,22 +248,20 @@ static bool opening(const char *m) {
             in = (strchr(snap, c) - snap) | IN_FIRE;
         for (n = n ? n : 1; n--;)
             if (!tick(in))
-                return game.state == PS_EXITED;
+                return gd.player_state == GD_PL_EXITED;
     }
     return true;
 }
 
-static bool solve(const CaveDef *d, const char *demo) {
-    cave_start(d);
-    tick_len = d->tick_ms * 3;
-    tick_acc = 0;
-    sec = 0;
+static bool solve(const GdCaveFile *f, const char *demo) {
+    gd_start(f, 0);  // as the screencast build starts it
     ticks = 0;
     nodes = 0;
     for (int i = 0; i < CAVE_SIZE; i++)
-        if (d->map[i] == E_OUTBOX)
+        if (f->map[i] == O_PRE_OUTBOX)
             exit_cell = i;
-    while (game.state == PS_HATCHING)
+    // until Rockford stands there: hatched, and born out of the inbox
+    while (gd.player_state == GD_PL_NOT_YET || (gd.player_state == GD_PL_LIVING && cave[player_cell()] != O_PLAYER))
         tick(DIR_NONE);
     if (!opening(demo)) {
         printf("solve: Rockford did not survive the opening moves\n");
@@ -304,8 +296,8 @@ int main(int argc, char **argv) {
     char path[1024];
     int solved = 0;
     for (; solved < CAVE_COUNT; solved++) {
-        const char *name = caves[0][solved].name;
-        if (!solve(&caves[0][solved], cave_demo[solved])) {
+        const char *name = caves[0][solved]->name;
+        if (!solve(caves[0][solved], cave_demo[solved])) {
             printf("solve: no way found through cave %d (%s)\n", solved + 1, name);
             break;
         }
@@ -316,8 +308,8 @@ int main(int argc, char **argv) {
                    solved + 1, name, DEMO_MAX);
             break;
         }
-        printf("solve: cave %d (%s): %d ticks, %d emeralds, %d s left\n", solved + 1, name,
-               ticks, game.collected, game.time);
+        printf("solve: cave %d (%s): %d steps, %d emeralds, %d s left\n", solved + 1, name,
+               ticks, gd.diamonds_collected, gd_time_visible());
         snprintf(path, sizeof path, "%s/demo%02d.bin", argv[2], solved + 1);
         FILE *f = fopen(path, "wb");
         if (!f || fwrite(data, 1, 2 + len, f) != (size_t)(2 + len) || fclose(f)) {
@@ -331,15 +323,15 @@ int main(int argc, char **argv) {
         int ok = 0, least = -1;
         double spare = 0;
         for (int i = 0; i < CAVE_COUNT; i++) {
-            const CaveDef *d = &caves[lv][i];
-            if (!solve(d, cave_demo[i])) {
+            const GdCaveFile *c = caves[lv][i];
+            if (!solve(c, cave_demo[i])) {
                 printf("solve: level %d: no way found through cave %d (%s)\n", lv + 1, i + 1,
-                       d->name);
+                       c->name);
                 continue;
             }
             ok++;
             // the time limit over the time the solver needed
-            double f = d->time / (ticks * d->tick_ms / 1000.0);
+            double f = c->time / (ticks * c->speed / 1000.0);
             if (least < 0 || f < spare) {
                 least = i;
                 spare = f;
@@ -348,7 +340,7 @@ int main(int argc, char **argv) {
         printf("solve: level %d: %d of %d caves solved", lv + 1, ok, CAVE_COUNT);
         if (least >= 0)
             printf(", the least time to spare in cave %d (%s): %.1f times the time needed",
-                   least + 1, caves[lv][least].name, spare);
+                   least + 1, caves[lv][least]->name, spare);
         printf("\n");
     }
 
