@@ -584,10 +584,41 @@ static void camera_at(uint16_t px, uint16_t py, bool jump) {
     follow(&cam_y, &scroll_y, py, VIEW_H, MAX_Y, 48);
 }
 
+// Playing, the view moves with Rockford: inside a box round the middle he
+// walks on a still cave; at its edge the cave moves under him exactly as
+// far as he goes, frame by frame, as smooth as his own steps. What jumps
+// farther (a teleporter, round the edge of the cave) is followed by at
+// most 8 pixels a frame.
+#define TRACK_MAX 8
+
+static void track(uint16_t *cam, uint16_t p, uint16_t view, uint16_t max, uint16_t margin) {
+    int16_t lo = (int16_t)p - (int16_t)(view - margin);  // the view's least position for p
+    int16_t hi = (int16_t)p - (int16_t)margin;           // its greatest
+    int16_t c = *cam, to = c;
+    if (to < lo)
+        to = lo;
+    if (to > hi)
+        to = hi;
+    if (to < 0)
+        to = 0;
+    if (to > (int16_t)max)
+        to = max;
+    if (to > c + TRACK_MAX)
+        to = c + TRACK_MAX;
+    if (to < c - TRACK_MAX)
+        to = c - TRACK_MAX;
+    *cam = to;
+}
+
 static void camera(bool jump) {
     uint16_t px, py;
     cell_pos(game.player, &px, &py);
-    camera_at(px + 8, py + 8, jump);
+    if (jump) {
+        camera_at(px + 8, py + 8, true);
+        return;
+    }
+    track(&cam_x, px + 8, VIEW_W, MAX_X, VIEW_W / 2 - 32);  // a box of 64 x 32 pixels
+    track(&cam_y, py + 8, VIEW_H, MAX_Y, VIEW_H / 2 - 16);
 }
 
 // ---------------------------------------------------------------- status
@@ -1421,6 +1452,12 @@ static void game_from_gd(void) {
     cave_def.diamond_value = cave_def.extra_value = gd.diamond_value > 99 ? 99 : gd.diamond_value;
 }
 
+// GDash's steps take as long as it says - but it makes at most one in each
+// of its 40 ms cycles (gamecontrol.cpp, main_int): 25 a second at most
+static uint16_t gd_step_ms(void) {
+    return gd.speed < 40 ? 40 : gd.speed;
+}
+
 static void rules_start(void) {
     if (!by_gdash) {
         cave_start(&cave_def);
@@ -1484,7 +1521,7 @@ static uint8_t play_cave(void) {
     uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
 
     rules_start();
-    tick_len = (by_gdash ? gd.speed : d->tick_ms) * 3;
+    tick_len = (by_gdash ? gd_step_ms() : d->tick_ms) * 3;
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
     rf_view = VIEW_FRONT;
@@ -1544,7 +1581,7 @@ static uint8_t play_cave(void) {
             fire_latched = false;
             rules_tick(in);
             if (by_gdash)  // GDash's steps take as long as it says
-                tick_len = gd.speed * 3;
+                tick_len = gd_step_ms() * 3;
             add_trails();
             if (moved[game.player] != DIR_NONE)
                 rf_foot ^= 1;

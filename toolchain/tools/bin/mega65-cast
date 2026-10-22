@@ -43,14 +43,31 @@ shift
 [ "$1" = "--" ] && shift
 [ -f "$IN" ] || { echo "mega65-cast: '$IN' not found" >&2; exit 1; }
 command -v ffmpeg >/dev/null || { echo "mega65-cast: ffmpeg is needed" >&2; exit 1; }
+# The MP4 needs an ffmpeg with libx264: this one, or - in a Flatpak sandbox
+# whose ffmpeg has none, as VS Code's - the host's, which then needs the
+# files where it sees them too (next to the video)
+if ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libx264; then
+    FINAL="ffmpeg"
+elif command -v flatpak-spawn >/dev/null &&
+    flatpak-spawn --host ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libx264; then
+    FINAL="flatpak-spawn --host ffmpeg"
+else
+    echo "mega65-cast: no ffmpeg with libx264 (H.264) found" >&2
+    exit 1
+fi
 
 case "$IN" in
     *.d81|*.D81) set -- -8 "$IN" -autoload "$@" ;;
     *) set -- -prg "$IN" "$@" ;;
 esac
 [ -n "$OUT" ] || OUT="${IN%.*}.mp4"
+OUT=$(realpath "$OUT")
 
-TMP=$(mktemp -d "${TMPDIR:-/tmp}/mega65-cast.XXXXXX")
+if [ "$FINAL" = ffmpeg ]; then
+    TMP=$(mktemp -d "${TMPDIR:-/tmp}/mega65-cast.XXXXXX")
+else
+    TMP=$(mktemp -d "$(dirname "$OUT")/.mega65-cast.XXXXXX")
+fi
 cleanup() {
     [ -n "$ENC" ] && kill "$ENC" 2>/dev/null
     rm -rf "$TMP"
@@ -59,11 +76,12 @@ trap cleanup EXIT
 trap 'exit 130' INT TERM
 
 # Video through a pipe into a lossless intermediate file (raw frames would
-# take 1.2 MB each), sound into a file (176 KB per second)
+# take 1.2 MB each; FFV1, which every ffmpeg has), sound into a file (176 KB
+# per second)
 mkfifo "$TMP/video.rgb"
 ffmpeg -loglevel error -nostdin -y \
     -f rawvideo -pix_fmt rgb24 -s 704x576 -framerate 50 -i "$TMP/video.rgb" \
-    -frames:v $((MAX * 50)) -c:v libx264rgb -qp 0 -preset ultrafast \
+    -frames:v $((MAX * 50)) -c:v ffv1 -threads 4 \
     "$TMP/video.mkv" &
 ENC=$!
 
@@ -84,7 +102,7 @@ wait "$ENC"
 ENC=""
 
 echo "Encoding $OUT ..."
-ffmpeg -loglevel error -nostdin -y \
+$FINAL -loglevel error -nostdin -y \
     -ss "$SKIP" -i "$TMP/video.mkv" \
     -ss "$SKIP" -f s16le -ar 44100 -ac 2 -i "$TMP/audio.raw" \
     -vf "scale=iw*$SCALE:ih*$SCALE:flags=neighbor" \

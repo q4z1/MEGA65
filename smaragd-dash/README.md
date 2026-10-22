@@ -376,7 +376,12 @@ moves the character generator (TEXTXPOS); it is switched while the thin line
 is drawn, whose pixel rows are single colours, so the status line stays in
 place. The frame loop: game logic during the vertical blank, the
 switch at the line, drawing, then waiting for the next blank to show the new
-framebuffer.
+framebuffer. The cave's clock goes by the MEGA65's frame counter, so a frame
+that takes longer does not slow the cave down; a step of GDash's engine
+takes as long as it says (at most 25 a second, as in GDash). The view moves
+with Rockford: inside a box of 64 x 32 pixels round the middle he walks on
+a still cave, beyond it the cave moves under him exactly as far as he goes,
+frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).
 
 **The music** is written in `tools/mkmusic.py`: a chord per bar, the
 melody as note names with lengths in sixteenths, bass and drum patterns, and
