@@ -22,6 +22,11 @@ static const uint8_t decay_frames[16] = {
     3, 4, 5, 7, 10, 13, 15, 17, 21, 47, 92, 146, 182, 255, 255, 255};
 static uint8_t left[3];  // frames until the voice is switched off
 
+// Frames an explosion keeps voice 2: a boulder landing in the next tick
+// would otherwise cut it off before it was heard.
+#define BOOM_FRAMES 50
+static uint8_t boom;
+
 // Start a sound on voice v (0-2): frequency, waveform, attack/decay and
 // sustain/release. The gate is closed first so the envelope starts again.
 static void play(uint8_t v, uint16_t freq, uint8_t wave, uint8_t ad, uint8_t sr) {
@@ -54,9 +59,12 @@ void sound_off(void) {
         POKE(SID + RIGHT + v, 0);
     }
     left[0] = left[1] = left[2] = 0;
+    boom = 0;
 }
 
 void sound_frame(void) {
+    if (boom)
+        boom--;
     for (uint8_t v = 0; v < 3; v++)
         if (left[v] && !--left[v]) {
             POKE(SID + v * 7 + 4, 0);
@@ -71,8 +79,11 @@ void sound_tick(uint8_t ev) {
     else if (ev & SND_DIAMOND)
         play(0, 0x3000 + rnd() * 64, TRI, 0x06, 0x00);
     // voice 2
-    if (ev & SND_EXPLODE)
+    if (ev & SND_EXPLODE) {
         play(1, 0x1400, NOISE, 0x0B, 0x00);
+        boom = BOOM_FRAMES;
+    } else if (boom)
+        ;  // the explosion is still loud
     else if (ev & SND_BOULDER)
         play(1, 0x0700, NOISE, 0x07, 0x00);
     else if (ev & SND_DIRT)
