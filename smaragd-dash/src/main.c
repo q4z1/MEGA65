@@ -519,8 +519,9 @@ static void status_clear(void) {
 }
 
 static void status_center(const char *text) {
-    status_clear();
+    status_begin();
     status_print((40 - strlen(text)) / 2, text);
+    status_end();
 }
 
 // The numbers are redrawn only when they change (32-bit division is slow)
@@ -532,8 +533,9 @@ static void status_game(void) {
     const CaveDef *d = game.def;
     uint8_t value = game.exit_open ? d->extra_value : d->diamond_value;
     uint32_t total = score + game.score;
-    if (status_code_at(2) != ICON(ICON_EMERALD)) {
-        status_clear();
+    bool layout = status_code_at(2) != ICON(ICON_EMERALD);
+    if (layout) {
+        status_begin();
         status_put(2, ICON(ICON_EMERALD));
         status_put(6, '/');
         status_put(9 + 2, 'x');
@@ -553,6 +555,8 @@ static void status_game(void) {
     if (!valid || total != last_score)
         put_num(31, last_score = total, 6);
     valid = true;
+    if (layout)
+        status_end();
 }
 
 // GDash's caves: what Rockford carries - keys, skeletons, the sweet, the
@@ -594,7 +598,7 @@ static bool status_items(void) {
     if (!changed && secs == shown_secs && status_code_at(2) == 0xFF)
         return true;  // as it is
     shown_secs = secs;
-    status_clear();
+    status_begin();
     static const uint8_t tile[7] = {T_KEY1, T_KEY2, T_KEY3, T_SKELETON, T_SWEET, T_HAMMER, T_DIAMOND_KEY};
     uint8_t col = 2;
     for (uint8_t k = 0; k < 7; k++) {
@@ -615,6 +619,7 @@ static bool status_items(void) {
         if (pending)
             put_num(col + 3, secs, 2);
     }
+    status_end();
     return true;
 }
 
@@ -626,7 +631,7 @@ static void status_play(void) {
 // "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12" for an
 // own cave, "TEST" for the one in the editor
 static void status_intro(void) {
-    status_clear();
+    status_begin();
     status_put(2, ICON(ICON_LIFE));
     put_num(4, lives, 1);
     uint8_t col;
@@ -646,6 +651,7 @@ static void status_intro(void) {
         col = 12;
     }
     status_print(col, game.def->name);
+    status_end();
 }
 
 // ---------------------------------------------------------------- frames
@@ -720,8 +726,9 @@ static void spin(void) {
 
 // The spinner and `what` in the status line while the disk is busy
 static void busy(const char *what) {
-    status_clear();
+    status_begin();
     status_print(5, what);
+    status_end();
     spin_frame = 0xFF;
     spin();
     disk_busy = spin;
@@ -930,7 +937,7 @@ static void title_line(const char *text) {
 
 // The status line on the title: what the game starts with, and the hi-score
 static void title_status(void) {
-    status_clear();
+    status_begin();
     if (start_cave == CAVE_COUNT) {
         status_print(2, "OWN CAVES");
     } else {
@@ -941,6 +948,7 @@ static void title_status(void) {
     }
     status_print(22, "HI-SCORE");
     put_num(31, hs_table[0].score, 6);
+    status_end();
 }
 
 // Up and down pick the level, left and right the cave to start with; right

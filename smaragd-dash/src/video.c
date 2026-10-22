@@ -345,8 +345,33 @@ static uint16_t make_glyph(uint8_t ch, const uint8_t *rows) {
     return (uint16_t)glyph;
 }
 
+// Between status_begin and status_end a new line is put together: what is
+// written is only noted, and status_end draws the columns that change, so
+// the line never shows blank in between. 0xFF: a tile drawn meanwhile.
+static uint8_t status_want[COLS];
+static bool composing;
+
+void status_begin(void) {
+    for (uint8_t c = 1; c < COLS - 1; c++)
+        status_want[c] = ' ';
+    composing = true;
+}
+
+void status_end(void) {
+    composing = false;
+    for (uint8_t c = 1; c < COLS - 1; c++)
+        if (status_want[c] != 0xFF)
+            status_put(c, status_want[c]);
+}
+
 void status_put(uint8_t col, uint8_t ch) {
-    if (col >= COLS || status_code[col] == ch)
+    if (col >= COLS)
+        return;
+    if (composing) {
+        status_want[col] = ch;
+        return;
+    }
+    if (status_code[col] == ch)
         return;
     status_code[col] = ch;
     uint16_t src = make_glyph(ch, font_row);
@@ -357,6 +382,7 @@ void status_put(uint8_t col, uint8_t ch) {
 
 void status_tile(uint8_t col, uint8_t tile) {
     status_code[col] = status_code[col + 1] = 0xFF;  // no character
+    status_want[col] = status_want[col + 1] = 0xFF;
     uint16_t src = TILES_OFF + (tile << 8);
     uint16_t dst = STATUS_OFF + col * (STATUS_ROWS * 64);
     dma_begin(0, 0);

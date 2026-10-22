@@ -53,6 +53,8 @@ void status_print(uint8_t col, const char *text);
 void status_put(uint8_t col, uint8_t ch);
 void status_tile(uint8_t col, uint8_t tile);  // a 16x16 tile in col and col + 1
 uint8_t status_code_at(uint8_t col);  // what is shown in a column
+void status_begin(void);  // a new line from blank: only noted ...
+void status_end(void);    // ... until here, where what changes is drawn
 
 // Text screens in the playfield area (both framebuffers, no scrolling):
 // col is the character column (1-38 visible), y the pixel row (0-175).
