@@ -14,10 +14,19 @@
 #define PULSE 0x40
 #define NOISE 0x80
 
+// Frames until an envelope with this decay (attack 0, sustain 0) has died
+// away, at 60 frames a second and with two to spare. The waveform is
+// switched off then: a SID still lets a voice at envelope 0 be heard
+// faintly while a waveform is on. Only decays up to 11 are used.
+static const uint8_t decay_frames[16] = {
+    3, 4, 5, 7, 10, 13, 15, 17, 21, 47, 92, 146, 182, 255, 255, 255};
+static uint8_t left[3];  // frames until the voice is switched off
+
 // Start a sound on voice v (0-2): frequency, waveform, attack/decay and
 // sustain/release. The gate is closed first so the envelope starts again.
 static void play(uint8_t v, uint16_t freq, uint8_t wave, uint8_t ad, uint8_t sr) {
     uint16_t r = SID + v * 7;
+    left[v] = decay_frames[ad & 15];
     for (uint8_t side = 0; side < 2; side++, r += RIGHT) {
         POKE(r + 4, wave);
         POKE(r + 0, (uint8_t)freq);
@@ -44,6 +53,15 @@ void sound_off(void) {
         POKE(SID + v, 0);
         POKE(SID + RIGHT + v, 0);
     }
+    left[0] = left[1] = left[2] = 0;
+}
+
+void sound_frame(void) {
+    for (uint8_t v = 0; v < 3; v++)
+        if (left[v] && !--left[v]) {
+            POKE(SID + v * 7 + 4, 0);
+            POKE(SID + RIGHT + v * 7 + 4, 0);
+        }
 }
 
 void sound_tick(uint8_t ev) {

@@ -15,5 +15,6 @@ void sound_bonus(void);           // time is counted into the score
 void sound_exit(void);            // the exit opens
 void sound_life(void);            // extra life
 void sound_off(void);
+void sound_frame(void);           // once per frame: ended sounds off
 
 #endif

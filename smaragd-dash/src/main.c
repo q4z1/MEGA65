@@ -414,6 +414,7 @@ static void next_frame(void) {
     update_tiles();
     video_render(tiles, cam_x, cam_y, sprites, nsprites);
     video_show();
+    sound_frame();
     frame++;
     if (flash && !--flash)
         video_flash(false);
@@ -614,6 +615,7 @@ static void title_frame(void) {
     video_sync();
     video_show();
     music_frame();
+    sound_frame();
     text_more(TEXT_STEP);
     frame++;
     uint8_t in = input_read();
