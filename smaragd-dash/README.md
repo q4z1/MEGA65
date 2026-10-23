@@ -42,7 +42,9 @@ space; held, they repeat), fire or right takes one, left goes back. Or type
 them: a letter or digit is taken at once, Del goes back. There are 30
 seconds for it; then the letters stay as they are. The next entry starts
 with the last name. After that the table comes first on the title, the new
-entry shining green with Rockford walking beside it.
+entry shining green with Rockford walking beside it. GAME OVER stays for
+2½ seconds (fire: shorter). On the table fire does not start a game: it
+brings the logo, and fire there starts.
 
 The table is written back to the disk at once (`SMARAGD.SCORES`), so it is
 still there the next time; a new build keeps it, too (`mkd81.py --keep`).
@@ -89,7 +91,8 @@ not saved. H shows the keys:
 | cursor keys, joystick | move the cursor (held: on and on) |
 | fire, Space, Return | put the element chosen; held while moving, it draws |
 | 1-9, 0, I, X | choose: space, dirt, brick wall, steel wall, boulder, emerald, firefly, butterfly, amoeba, magic wall, inbox, exit |
-| the same key again | a firefly or butterfly gets its next starting direction (up, right, down, left) |
+| E | choose among all of GDash's elements (95), on a page of their own: cursor keys or joystick, fire takes one |
+| the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left) |
 | G | choose the element the cursor is on |
 | V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times |
 | T | try the cave (one life), then back in the editor |
@@ -177,10 +180,10 @@ but four lines (a diagonal input the game never sends, two default cases,
 a corner of GLib's random numbers). `tests/test_editor.sh`
 tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
 game takes its keys from a script (`test_script` in `src/main.c`) and stops
-at its n-th stop; the screens of the 17 stops land in `build/test/`
-(besides the editor: F1 ending a game, the title's help pages, the cave
-kept after Run/Stop, and at last BASIC's screen after Run/Stop twice on the
-title), and at the end the cave the script saved is checked on the disk. It
+at its n-th stop; the screens of the 18 stops land in `build/test/`
+(besides the editor: F1 ending a game, the title's help pages, the page of
+all elements and a biter taken from it, the cave kept after Run/Stop, and
+at last BASIC's screen after Run/Stop twice on the title), and at the end the cave the script saved is checked on the disk. It
 builds the normal game again afterwards.
 
 What runs on the MEGA65 in assembler has its C original beside it, which

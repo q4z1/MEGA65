@@ -8,13 +8,13 @@
 # game no longer tells Xemu to stop: it is stopped from outside, and its
 # screen must be BASIC's. The normal build is made again at the end.
 #
-#   tests/test_editor.sh [stops]      (default: all 17)
+#   tests/test_editor.sh [stops]      (default: all 18)
 
 set -e
 cd "$(dirname "$0")/.."
 OUT=build/test
-STOPS=${1:-17}
-BASIC_STOP=17
+STOPS=${1:-18}
+BASIC_STOP=18
 mkdir -p $OUT
 for n in $(seq 1 "$STOPS"); do
     SMARAGD_CFLAGS="-DEDITTEST=$n" ./build.sh >$OUT/build.log 2>&1 || { tail $OUT/build.log; exit 1; }

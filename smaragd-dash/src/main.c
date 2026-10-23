@@ -250,6 +250,14 @@ static const uint8_t test_script[][3] = {
     {1, 'H', 0}, {150, 0, 0},                             // the help page
     SHOT,                                                 // 4: editor-help
     {100, 0, 0}, {1, ' ', 0}, {40, 0, 0},
+    {1, 'E', 0}, {60, 0, 0},                              // all elements: to the clock
+    MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
+    MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
+    MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_LEFT), MOVE(IN_DOWN), {80, 0, 0},
+    SHOT,                                                 // 5: editor-elements
+    {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
+    MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
+    MOVE(IN_RIGHT), MOVE(IN_RIGHT), {40, 0, 0}, {3, 0, IN_BUTTON}, {60, 0, 0},  // the clock taken
     {1, '6', 0}, {45, 0, 0},                              // three emeralds
     MOVE(IN_RIGHT), PUT, MOVE(IN_RIGHT), PUT, MOVE(IN_RIGHT), PUT,
     {1, 'X', 0}, {45, 0, 0},                              // an exit
@@ -259,26 +267,26 @@ static const uint8_t test_script[][3] = {
     {1, '3', 0}, {45, 0, 0},                              // a wall, drawn
     MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
     {36, 0, IN_BUTTON | IN_DOWN}, {80, 0, 0},
-    SHOT,                                                 // 5: editor-changed
+    SHOT,                                                 // 6: editor-changed
     {1, 'V', 0}, {60, 0, 0}, MOVE(IN_DOWN), {20, 0, 0},   // values: 3 emeralds to open the exit
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT),
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), {40, 0, 0},
     MOVE(IN_UP), MOVE(IN_UP), {20, 0, 0},                 // the name: OLD TUNNEL
     STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14),
     STEP1('T'), STEP1('U'), STEP1('N'), STEP1('N'), STEP1('E'), STEP1('L'), {60, 0, 0},
-    SHOT,                                                 // 6: editor-values
+    SHOT,                                                 // 7: editor-values
     {1, '\r', 0}, {80, 0, 0},
     {1, 'T', 0}, {TRY_WAIT, 0, 0}, {45, 0, IN_RIGHT},     // trying it: to the exit
-    SHOT,                                                 // 7: editor-try
+    SHOT,                                                 // 8: editor-try
     {75, 0, IN_RIGHT}, {250, 0, 0}, {150, 0, 0},
     {1, 'S', 0}, {60, 0, 0},                              // saved
-    SHOT,                                                 // 8: editor-saved
+    SHOT,                                                 // 9: editor-saved
     {60, 0, 0},
     {1, '+', 0}, {80, 0, 0}, {1, '-', 0}, {150, 0, 0},    // loaded again: as saved
     {2, 0, IN_RESTART}, {100, 0, 0},                      // the title, the own caves
     {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
     {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {60, 0, 0},
-    SHOT,                                                 // 9: editor-title
+    SHOT,                                                 // 10: editor-title
     {90, 0, 0},
     {0, 0, 0},
 #else
@@ -312,11 +320,15 @@ static const uint8_t test_script[][3] = {
     {1, ' ', 0}, {60, 0, 0}, {0, 0, 0},                   // 14: help, the elements
     {1, ' ', 0}, {60, 0, 0}, {1, 'E', 0}, {120, 0, 0},    // the editor: slot 1 as it was left
     {1, '4', 0}, {4, 0, IN_BUTTON}, {10, 0, 0},           // steel at 3,3, not saved
+    {1, 'E', 0}, {20, 0, 0}, {2, 0, IN_DOWN}, {10, 0, 0}, {2, 0, IN_DOWN}, {30, 0, 0},
+    {0, 0, 0},                                            // 15: all elements, on the biter
+    {3, 0, IN_BUTTON}, {20, 0, 0}, {1, 'R', 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
+    {4, 0, IN_BUTTON}, {10, 0, 0},                        // a biter going right at 4,3
     {2, 0, IN_RESTART}, {120, 0, 0}, {1, 'E', 0}, {120, 0, 0},
-    {0, 0, 0},                                            // 15: kept, with the steel and *
+    {0, 0, 0},                                            // 16: kept, with the steel, the biter and *
     {2, 0, IN_RESTART}, {120, 0, 0}, {2, 0, IN_RESTART}, {10, 0, 0},
-    {0, 0, 0},                                            // 16: Run/Stop on the title: BASIC?
-    {2, 0, IN_RESTART}, {0, 0, 0},                        // 17: BASIC (Xemu is stopped from outside)
+    {0, 0, 0},                                            // 17: Run/Stop on the title: BASIC?
+    {2, 0, IN_RESTART}, {0, 0, 0},                        // 18: BASIC (Xemu is stopped from outside)
 #endif
 };
 static uint8_t test_pos, test_left, test_in, test_key;
@@ -1726,8 +1738,16 @@ static bool title_screen(bool scores) {
             title_status();
         }
         title_pick();
-        if (armed && (pressed & IN_BUTTON))
-            break;
+        if (armed && (pressed & IN_BUTTON)) {
+            if (!scores)
+                break;
+            // on the high score table the button brings the logo first
+            scores = false;
+            pf = 0;
+            video_shine(0);
+            logo_page();
+            continue;
+        }
         uint8_t key = get_key();
         if (key == 'E') {
             editor = true;
@@ -2003,6 +2023,8 @@ static uint8_t play_cave(void) {
 //   fire, Space, Return     put the element chosen; held, it draws
 //   1-9, 0, I, X            choose the element; again: a firefly or a
 //                           butterfly gets its next starting direction
+//   E                       choose among all elements (edit_pick)
+//   R                       the next starting direction of what walks
 //   G                       take the element under the cursor
 //   V                       name and values      T  try the cave
 //   S                       save it into its slot
@@ -2023,7 +2045,6 @@ static uint8_t play_cave(void) {
 #endif
 
 #define PENS     12
-#define PEN_FLY  6   // the firefly; the butterfly is next
 #define NAME_LEN 21  // what the status line has room for (mkcave.py)
 #define KEY_STOP KEY_RUNSTOP  // Run/Stop (IN_RESTART), as the editor's key
 #define KEY_DEL  0x14
@@ -2031,17 +2052,54 @@ static uint8_t play_cave(void) {
 static const char pen_keys[PENS] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'I', 'X'};
 static const uint8_t pen_elem[PENS] = {O_SPACE, O_DIRT, O_BRICK, O_STEEL, O_STONE, O_DIAMOND, O_FIREFLY_1,
                                        O_BUTTER_1, O_AMOEBA, O_MAGIC_WALL, O_INBOX, O_PRE_OUTBOX};
-static const uint8_t pen_tile[PENS] = {T_SPACE, T_DIRT, T_BRICK, T_STEEL, T_BOULDER, T_DIAMOND0,
-                                       T_FIREFLY0, T_BUTTERFLY0, T_AMOEBA0, T_MAGIC0, T_INBOX0, T_OUTBOX0};
-static const char *const pen_name[PENS] = {"SPACE", "DIRT", "BRICK WALL", "STEEL WALL", "BOULDER",
-                                           "EMERALD", "FIREFLY", "BUTTERFLY", "AMOEBA",
-                                           "MAGIC WALL", "INBOX", "EXIT"};
 static const char *const dir_name[4] = {"UP", "RIGHT", "DOWN", "LEFT"};
+
+// All the elements to choose from (E), in rows of PICK_W as the page shows
+// them, and their names (at most 20 letters, with a direction 19). One that
+// walks is there with its first direction (pen_element).
+#define PICKS  95
+#define PICK_W 19
+static const uint8_t pick_elem[PICKS] EDITOR_DATA = {
+    O_SPACE, O_DIRT, O_BRICK, O_STEEL, O_STONE, O_DIAMOND, O_FIREFLY_1, O_BUTTER_1, O_AMOEBA, O_MAGIC_WALL,
+    O_INBOX, O_PRE_OUTBOX, O_PRE_INVIS_OUTBOX, O_PLAYER, O_SLIME, O_NUT, O_CLOCK, O_ACID, O_LAVA,
+    O_H_EXPANDING_WALL, O_V_EXPANDING_WALL, O_EXPANDING_WALL, O_H_EXPANDING_STEEL_WALL,
+    O_V_EXPANDING_STEEL_WALL, O_EXPANDING_STEEL_WALL, O_EXPANDING_WALL_SWITCH, O_FALLING_WALL,
+    O_STEEL_EXPLODABLE, O_STEEL_EATABLE, O_BRICK_EATABLE, O_DIRT2, O_DIRT_GLUED, O_BOX, O_WATER, O_AMOEBA_2,
+    O_REPLICATOR, O_TELEPORTER, O_GRAVITY_SWITCH,
+    O_ALT_FIREFLY_1, O_ALT_BUTTER_1, O_STONEFLY_1, O_BITER_1, O_DRAGONFLY_1, O_COW_1, O_GHOST, O_VOODOO,
+    O_BLADDER, O_BLADDER_SPENDER, O_WAITING_STONE, O_CHASING_STONE, O_FLYING_STONE, O_MEGA_STONE,
+    O_STONE_GLUED, O_FLYING_DIAMOND, O_DIAMOND_GLUED, O_TRAPPED_DIAMOND, O_WALLED_DIAMOND,
+    O_KEY_1, O_KEY_2, O_KEY_3, O_DOOR_1, O_DOOR_2, O_DOOR_3, O_WALLED_KEY_1, O_WALLED_KEY_2, O_WALLED_KEY_3,
+    O_DIAMOND_KEY, O_SWEET, O_POT, O_PNEUMATIC_HAMMER, O_ROCKET_LAUNCHER, O_BOMB, O_NITRO_PACK, O_SKELETON,
+    O_GRAVESTONE, O_TIME_PENALTY,
+    O_CONVEYOR_LEFT, O_CONVEYOR_RIGHT, O_CONVEYOR_SWITCH, O_CONVEYOR_DIR_SWITCH, O_REPLICATOR_SWITCH,
+    O_CREATURE_SWITCH, O_BITER_SWITCH, O_DIRT_SLOPED_UP_RIGHT, O_DIRT_SLOPED_UP_LEFT,
+    O_DIRT_SLOPED_DOWN_LEFT, O_DIRT_SLOPED_DOWN_RIGHT, O_BRICK_SLOPED_UP_RIGHT, O_BRICK_SLOPED_UP_LEFT,
+    O_BRICK_SLOPED_DOWN_LEFT, O_BRICK_SLOPED_DOWN_RIGHT, O_STEEL_SLOPED_UP_RIGHT, O_STEEL_SLOPED_UP_LEFT,
+    O_STEEL_SLOPED_DOWN_LEFT, O_STEEL_SLOPED_DOWN_RIGHT};
+static const char pick_names[] EDITOR_DATA =
+    "SPACE\0DIRT\0BRICK WALL\0STEEL WALL\0BOULDER\0EMERALD\0FIREFLY\0BUTTERFLY\0AMOEBA\0MAGIC WALL\0"
+    "INBOX\0EXIT\0HIDDEN EXIT\0ROCKFORD\0SLIME\0NUT\0CLOCK\0ACID\0LAVA\0"
+    "WALL, GROWS ACROSS\0WALL, GROWS UP/DOWN\0WALL, GROWS 4 WAYS\0STEEL, GROWS ACROSS\0"
+    "STEEL, GROWS UP/DOWN\0STEEL, GROWS 4 WAYS\0GROWING WALL SWITCH\0FALLING WALL\0"
+    "STEEL, EXPLODES\0STEEL, DIGGABLE\0BRICK, DIGGABLE\0DIRT 2\0GLUED DIRT\0BOX\0WATER\0AMOEBA 2\0"
+    "REPLICATOR\0TELEPORTER\0GRAVITY SWITCH\0"
+    "ALT FIREFLY\0ALT BUTTERFLY\0STONEFLY\0BITER\0DRAGONFLY\0COW\0GHOST\0VOODOO\0"
+    "BLADDER\0BLADDER MAKER\0WAITING BOULDER\0CHASING BOULDER\0FLYING BOULDER\0MEGA BOULDER\0"
+    "GLUED BOULDER\0FLYING EMERALD\0GLUED EMERALD\0TRAPPED EMERALD\0WALLED EMERALD\0"
+    "KEY 1\0KEY 2\0KEY 3\0DOOR 1\0DOOR 2\0DOOR 3\0WALLED KEY 1\0WALLED KEY 2\0WALLED KEY 3\0"
+    "EMERALD KEY\0SWEET\0POT\0HAMMER\0ROCKET LAUNCHER\0BOMB\0NITRO PACK\0SKELETON\0"
+    "GRAVESTONE\0TIME PENALTY\0"
+    "CONVEYOR LEFT\0CONVEYOR RIGHT\0CONVEYOR SWITCH\0CONVEYOR DIR SWITCH\0REPLICATOR SWITCH\0"
+    "CREATURE SWITCH\0BITER SWITCH\0SLOPED DIRT\0SLOPED DIRT\0"
+    "SLOPED DIRT\0SLOPED DIRT\0SLOPED BRICK\0SLOPED BRICK\0"
+    "SLOPED BRICK\0SLOPED BRICK\0SLOPED STEEL\0SLOPED STEEL\0"
+    "SLOPED STEEL\0SLOPED STEEL";
 static const char name_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /:.!-,";  // as cavekit.py
 
 static uint8_t slot;          // the one edited, from 0
-static uint8_t pen;           // the element chosen
-static uint8_t pen_dir = DIR_LEFT;  // a firefly's or butterfly's
+static uint8_t pen;           // the element chosen (one that walks: its first direction)
+static uint8_t pen_dir = DIR_LEFT;  // where one that walks starts
 static bool have_slot;        // the slot is on the disk
 static uint8_t again;         // the key that does it when pressed again
 static uint8_t note;          // frames a note stays in the status line
@@ -2049,8 +2107,44 @@ static bool edit_shown;       // the status line shows the editor's line
 // what a new cave starts with: Boulder Dash 1's rules (tools/cavekit.py)
 static const uint8_t new_params[GD_NEW_PARAMS_SIZE] EDITOR_DATA = GD_NEW_PARAMS;
 
-static EDITOR bool pen_fly(void) {
-    return pen == PEN_FLY || pen == PEN_FLY + 1;
+// How an element that walks has its four directions in GDash: 1 left, up,
+// right, down (fireflies, butterflies, stoneflies, dragonflies, cows); 2 up,
+// right, down, left (biters); 0 it does not walk
+static EDITOR uint8_t walks(uint8_t e) {
+    switch (e) {
+    case O_FIREFLY_1:
+    case O_ALT_FIREFLY_1:
+    case O_BUTTER_1:
+    case O_ALT_BUTTER_1:
+    case O_STONEFLY_1:
+    case O_DRAGONFLY_1:
+    case O_COW_1:
+        return 1;
+    case O_BITER_1:
+        return 2;
+    }
+    return 0;
+}
+
+// Its place among the elements to choose from, or PICKS
+static EDITOR uint8_t pick_index(uint8_t e) {
+    uint8_t i = 0;
+    while (i < PICKS && pick_elem[i] != e)
+        i++;
+    return i;
+}
+
+static EDITOR const char *pick_name(uint8_t i) {
+    const char *p = pick_names;
+    while (i--)
+        p += strlen(p) + 1;
+    return p;
+}
+
+// What an element looks like in the editor, still
+static EDITOR uint8_t elem_tile(uint8_t e) {
+    uint8_t t = gtile[e];
+    return t == T_SPARKLE ? T_DIAMOND0 : t;
 }
 
 static EDITOR void digits2(char *p, uint8_t v) {
@@ -2067,21 +2161,22 @@ static EDITOR void digits3(char *p, uint16_t v) {
 }
 
 // The element, where the cursor is, the slot, * if not saved:
-// "[tile] FIREFLY LEFT      12,05  OWN 03*"
+// "[tile] FIREFLY LEFT         12,05  OWN 03*"
 static EDITOR void edit_status(void) {
     static char line[36];
     memset(line, ' ', 35);
-    uint8_t n = strlen(pen_name[pen]);
-    memcpy(line, pen_name[pen], n);
-    if (pen_fly())
+    const char *name = pick_name(pick_index(pen));
+    uint8_t n = strlen(name);
+    memcpy(line, name, n);
+    if (walks(pen))
         memcpy(line + n + 1, dir_name[pen_dir], strlen(dir_name[pen_dir]));
-    digits2(line + 18, cur_x);
-    line[20] = ',';
-    digits2(line + 21, cur_y);
-    memcpy(line + 25, "OWN", 3);
-    digits2(line + 29, slot + 1);
-    line[31] = dirty ? '*' : ' ';
-    status_tile(2, pen_tile[pen]);
+    digits2(line + 21, cur_x);
+    line[23] = ',';
+    digits2(line + 24, cur_y);
+    memcpy(line + 27, "OWN", 3);
+    digits2(line + 31, slot + 1);
+    line[33] = dirty ? '*' : ' ';
+    status_tile(2, elem_tile(pen));
     status_print(4, line);
     edit_shown = true;
 }
@@ -2156,9 +2251,10 @@ static EDITOR const char *edit_check(void) {
     return !inbox ? "THE CAVE NEEDS AN INBOX" : exit ? 0 : "THE CAVE NEEDS AN EXIT";
 }
 
-// A firefly's or butterfly's element: GDash's go left, up, right, down
+// The element chosen, one that walks in its direction
 static EDITOR uint8_t pen_element(void) {
-    return pen_elem[pen] + (pen_fly() ? (pen_dir + 1) & 3 : 0);
+    uint8_t w = walks(pen);
+    return pen + (w == 1 ? (pen_dir + 1) & 3 : w == 2 ? pen_dir : 0);
 }
 
 // The element chosen where the cursor is. There is one inbox: the old one
@@ -2177,19 +2273,85 @@ static EDITOR void edit_put(void) {
     sound_crackle();
 }
 
-// The element under the cursor becomes the one chosen
+// The element under the cursor becomes the one chosen; one that walks
+// with its direction
 static EDITOR void edit_take(void) {
     uint8_t e = file.own.map[cur_y * CAVE_W + cur_x];
-    for (uint8_t k = 0; k < PENS; k++) {
-        uint8_t b = pen_elem[k];
-        uint8_t fly = k == PEN_FLY || k == PEN_FLY + 1;
-        if (e == b || (fly && e >= b && e < b + 4)) {
-            pen = k;
-            if (fly)
-                pen_dir = (e - b + 3) & 3;
+    for (uint8_t i = 0; i < PICKS; i++) {
+        uint8_t b = pick_elem[i], w = walks(b);
+        if (e == b || (w && e >= b && e < b + 4)) {
+            pen = b;
+            if (w)
+                pen_dir = w == 1 ? (e - b + 3) & 3 : e - b;
+            edit_shown = false;
+            return;
         }
     }
-    edit_shown = false;
+    edit_note("NOT AMONG THE ELEMENTS");
+}
+
+// All the elements on a page of their own (E): in the cave's view, rows of
+// PICK_W on every second line, as they move in the cave; the cursor keys
+// or the joystick choose one, the button takes it, E or Run/Stop leave it
+// as it was. Taken again, one that walks turns.
+static EDITOR void edit_pick(void) {
+    static char line[36];
+    uint8_t x = cur_x, y = cur_y;
+    uint8_t sel = pick_index(pen), shown = PICKS, rep = 0;
+    if (sel == PICKS)
+        sel = 0;
+    memset(cave, O_SPACE, CAVE_SIZE);
+    for (uint8_t i = 0; i < PICKS; i++)
+        cave[(1 + i / PICK_W * 2) * CAVE_W + i % PICK_W] = pick_elem[i];
+    camera_at(0, 0, true);
+    bool armed = false;
+    for (;;) {
+        cur_x = sel % PICK_W;
+        cur_y = 1 + sel / PICK_W * 2;
+        if (sel != shown) {
+            shown = sel;
+            memset(line, ' ', 35);
+            const char *name = pick_name(sel);
+            memcpy(line, name, strlen(name));
+            memcpy(line + 22, "FIRE: TAKE IT", 13);
+            status_tile(2, elem_tile(pick_elem[sel]));
+            status_print(4, line);
+        }
+        next_frame();
+        uint8_t key = get_key();
+        if (key == 'E' || (pressed & IN_RESTART))
+            break;
+        if (armed && (pressed & IN_BUTTON)) {
+            if (pen == pick_elem[sel] && walks(pen))
+                pen_dir = (pen_dir + 1) & 3;
+            pen = pick_elem[sel];
+            break;
+        }
+        if (!(held & IN_BUTTON))
+            armed = true;
+        // at once, then on and on while held
+        uint8_t dir = held & (IN_UP | IN_DOWN | IN_LEFT | IN_RIGHT);
+        if (!dir) {
+            rep = 0;
+            continue;
+        }
+        if (rep == 0 || (rep >= 12 && (rep & 3) == 0)) {
+            if (dir & IN_LEFT)
+                sel = sel ? sel - 1 : PICKS - 1;
+            if (dir & IN_RIGHT)
+                sel = sel < PICKS - 1 ? sel + 1 : 0;
+            if ((dir & IN_UP) && sel >= PICK_W)
+                sel -= PICK_W;
+            if ((dir & IN_DOWN) && sel + PICK_W < PICKS)
+                sel += PICK_W;
+        }
+        if (++rep > 15)
+            rep = 12;
+    }
+    cur_x = x;
+    cur_y = y;
+    edit_view();
+    edit_camera(true);
 }
 
 // Play the cave once, then back to the editor
@@ -2255,28 +2417,29 @@ static EDITOR bool twice(uint8_t key, bool always, const char *what) {
 }
 
 static EDITOR void edit_help(void) {
-    static const char *const lines[8] = {
+    static const char *const lines[9] = {
         "MOVE     CURSOR KEYS OR JOYSTICK",
         "PUT      FIRE OR SPACE, HELD: DRAW",
-        "1-0 I X  CHOOSE, AGAIN: DIRECTION",
+        "E        CHOOSE AMONG ALL ELEMENTS",
+        "1-0 I X  CHOOSE ONE OF THESE BELOW",
         "G        CHOOSE WHAT THE CURSOR IS ON",
+        "R        THE WAY WHAT WALKS STARTS",
         "V        NAME AND VALUES   T  TRY IT",
         "S        SAVE   + -  NEXT, LAST SLOT",
-        "C        NEW CAVE   D  EMPTY THE SLOT",
-        "RUN/STOP BACK TO THE TITLE",
+        "C NEW CAVE  D EMPTY  RUN/STOP TITLE",
     };
     video_clear();
     status_center("ANY KEY: BACK");
     video_text_in(CENTRE(11), 0, "CAVE EDITOR", title_row);
-    for (uint8_t i = 0; i < 8; i++)
+    for (uint8_t i = 0; i < 9; i++)
         video_text(2, 16 + i * 16, lines[i]);
-    // the elements with their keys, two rows of six
+    // the elements with their keys, in a row
     char key[2] = {0, 0};
     for (uint8_t k = 0; k < PENS; k++) {
-        uint8_t col = 2 + (k % 6) * 6, y = 144 + (k / 6) * 16;
+        uint8_t col = 2 + k * 3;
         key[0] = pen_keys[k];
-        video_text(col, y, key);
-        video_tile(col + 2, y, pen_tile[k]);
+        video_text(col, 160, key);
+        video_tile(col + 1, 160, elem_tile(pen_elem[k]));
     }
     page_wait();
     video_clear();
@@ -2490,14 +2653,22 @@ static EDITOR void editor(void) {
 
         for (uint8_t k = 0; k < PENS; k++)
             if (key == pen_keys[k]) {
-                if (k == pen && pen_fly())
+                if (pen_elem[k] == pen && walks(pen))
                     pen_dir = (pen_dir + 1) & 3;
-                pen = k;
+                pen = pen_elem[k];
                 edit_shown = false;
             }
         switch (key) {
+        case 'E':
+            edit_pick();
+            armed = false;
+            break;
         case 'G':
             edit_take();
+            break;
+        case 'R':
+            pen_dir = (pen_dir + 1) & 3;
+            edit_shown = false;
             break;
         case 'H':
             edit_help();
@@ -2598,7 +2769,7 @@ static void play_game(void) {
     }
     status_center(have_cave ? "GAME OVER" : play_mode == PLAY_OWN ? "NO OWN CAVES ON THE DISK" : "NO CAVES ON THE DISK");
     sound_off();
-    wait_button(250);
+    wait_button(pal ? 125 : 150);  // 2.5 seconds, or the button
     uint8_t rank = have_cave && play_mode == PLAY_CAVES ? hiscore_rank(score) : HS_COUNT;
     hs_new = rank;
     if (rank < HS_COUNT) {

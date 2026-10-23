@@ -16,7 +16,7 @@
 set -e
 cd "$(dirname "$0")/.."
 DISK=build/editor-demo.d81
-SHOTS="cave gdash new help changed values try saved title"  # in the script's order
+SHOTS="cave gdash new help elements changed values try saved title"  # in the script's order
 
 # The game with the script, and a disk with the caves in its slots
 prepare() {

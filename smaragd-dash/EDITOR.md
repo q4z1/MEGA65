@@ -14,6 +14,7 @@ Contents:
 - [The editor's screen](#the-editors-screen)
 - [Moving, putting, drawing](#moving-putting-drawing)
 - [The elements](#the-elements)
+- [All elements: the page of their own](#all-elements-the-page-of-their-own)
 - [Slots: loading, new caves, emptying](#slots-loading-new-caves-emptying)
 - [Name and values](#name-and-values)
 - [Trying a cave](#trying-a-cave)
@@ -41,7 +42,10 @@ line now says EMERALD. Move the cursor with the cursor keys or the joystick
 and press **fire**, **Space** or **Return** to put an emerald under the
 cursor. In the video three emeralds go right of the inbox. Then **X** for
 an exit, three cells further on, and **5** for two boulders above the
-emeralds.
+emeralds. All the other elements (slime, nuts, clocks, keys and doors, ...)
+are on a page of their own: **E** (see
+[All elements](#all-elements-the-page-of-their-own)). In the video the clock
+is taken there, then the emeralds are chosen with 6.
 
 **3. Draw a wall.** Press **3** for brick wall. Hold fire and move: every
 cell the cursor passes gets a wall. A `*` after the slot number in the
@@ -79,8 +83,8 @@ fire (see [Playing your caves](#playing-your-caves)).
 
 The status line at the top shows, from left to right:
 
-- the element chosen, as a tile and by name; for a firefly or butterfly also
-  the direction it starts in (FIREFLY UP),
+- the element chosen, as a tile and by name; for one that walks (firefly,
+  butterfly, biter, cow, ...) also the direction it starts in (FIREFLY UP),
 - the cursor's place, column and row (02,02; the cave is 40 x 22 cells,
   0-39 and 0-21),
 - the slot, OWN 01 to OWN 20,
@@ -102,7 +106,7 @@ keys. Any key (or fire) goes back.
 | cursor keys, joystick | move the cursor one cell; held, it goes on after a moment |
 | fire, Space, Return | put the chosen element under the cursor |
 | fire held while moving | draw: every cell the cursor passes gets the element |
-| G | choose the element the cursor is on (for the twelve of the editor) |
+| G | choose the element the cursor is on |
 
 Putting the element a cell already has does nothing. There is only one
 inbox in a cave: putting a new one turns the old one into dirt.
@@ -124,15 +128,39 @@ inbox in a cave: putting a new one turns the old one into dirt.
 | I | inbox | where Rockford comes in (one per cave) |
 | X | exit | opens when enough emeralds are collected |
 
-**Fireflies and butterflies** start in a direction. Pressing **7** (or
-**8**) again while it is chosen turns the direction on: up, right, down,
-left. The status line shows it.
+**Fireflies and butterflies** start in a direction, as everything that
+walks. Pressing **7** (or **8**) again while it is chosen, or **R** for any
+of them, turns the direction on: up, right, down, left. The status line
+shows it.
 
-**Caves from GDash** (see [below](#caves-on-the-pc-gdash-and-cavekitpy)) can
-have many more elements: keys and doors, water, slime, conveyor belts,
-bombs, biters, teleporters and so on. The editor shows them and keeps them,
-and they play as in GDash, but it cannot put them: its twelve are the ones
-above. G on such an element leaves the choice as it is.
+## All elements: the page of their own
+
+**E** opens a page with all of GDash's elements that a cave can start with,
+95 of them, in five rows: the twelve above and slime, nut, clock, acid,
+lava, the hidden exit and Rockford himself; the walls that grow and the
+special walls; the other creatures (biters, stoneflies, dragonflies, cows,
+ghosts, ...) and boulders and emeralds of all kinds; keys, doors and
+things to collect; conveyor belts, switches and the sloped walls. They move
+as in the cave.
+
+![All elements: the cursor on the emerald key](screenshots/editor-elements.png)
+
+The cursor keys or the joystick move the cursor (held, it goes on), the
+status line names the element under it, and **fire** (Space, Return) takes
+it and goes back to the cave, where the cursor is as it was. **E** or
+**Run/Stop** go back without a new choice. Taking one that walks again turns
+its direction, as R does.
+
+In the cave some of them look like others, as in the game: the exit and the
+hidden exit, the walls that grow and brick wall (or steel). The status line
+tells them apart when the cursor takes them with **G**.
+
+The elements play by GDash's rules, with the properties of the cave: a new
+cave has those of Boulder Dash 1 with GDash's defaults for everything else
+(how slime lets things through, what a clock gives, ...), a cave from GDash
+(see [below](#caves-on-the-pc-gdash-and-cavekitpy)) brings its own. The
+values page (V) changes the ones of the [Name and values](#name-and-values)
+list; the others are set with GDash on the PC.
 
 ![A cave with GDash's elements in slot 3](screenshots/editor-gdash.png)
 
@@ -305,6 +333,7 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | C AGAIN: A NEW CAVE | C again makes a new cave in place of this one |
 | D AGAIN: EMPTY THE SLOT | D again empties the slot on the disk |
 | THE SLOT IS EMPTY | done; the editor shows a new cave |
+| NOT AMONG THE ELEMENTS | G on something a cave does not start with (part of an explosion, ...) |
 | NO GDASH ENGINE ON THE DISK | the disk lacks `SMARAGD.GD`: own caves cannot be played |
 
 ## All keys
@@ -319,6 +348,8 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | T | try the cave |
 | S | save it into its slot |
 | + / - | next / last slot |
+| E | all elements, on a page of their own |
+| R | the next direction of what walks |
 | C (twice) | a new cave |
 | D (twice) | empty the slot |
 | H | help page |
