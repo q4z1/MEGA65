@@ -13,8 +13,9 @@
 // played first, then the search goes on from there.
 //
 // The way: from the nearest few emeralds pick one, walk there (the path is
-// planned again every step, round boulders and away from creatures), and so
-// on until the exit is open, then walk out. A choice that gets Rockford
+// planned again every step, round boulders, nuts and the like and away from
+// creatures, over clocks), and so on until the exit (or the hidden one) is
+// open, then walk out. A choice that gets Rockford
 // killed or stuck is taken back and the next one tried. The caves of level 1
 // are solved in order for the screencast; the first one without a solution
 // ends its list. The higher levels are only checked: each cave in each of
@@ -94,7 +95,11 @@ static bool creature(uint8_t e) {
 }
 
 static bool falls(uint8_t e) {
-    return e == O_STONE || e == O_STONE_F || e == O_DIAMOND || e == O_DIAMOND_F;
+    return e == O_STONE || e == O_STONE_F || e == O_DIAMOND || e == O_DIAMOND_F || e == O_NUT || e == O_NUT_F;
+}
+
+static bool is_exit(uint8_t e) {
+    return e == O_PRE_OUTBOX || e == O_OUTBOX || e == O_PRE_INVIS_OUTBOX || e == O_INVIS_OUTBOX;
 }
 
 // Path costs from every cell to `target` (Dijkstra backwards); cells within
@@ -107,8 +112,8 @@ static void plan(uint16_t target) {
     memset(closed, 0, sizeof closed);
     for (int i = 0; i < CAVE_SIZE; i++) {
         uint8_t e = cave[i];
-        bool open = e == O_SPACE || e == O_DIRT || e == O_DIAMOND || i == player_cell() ||
-                    (i == target && (e == O_PRE_OUTBOX || e == O_OUTBOX));
+        bool open = e == O_SPACE || e == O_DIRT || e == O_DIAMOND || e == O_CLOCK || i == player_cell() ||
+                    (i == target && is_exit(e));
         if (!open)
             closed[i] = true;
         if (creature(e)) {
@@ -258,7 +263,7 @@ static bool solve(const GdCaveFile *f, const char *demo) {
     ticks = 0;
     nodes = 0;
     for (int i = 0; i < CAVE_SIZE; i++)
-        if (f->map[i] == O_PRE_OUTBOX)
+        if (f->map[i] == O_PRE_OUTBOX || f->map[i] == O_PRE_INVIS_OUTBOX)
             exit_cell = i;
     // until Rockford stands there: hatched, and born out of the inbox
     while (gd.player_state == GD_PL_NOT_YET || (gd.player_state == GD_PL_LIVING && cave[player_cell()] != O_PLAYER))

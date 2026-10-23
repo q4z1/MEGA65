@@ -74,34 +74,22 @@ class CaveError(Exception):
 
 # ---------------------------------------------------------------- the game's own caves (.cave)
 
-# The .cave files' elements by the codes of the game's first engine (src/engine.h,
-# whose names main.c still gives the animated tiles); GDash's engine plays them
-# as GD_CHAR says
-CODES = {"E_SPACE": 0, "E_DIRT": 1, "E_BRICK": 2, "E_STEEL": 3, "E_BOULDER": 4,
-         "E_DIAMOND": 6, "E_INBOX": 9, "E_OUTBOX": 10, "E_MAGIC": 12, "E_AMOEBA": 13,
-         "E_FIREFLY": 14, "E_BUTTERFLY": 18,
-         "DIR_UP": 0, "DIR_RIGHT": 1, "DIR_DOWN": 2, "DIR_LEFT": 3}
-
-# Its elements: map character (BDCFF's), the engine's code
-ELEMENTS = [
-    (" ", "E_SPACE"), (".", "E_DIRT"), ("w", "E_BRICK"), ("W", "E_STEEL"), ("r", "E_BOULDER"),
-    ("d", "E_DIAMOND"), ("P", "E_INBOX"), ("X", "E_OUTBOX"), ("M", "E_MAGIC"), ("a", "E_AMOEBA"),
-    ("Q", "E_FIREFLY + DIR_LEFT"), ("o", "E_FIREFLY + DIR_UP"), ("O", "E_FIREFLY + DIR_RIGHT"),
-    ("q", "E_FIREFLY + DIR_DOWN"), ("C", "E_BUTTERFLY + DIR_LEFT"), ("b", "E_BUTTERFLY + DIR_UP"),
-    ("B", "E_BUTTERFLY + DIR_RIGHT"), ("c", "E_BUTTERFLY + DIR_DOWN"),
-]
-CHAR_EXPR = dict(ELEMENTS)
-CHAR_CODE = {c: eval(expr, {}, CODES) for c, expr in CHAR_EXPR.items()}
+# The .cave files' elements: Boulder Dash 1's and the few of GDash's that are
+# close to it, by their map characters - BDCFF's (GD_CHAR), and for nut and
+# clock, which have none there, the game's own
+CAVE_CHARS = " .wWrdPXMaQoOqCbBc" + "xveHs"   # BD1; expanding walls, hidden exit, slime
+CAVE_OWN_CHARS = {"n": "NUT", "k": "CLOCK"}
+EXIT_CHARS = "XH"                              # the exit, or the hidden one
 
 
 class Cave:
     """A cave of the game's own (.cave): one level, 40x22 map characters"""
 
     def __init__(self, name="", time=150, diamonds=10, value=10, extra=15, speed=160,
-                 amoeba=0, magic=0, cells=None):
+                 amoeba=0, magic=0, cells=None, clock=10, slime=7):
         self.name, self.time, self.diamonds = name, time, diamonds
         self.value, self.extra, self.speed = value, extra, speed
-        self.amoeba, self.magic = amoeba, magic
+        self.amoeba, self.magic, self.clock, self.slime = amoeba, magic, clock, slime
         self.cells = cells or empty_map()
         self.notes = []
 
@@ -130,18 +118,19 @@ def check_map(cells):
     if len(cells) != W * H:
         return [f"the map must be {W}x{H}"]
     for i, c in enumerate(cells):
-        if c not in CHAR_CODE:
+        if c not in CAVE_CHARS and c not in CAVE_OWN_CHARS:
             errors.append(f"unknown map character '{c}' at {i % W},{i // W}")
-        elif (i % W in (0, W - 1) or i // W in (0, H - 1)) and c not in "WX":
+        elif (i % W in (0, W - 1) or i // W in (0, H - 1)) and c not in "W" + EXIT_CHARS:
             errors.append(f"the frame must be steel (or the exit), not '{c}' at {i % W},{i // W}")
     if cells.count("P") != 1:
         errors.append("exactly one inbox (P) needed")
-    if "X" not in cells:
-        errors.append("an exit (X) is needed")
+    if not any(c in cells for c in EXIT_CHARS):
+        errors.append("an exit (X, or H hidden) is needed")
     return errors
 
 
-CAVE_KEYS = ("name", "time", "diamonds", "value", "extra", "speed", "amoeba", "magic", "demo", "shuffle")
+CAVE_KEYS = ("name", "time", "diamonds", "value", "extra", "speed", "amoeba", "magic", "clock", "slime", "demo",
+             "shuffle")
 
 
 def parse_cave_text(path):
@@ -173,7 +162,8 @@ def read_cave_file(path):
     first = lambda k, d: int(keys.get(k, d).split()[0])
     cave = Cave(clean_name(keys.get("name", "")), first("time", "150"), first("diamonds", "10"),
                 first("value", "10"), first("extra", "15"), first("speed", "160"),
-                first("amoeba", "0"), first("magic", "0"), list("".join(rows)))
+                first("amoeba", "0"), first("magic", "0"), list("".join(rows)), first("clock", "10"),
+                first("slime", "7"))
     errors = check_map(cave.cells)
     if errors:
         raise CaveError(f"{path}: {errors[0]}")
@@ -191,6 +181,10 @@ def write_cave_file(path, cave, source=""):
             f.write(f"amoeba   = {cave.amoeba}\n")
         if cave.magic:
             f.write(f"magic    = {cave.magic}\n")
+        if cave.clock != 10:
+            f.write(f"clock    = {cave.clock}\n")
+        if cave.slime != 7:
+            f.write(f"slime    = {cave.slime}\n")
         f.write("map:\n" + "\n".join(cave.rows()) + "\n")
 
 
@@ -1542,8 +1536,9 @@ def gd_from_cave(cave):
             v[f] = s[f]
     v.update(time=cave.time, diamonds_needed=cave.diamonds, diamond_value=cave.value,
              extra_diamond_value=cave.extra, speed=cave.speed, scheduling=0, pal_timing=0,
-             amoeba_time=cave.amoeba, magic_wall_time=cave.magic, c64_seed_1=0, c64_seed_2=0x1E)
-    cells = [GD_CHAR[c] for c in cave.cells]
+             amoeba_time=cave.amoeba, magic_wall_time=cave.magic, time_bonus=cave.clock,
+             slime_predictable=1, slime_permeability_c64=cave.slime, c64_seed_1=0, c64_seed_2=0x1E)
+    cells = [O[CAVE_OWN_CHARS[c]] if c in CAVE_OWN_CHARS else GD_CHAR[c] for c in cave.cells]
     return GdCave(cave.name, v, cells)
 
 
@@ -1694,11 +1689,11 @@ def gd_speed(v, cells):
 
 def game_cave(gd):
     """A GdCave as a cave of the game's own (.cave), or CaveError: only the
-    elements of Boulder Dash 1 in 40x22 cells"""
+    elements a .cave has (CAVE_CHARS) in 40x22 cells"""
     v = gd.v
     if (v["w"], v["h"]) != (W, H):
         raise CaveError("is not 40x22 cells")
-    to_char = {GD_CHAR[c]: c for c in CHAR_CODE}
+    to_char = {GD_CHAR[c]: c for c in CAVE_CHARS} | {O[n]: c for c, n in CAVE_OWN_CHARS.items()}
     other = sorted({GD_EL[e].file for e in gd.cells if e not in to_char})
     if other:
         raise CaveError("has elements of GDash only: " + ", ".join(other[:6]) + ("..." if len(other) > 6 else ""))
@@ -1706,7 +1701,8 @@ def game_cave(gd):
     cave = Cave(gd.name, round(v["time"] * factor), max(1, min(255, v["diamonds_needed"])), v["diamond_value"],
                 v["extra_diamond_value"], max(20, min(255, gd_speed(v, gd.cells))),
                 min(255, round(v["amoeba_time"] * factor)), min(255, round(v["magic_wall_time"] * factor)),
-                [to_char[e] for e in gd.cells])
+                [to_char[e] for e in gd.cells], max(0, round(v["time_bonus"] * factor)),
+                v["slime_permeability_c64"] if v["slime_predictable"] else 7)
     errors = check_map(cave.cells)
     if errors:
         raise CaveError(errors[0])

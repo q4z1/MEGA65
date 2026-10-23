@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# One long way back and forth through the cave.
+# One long way back and forth through the cave. A clock at each turn;
+# expanding walls in the long tunnels close the way back; nuts under
+# boulders.
 name     = SERPENTINE
 time     = 130
 diamonds = 32
@@ -11,21 +13,21 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W......rd..r.. r.dd....r....r.....d....W
 W.P......d.r. ..........dr...d.....r..rW
 W..... rrd...dd....rrr.r... ....r.... .W
-W.d...r......d.........r.......d..r....W
+W.d...r......d.........r.n.....d..r....W
 Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..W
-W..drd.r.....r......d....r..r......dr..W
+W..drd.r.....r......d....r..r......dr.kW
 W......d.....d...r..........r..dr....r.W
-W....d.........r.r...dr.rrr...  ...d...W
-W....r... .. ...ddd...d..d...d....r....W
+W....d.........r.r..xdr.rrr...  ...d...W
+W....r... .. ...ddd...d..d..nd....r....W
 W..wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwW
-W....d...r..rr.......r.........r..dr r.W
+Wk...d...r..rr.......r.........r..dr r.W
 W.rr........r....d..r.r ... .drdd  ....W
-W....r.d..r........... ............r. rW
+W....r.d..r..........n ............r. rW
 W...dd...d............d..d.dd...d......W
 Wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..W
-W..d.rr....rd.dd...r....dr.......r.....W
+W..d.rr...xrd.dd...r....dr.......r....kW
 W... .r..... rr....d....d.r.. .r....r.rW
-W..dd.r.rr....dr.rdr....... .....d ....W
+W..dd.r.rr.n..dr.rdr....... .....d ....W
 X...d.dr............... r........r..dddW
 W...... ...d........dd..r......r....r.rW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

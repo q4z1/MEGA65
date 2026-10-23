@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# Brick stairs run down the cave; what lies on them rolls.
+# Brick stairs run down the cave; what lies on them rolls. New: the
+# expanding wall that grows up and down - take the dirt above or below
+# one, and it grows into the gap, and on along the shaft.
 name     = STAIRWAY
 time     = 120
 diamonds = 24
@@ -10,21 +12,21 @@ map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W......d..........d....r.......r.......W
 W.dwd.. ...d..dr....r...dw..........P..W
-W..rw.. ..r...w...........w............W
+W..rw.. ..r...w..v........w............W
 W....w...r.....wr....d ....w.d........rW
 Wr.rd.w...r. ...wrd...dr....wr... .d...W
-W...rrrw.... d..dw.........rdw.........W
+W...rrrw.... d..dw.........rdw....v....W
 Wdr...drw....rr...w.....d....dw.d......W
 Wr..r....w........ w.d.d.......w....d..W
-W.........w...r.r.r.w...........w. ....W
-W...d.d...........r..w.d..r......d.....W
-W.....w... .. .........r.. ...r.......rW
+W.........w.v.r.r.r.w...........w. ....W
+W...d.dv..........r..w.d..r......d.....W
+W.....w... .. .........r.. ...r.....v.rW
 Wr...r.w.r..... r...w.....r............W
 W.....d.w....r.......w.. r.r ...r..d..rW
 W......r.w...r...r..ddw......r.r...d.rrW
 W..d.r....wrrdr........w...........d..rW
 W......d...w............w....r...r ....W
-W.rr.d......w......r..d..w.......d.....W
+W.rr.d......w......r..d..w....v..d.....W
 W..r.r.......w..r.........wr.....r.....W
 X.d.d.......dr..... .. d...w.. . ..r...W
 W.................rr.d....rr..........rW

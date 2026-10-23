@@ -1,6 +1,8 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # The amoeba spreads from the corner. Collect before it covers the
-# field - at 200 cells it turns to boulders.
+# field - at 200 cells it turns to boulders. Between it and the field
+# stand expanding walls that grow every way: what Rockford digs out
+# beside them becomes wall, and the amoeba cannot eat wall.
 name     = AMOEBA FIELD
 time     = 120
 diamonds = 26
@@ -18,16 +20,16 @@ W..... ..r.r.........rd.....r.. ...rrr.W
 W.......d....d.r..r. ......r... .......W
 Wddrr.d....  .....  ..rrd....r.drd..r.rW
 Wd......d.r .r .....r......dd..........W
-W..........r.....d.. r..r..............W
+W..........r.....d.. r..r...........e..W
 W.. .. d........r.r... .r..d...........W
-W........d....r..d...r...rd...d.....rd.W
+W........d....r..d...r...rd...d..e..rd.W
 X.....d.. ..r..   ...rdr.r.....d...dd..W
-W....... ........r......d.........r....W
-W.r............d.......................W
+W....... ........r......de........r....W
+W.r............d..............e........W
 W..........d........r..d. .............W
 W....r.....r........ ...rd.. ..........W
 W........rd...rd.......d...........a..rW
-W. ....r.. ..d.........d..d..r.........W
+W. ....r.. ..d.........d..d..e.........W
 W... r....... .. ...rdd....d...........W
 Wd. rr.....r..rd....dr.....drddd.. ....W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

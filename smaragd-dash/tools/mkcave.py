@@ -36,6 +36,10 @@ characters. Lines starting with # are comments.
   speed     length of a cave tick in milliseconds (original: about 140)
   amoeba    seconds of slow amoeba growth (default 0)
   magic     seconds the magic wall stays active (default 0)
+  clock     seconds a clock gives (default 10)
+  slime     how seldom the slime lets something through, as the C64 games
+            have it: 0 every time, 1 one time in two, 3 one in four, 7 one
+            in eight (the default), 15 one in sixteen, ...
   demo      moves the screencast starts the cave with, for what
             tools/solve.c cannot find by itself (dropping boulders on
             purpose, pushing): U R D L walk, u r d l snap, . wait one
@@ -53,12 +57,17 @@ With one value the higher levels get, from level 1 on:
 amoeba and magic stay the same.
 
 Map characters, the ones of BDCFF (GDash's files; tools/cavekit.py
-converts between the two):
+converts between the two) where it has them:
   W steel wall    w brick wall    . dirt      (space) empty
   r boulder       d diamond       P inbox     X outbox (in a wall)
   a amoeba        M magic wall
   fireflies starting to the left Q, up o, right O, down q
   butterflies starting to the left C, up b, right B, down c
+  x expanding wall, growing sideways   v growing up and down
+  e growing every way                  H hidden outbox (looks like steel)
+  s slime: lets boulders, emeralds and nuts fall through, now and then
+  n nut: a boulder falling onto it cracks it, and an emerald comes out
+  k clock: more time when Rockford takes it
 """
 
 import re
@@ -75,7 +84,7 @@ SCALED = ("time", "diamonds", "speed", "amoeba", "magic")
 FILL = ".rd "  # what the random fill of a cave is made of
 KEYS = {"name": None, "time": None, "diamonds": None, "value": None,
         "extra": None, "speed": None, "amoeba": "0", "magic": "0",
-        "demo": "", "shuffle": ""}
+        "clock": "10", "slime": "7", "demo": "", "shuffle": ""}
 
 
 def fail(path, msg):
@@ -195,7 +204,8 @@ def gd_cave(keys, flat):
     """The cave in a level as GDash's engine plays it (tools/cavekit.py's
     layout, GdCaveFile): Boulder Dash 1's rules, in milliseconds"""
     cave = Cave(keys["name"], int(keys["time"]), int(keys["diamonds"]), int(keys["value"]), int(keys["extra"]),
-                int(keys["speed"]), int(keys["amoeba"]), int(keys["magic"]), list(flat))
+                int(keys["speed"]), int(keys["amoeba"]), int(keys["magic"]), list(flat), int(keys["clock"]),
+                int(keys["slime"]))
     data = gd_from_cave(cave).tobytes()
     assert len(data) == GD_SIZE
     return data

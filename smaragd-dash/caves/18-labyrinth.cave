@@ -1,5 +1,6 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# A bigger maze, and more fireflies in it.
+# A bigger maze, and more fireflies in it. The exit is hidden in the
+# maze's walls; clocks lie in three dead ends.
 name     = LABYRINTH
 time     = 150
 diamonds = 24
@@ -16,16 +17,16 @@ W...w . . ....w..dw...w.w..dd ....w.w.wW
 W.wwwwwwwwwwwwwwwww.w.w.w.wwwwwww.w.w.wW
 W.........w....d.dwdw.w..dw.....w...w.wW
 W.wwwdwww.wdwww.www.w.wwwww.www w.www.wW
-W.w.....wd. wQ  w...w...d.....w.wdw. .wW
+W.w.....wd. wQ  w...w...d.....w.wdw. kwW
 Wdw.www.w.wwwwwww.wwwwwwwwwww.w.w.wdw.wW
 Wdw.. w.w......d..w.......w.....w...w.wW
 Wdwww.w.www.wwwwwww.wdwwwdw.wwwwwwwww.wW
-W. .w.w.d.. wd......ddw...w.d.........wW
+W. kw.w.d.. wd......ddw...w.d.........wW
 Www.w.wwwwwwwww.wwwwwww.w.wwwwwwwwwwwwwW
-WQw...w...d...w.w.......w...w..d....wdwW
+WQw...w...d...w.H.......w...w..d....wdwW
 W wwwdw.wwwww w.w.wwwwwwwww.w.w.www.w.wW
-W ..wd.. .w..  .w.....w.......w.d.w.w.wW
+W ..wd.. kw..  .w.....w.......w.d.w.w.wW
 W w.wwwww.w.wwwwwwwww.w.wwwww.www.w.w wW
-W...... ......d...d...w... ...d...w.. .X
+W...... ......d...d...w... ...d...w.. .W
 WwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

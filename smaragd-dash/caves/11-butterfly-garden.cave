@@ -1,6 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # Each butterfly sits in its garden below a boulder. Dig the dirt out
-# under the boulder from the side, and step back.
+# under the boulder from the side, and step back. Between the gardens
+# lie nuts under boulders, for a boulder to crack.
 name     = BUTTERFLY GARDEN
 time     = 120
 diamonds = 24
@@ -11,22 +12,22 @@ map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W...... ...................dd.....rr...W
 W.....d.. . ..................d..d..rr.W
-W.r..........d.d....r.....dr...........W
+W.r..........d.d....r.....dr.......n...W
 W......r....r...........rr...........r.W
 W..........r.......   ...........r.....W
-W.....   ..........   ......r..........W
+W.....   ...n......   ......r..........W
 W.....   .......... c ..........   .. .W
 Wr.... c ....r...........r..d...   ....W
 W.d............d............r... c ..d.W
-W....r.....rr........................ dW
+W....r.....rr............n........... dW
 W.P.....d...d.r.r......dr.rd..d.r. ..r.X
-W....................d......r.....rr...W
-W....r.......r.................r......dW
+W....n...............d......r.....rr...W
+W....r.......r.................rn.....dW
 W...r.rd.............r.....r...........W
 W.rr........   ....dd .................W
 W..r....d...   .....r.....   ...d.d..r.W
 W...r...r... c ...........   ...r..r.r.W
-W....r... .......d........ c .....r....W
+W....r... .......d..n..... c .....r....W
 Wr..r....r.d.......d..d............dd..W
 W............................d...d.....W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

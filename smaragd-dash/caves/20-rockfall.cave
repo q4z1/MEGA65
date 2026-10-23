@@ -1,5 +1,6 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# More boulders than dirt.
+# More boulders than dirt, and a slightly faster step. Nuts lie
+# under them, waiting to be cracked; one clock.
 name     = ROCKFALL
 time     = 110
 diamonds = 28
@@ -10,19 +11,19 @@ map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.r....r.rrd...drdr..rr..r.. ... ...rrdW
 Wd..r...r.d. ..d...rd..r..r.rr.r......rW
-W.rdr.r....dr...rr..dr.r...r....rd.rr.rW
-Wrr....r.d rd ..r.d.dr ..r..rd..rr..r..W
+W.rdr.r..n.dr...rr..dr.r...r....rd.rr.rW
+Wrr....r.d rd ..r.d.dr ..r..r...rr..r..W
 W...r.rr. ....... .r..rd.r..r.rrr. ...rW
 W.....r.d..r.r.d......r..r....r..rr. ..W
-Wr. d.....d..rrr..r.rrr.r. ......drr.d.W
+Wr. ......d..rrr..r.rrr.r. .....ndrr.d.W
 W.d..d.rd........ drd.dr.d.r...rd.....rW
-Wr.r.rr..r......r........rdr..r...r....W
-W .r..d....r.. ....P..rr..r.r.r....r.d.W
+Wr.r.rr..r......r.......nrdr..r...r....W
+W .r..d....r.. ....P..rr..r.r.r....r.dkW
 W rrdrd.r. r.d.d...........r..rr.drr. .W
 W...r.d.rrd...r... rrr.....rr..r..rr.d.W
-W. .rr..r.rr..r.dd..rd..rr.rrr..r..d.rdW
+W. nrr..r.rr..r.dd..rd..rr.rrr..r..d.rdW
 Wrrr.dr.. r.r.....r.r.r....r..rr...r.rrW
-W..r....rrrd.r...r.drr...d..r...rdr.r..W
+W..r....rrrd.rn..r.drr...d..r...rdr.r..W
 W. r..dd.rd..r..rd...rr...drr.rr..d....W
 W..r.r rd.r.r......... .......r.rd.....W
 Wrr....d..rd.r.. rdr....r......d.. ..d.W

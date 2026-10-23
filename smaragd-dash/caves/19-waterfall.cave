@@ -1,11 +1,13 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # Emeralds and boulders stacked in shafts; dig below and they pour out.
+# Two shafts end in slime instead: they trickle out by themselves.
 name     = WATERFALL
 time     = 100
 diamonds = 28
 value    = 12
 extra    = 25
 speed    = 160
+slime    = 15
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.......r.............dr....d.......r dW
@@ -19,7 +21,7 @@ W....wrw..... wdw..r...wdw......wdw.d..W
 Wr.rrwrwrdr...wdw..r...wdwrd....wrwr...W
 W....wdw..r...wdw.r.r..wrw......wdwr.d.W
 W....wrw......wdwr....rwdw..rd..wdw.r..W
-W....w.w.d...dw.w......w.w....d.w.w...rW
+W....w.w.d...dwsw......w.w....d.wsw...rW
 W. r     .r..     ....     .r..     .. W
 Wd..      ...     ....     .d..     ...W
 W...     .rd.     ....     d...     ...W

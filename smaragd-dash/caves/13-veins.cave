@@ -1,29 +1,32 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# Emeralds run through the rock in veins.
+# Emeralds run through the rock in veins. New: slime - two veins end on
+# slime, and what lies on it drips through into the hollow below, one at a
+# time: take one out, and the next comes (a boulder too, now and then).
 name     = VEINS
 time     = 100
 diamonds = 26
 value    = 10
 extra    = 20
 speed    = 160
+slime    = 15
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.................r......d....r .....d.W
-W.P....r...r.d......................r..X
-W.........d..d......d..................W
-W....r.....rd..d....dr.....dr. r... rr.W
-Wr....d.... .d...r..dr.r..d....r.d.d.r.W
-W......d....d.......d.r...d......d...r.W
+W.P....r...r.d..............wdddddw.r..X
+W.........d..d......d.......wdddddw....W
+W....r.....rd..d....dr.....dwsssssw rr.W
+Wr....d.... .d...r..dr.r..d.w     wd.r.W
+W......d....d.......d.r...d.w.....w..r.W
 W......d...rd.....rr.d..rd.....r.d..rr.W
 W...rr.d....d.r......d....d......d.....W
 W....rd..r.d...rr....d.rd rd.. ..d...rrW
 W.r.r.d.....d.d .....rd.r..d....d......W
 W...rd.r..r..dd.......d....d..rrd...r.rW
-W.....d...r..d.....r.d..r..d... d.d.r..W
-Wr...d.....dd......r.d....d...rd...r...W
-W...rdr...r.d..r..r.d......d..d.rd.....W
-Wr.r.d.......d.r..rrd......d.rd.r.rr...W
-W....d.r..r.dr.....d.r.r...d...d..r.r..W
+W....wdd.ddw.d.....r.d..r..d... d.d.r..W
+Wr...wddrddwd......r.d....d...rd...r...W
+W...rwssssswd..r..r.d......d..d.rd.....W
+Wr.r.w     w.d.r..rrd......d.rd.r.rr...W
+W....w.....wdr.....d.r.r...d...d..r.r..W
 W...d........d....d....d..d..r.d.d.....W
 W....d..r ....d.r..dr....d.....d.r..r..W
 W........r...r..rr.......r...r.....dr..W

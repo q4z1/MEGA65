@@ -1,5 +1,8 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # Three wells with a magic floor: let the boulders above them drop in.
+# Over the right one lies slime: its boulders seep through by
+# themselves, slowly - while the magic floor is awake, they come out
+# as emeralds.
 name     = MAGIC WELLS
 time     = 130
 diamonds = 26
@@ -7,6 +10,7 @@ value    = 10
 extra    = 20
 speed    = 160
 magic    = 15
+slime    = 31
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.r...d...r...d...d................rrd.W
@@ -14,8 +18,8 @@ W. .r.rr..rd...r.rrrrr.r.r.r..r.r.r..r.W
 W...r..rd.r.........rrrr....r.r.rrr....W
 Wrr.d..rr.r.....rr..rr...r..r..rr.rr...W
 W.....rdrr......r.r.rr.r.....rr...rdd..W
-W. .rrrd.rrr..r.rrr..r......r.r.r..r.r.W
-W....................................d.W
+W. .rrrd.rrr..r.rrr..r......ssssssss.r.W
+W...........................        .d.W
 W..wMMMMMMMMw. wMMMMMMMMw..wMMMMMMMMw..W
 W..w        wd.w        w.dw        w..W
 W..w        ...w        ...w        ...W

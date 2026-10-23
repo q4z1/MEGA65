@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# Fireflies run up and down their brick tracks; cross at the ends.
+# Fireflies run up and down their brick tracks; cross at the ends. New:
+# the expanding wall - take the dirt left or right of one, and it grows
+# into the gap, and on along the tunnel.
 name     = TRACKS
 time     = 120
 diamonds = 22
@@ -15,17 +17,17 @@ W..dwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww ..W
 W...w           Q                  w.r.W
 W...wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww..dW
 W.r.r..d..r.r.......dddrr.d...r...r ...W
-Wr.....r.....d....r.rr....r.......d r.dW
+Wr....xr.....d....r.rr....r..x....d r.dW
 Wd...d...rr.......d...d..d.........d...W
 W..rwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww.d.W
 W...w                       Q      w...W
 W...wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww...W
 Wr.. .r......r...d.............r.......W
-W.............d.. .d........r.d....r...W
-W..r.....rd...rd.................r.....W
+W..........x..d.. .d........r.dx...r...W
+W..r.....rd...rd........x........r.....W
 W...wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwrd.W
 Wr..w               Q              w...W
 W...wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww.rdW
-W.............r....dr........r..r....d.W
+W.......x.....r....dr..x.....r..r....d.W
 W........d......r..r...... .. ....r... X
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

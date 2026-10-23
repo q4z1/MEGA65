@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# Small brick vaults with emeralds inside, each with one door.
+# Small brick vaults with emeralds inside, each with one door. New: the
+# hidden exit - it looks like steel; one vault has a steel block in its
+# brick wall.
 name     = VAULTS
 time     = 120
 diamonds = 28
@@ -8,9 +10,9 @@ extra    = 20
 speed    = 160
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
-W..dd........dr..... ..................X
+W..dd........dr..... ..................W
 W...wwwww............rr.rwwwww......r..W
-Wr..wd..w.....ww.wwr.r ..w..dw.....rr..W
+Wr..wd..H.....ww.wwr.r ..w..dw.....rr..W
 W...w.d....d.rw.ddw....r.w.dd..........W
 W...wwwww.....wd..w....r.wwwww.........W
 W....rr.......wwwww..............wwwwwdW

@@ -1,6 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
 # Four fireflies circle in their dens. Leave them be, or open a den and
-# keep your distance.
+# keep your distance. New: the clock - take it for more time; one lies in
+# the open, one in a den.
 name     = FIREFLY DENS
 time     = 120
 diamonds = 18
@@ -11,7 +12,7 @@ map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W......d............d.r .d.............W
 W..........................r...........W
-W.......      .dr...dr...........d.r.r.W
+W.......     k.dr...dr...........d.r.r.W
 Wd......  Q   .d....r.....      ......rW
 W.......      .d.dr.......  Q   .d.drd.W
 W.r.d.............. ......      .r.....W
@@ -20,13 +21,13 @@ W......r......d............r..d.....rr.W
 W.....................dr.r...r..r...d..W
 W.P.......ddd.r.d..........dr....r.r...X
 W..............  .... ...r..drr.d.....rW
-Wd................d.r........d... ....rW
+Wd.k..............d.r........d... ....rW
 W.................d.r..................W
 W..rr.      .......rr.r.........rr.d...W
 W...r.  Q   ..r..........      ........W
 W.....      ....d........  Q   .r......W
 W............rrd..rr. ...      ........W
 W..r....r......r....d........... ..r...W
-W....r.............r....d..............W
+W....r.............r....d...........k..W
 W..r.r.......................rr........W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

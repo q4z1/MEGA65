@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# Plenty of boulders over plenty of holes: keep moving.
+# Plenty of boulders over plenty of holes: keep moving. New: the nut -
+# eight lie under boulders, dirt between; take the dirt away, and the
+# falling boulder cracks the nut: an emerald comes out.
 name     = BOULDER RAIN
 time     = 120
 diamonds = 20
@@ -12,20 +14,20 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W ..r...... .r.....P...r......rr.......W
 W.....r.................d....rd .... r.W
 W...d......rrr...rr..rr..r.r....r rr.r.W
-W.....dd. .r .d.....r.d.rr.........rr..W
-W.r..r..... . rr.d......r....rr.d....r.W
+W.....nd. .r .d.....r.d.rr.........rr..W
+W.r..r..... . rr.d...n..r....rr.d.n..r.W
 W...r. r.....r.... ............. r..r.rW
 Wr.. .......... r.....r...d..rr...r.d.dW
-W..d....r..d....rd.rr..rr........... .rW
+W..d....r..d.n..rd.rr..rr........... .rW
 W.ddrd.r.rr...........d....r.....r r ..W
 W.d.r....rr. .d...............r....r.d.W
 Wr.... d...d..rr. r..d..... r..r....rr.W
-Wrr.... ..r. .....rd..r..rr. .r. r.....X
+Wrr.n.. ..r. .....rd..r..rr. .r. r.....X
 W.r.r....rr... .rd.rd....d.d...r.. .drrW
-W.rd....rr..r . .....r.. rd.r..r.....r.W
+W.rd....rr..r . .....r.. rn.r..r.....r.W
 W.r.........d rr.r..d.....r....rr... rdW
-Wr.  ...d.......r r..dr.r.r... .r.rr...W
-W..r.......d. .d.dr....r... ....d......W
+Wr.  ...dn......r r..dr.r.r... .r.rr...W
+W..r.......d. .d.dr....r... ...nd......W
 Wd...d  d.d..r..r....rr...r.dr.r... ..rW
 W..rr.dr.dr.r..r... .r... ........ ....W
 W ........r...d...rd ...r...... ..drr..W

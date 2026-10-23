@@ -1,11 +1,13 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# A small room full of emeralds - take what you can in a minute.
+# A small room full of emeralds and too little time - but two clocks,
+# fifteen seconds each: take them on the way.
 name     = TREASURE ROOM
-time     = 60
+time     = 45
 diamonds = 24
 value    = 20
 extra    = 30
 speed    = 160
+clock    = 15
 map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
@@ -17,11 +19,11 @@ WWWWWWWWWWW....dd.dd....d d..WWWWWWWWWWW
 WWWWWWWWWWW.P..drdr.rr... .drWWWWWWWWWWW
 WWWWWWWWWWW........dr...ddd.rWWWWWWWWWWW
 WWWWWWWWWWWr...d..rdd...d.r.dWWWWWWWWWWW
-WWWWWWWWWWW.r.. rd..d. .d....WWWWWWWWWWW
+WWWWWWWWWWW.r..krd..d. .d....WWWWWWWWWWW
 WWWWWWWWWWW..r.r..rdddd..r..dWWWWWWWWWWW
 WWWWWWWWWWW...  . dr. dd..d.dWWWWWWWWWWW
 WWWWWWWWWWWdddrd.d.dddr.dr.ddWWWWWWWWWWW
-WWWWWWWWWWWd.r..............dXWWWWWWWWWW
+WWWWWWWWWWWd.r......k.......dXWWWWWWWWWW
 WWWWWWWWWWWdd..d.r. dd..d.ddrWWWWWWWWWWW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW

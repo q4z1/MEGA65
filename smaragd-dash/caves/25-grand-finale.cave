@@ -1,5 +1,7 @@
 # Smaragd Dash cave: see tools/mkcave.py for the format.
-# A bit of everything: a maze, a magic floor, fireflies and the amoeba.
+# A bit of everything: a maze, a magic floor, fireflies and the amoeba,
+# nuts among the boulders, emeralds dripping through slime, expanding
+# walls, two clocks - and the exit hidden in the maze's wall.
 name     = GRAND FINALE
 time     = 150
 diamonds = 40 42 44 46
@@ -14,22 +16,22 @@ map:
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 Wwwwwwwwwwwww....rr..rrr.r..r.rrrr.rr..W
 Ww.....d...d..P...rr..rr.r.rrr...rrrrr.W
-Ww.wwwdw.www......r..r...rr.r..rr..rrr.W
-Ww..d..wdw...w..r.rrrr..rr...rrrrrrr.r.W
+Ww.wwwdw.www......r..r...rr.r.nrr..rrr.W
+Ww..d..wdw...w..r.rrrrn.rr...rrrrrrr.r.W
 Wwwwwwww.w.w.w.........................W
 Ww.......d.w.w..dMMMMMMMMMMMMMMMMMMMM. W
 Ww.wwwwwwwww.w.rd                    ..W
-Ww..d.d.dw.d.w.........................W
+Wwk.d.d.dw.d.w.........................W
 Ww.wwwwwdw.w.w....rr....d.......d......W
 Ww..d..w..dd.w..r.........dd.d.........W
-Wwwwwwwwwwwwwwr...     ............... W
-W.r..rr......r.d..  Q  . ..........d...W
-W...... ...r..r..............     .....W
-W.dr..r......... ....d.....d.  Q  .d...W
-W.............. .....r..dr.........r...W
-W.........r....r.d...rr.............rd.W
+WwwwwwwwwwwwHwr...     ............... W
+W.r..rrwdddw.r.d..  Q  . ..........d...W
+W......wsssw..r..........v...     .....W
+W.dr..rw   w.... ....d.....d.  Q  .d...W
+W......w...w... .....r..dr.........r...W
+W.........r....r.d.x.rr.............rd.W
 Wd...a..................     ...r......W
 Wr..........r.....r.r...  Q  .........rW
-Wr..................d.r..........r.....W
-Wr.r.......r .....d..rr.d.r.r......r.r.X
+Wr..............e...d.r..........r....kW
+Wr.r.......r .....d..rr.d.r.r......r.r.W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
