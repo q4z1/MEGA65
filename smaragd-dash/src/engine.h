@@ -100,7 +100,10 @@ extern uint8_t moved[CAVE_SIZE];
 // (gd.events; the rules do not use them): a creature left a cell, a
 // boulder landed, dirt was dug (the cell Rockford snapped, or the one he
 // left).
-enum { EV_FIREFLY, EV_BUTTERFLY, EV_LANDED, EV_DUG };
+enum {
+    EV_FIREFLY, EV_BUTTERFLY, EV_LANDED, EV_DUG,
+    EV_ALT_FIREFLY, EV_ALT_BUTTERFLY, EV_STONEFLY, EV_DRAGONFLY, EV_GHOST
+};
 #define MAX_EVENTS 32  // more are left out
 typedef struct {
     uint16_t cell;

@@ -486,11 +486,15 @@ def draw_butterfly(frame):
 # What the creatures leave behind for a moment, in four stages: only a few
 # pixels, it is meant to be seen in passing.
 
-def draw_embers(stage):
-    """Firefly: embers that rise a little and die down, white-hot to dark red."""
+EMBERS_RED = [["fff4c0", "ffd060"], ["ffb030", "f06414"], ["e04810", "a01c08"], ["8a1808", "5a1006"]]
+EMBERS_BLUE = [["ffffff", "a0f0ff"], ["a0f0ff", "30b0f0"], ["30b0f0", "2850c8"], ["2850c8", "101850"]]
+
+
+def draw_embers(stage, colours=EMBERS_RED):
+    """Firefly: embers that rise a little and die down, white-hot to dark
+    red (the alternative firefly's in its blue)."""
     t = new_tile()
-    cols = [[hexc("fff4c0"), hexc("ffd060")], [hexc("ffb030"), hexc("f06414")],
-            [hexc("e04810"), hexc("a01c08")], [hexc("8a1808"), hexc("5a1006")]][stage]
+    cols = [hexc(c) for c in colours[stage]]
     r = random.Random(70)
     embers = [(r.uniform(2, 13), r.uniform(5, 13), r.uniform(-0.6, 0.6)) for _ in range(5)]
     for k, (x, y, drift) in enumerate(embers[:5 - stage]):
@@ -503,22 +507,50 @@ def draw_embers(stage):
     return t
 
 
-def draw_glitter(stage):
+# The glitter's four colours, bright to dark, and a hint of the wings' eye spots
+GLITTER_BLUE = (["a0f0ff", "30b0f0", "2850c8", "1c3480"], "a050a0")     # butterfly
+GLITTER_ORANGE = (["ffb030", "f06414", "a01c08", "5a1006"], "ffd060")   # alternative butterfly
+GLITTER_STONE = (["d8cabc", "a8968a", "78685a", "4a423c"], "a8968a")    # stonefly
+GLITTER_GREEN = (["8cf0b0", "3cc870", "16904a", "0c5a30"], "a0f0ff")    # dragonfly
+
+
+def draw_glitter(stage, colours=GLITTER_BLUE):
     """Butterfly: a soft glitter in the colours of its wings that fades
-    slowly - a calm trail behind the flutter."""
+    slowly - a calm trail behind the flutter (in each flier's colours)."""
     t = new_tile()
     r = random.Random(80 + stage)
-    cols = [hexc("a0f0ff"), hexc("30b0f0"), hexc("2850c8"), hexc("1c3480")]
+    cols = [hexc(c) for c in colours[0]]
     n = [2, 2, 2, 1][stage]
     for k in range(n):
         x, y = r.randint(2, 13), r.randint(2, 13)
         c = cols[stage] if k == 0 else cols[min(stage + 1, 3)]
         if k == 1 and stage == 1:
-            c = hexc("a050a0")  # a hint of the pink of its eye spots
+            c = hexc(colours[1])
         t[y][x] = c
         if k == 0 and stage == 0:  # a small star: arms two shades darker
             for ax, ay in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
                 t[ay][ax] = cols[2]
+    return t
+
+
+def draw_mist(stage):
+    """Ghost: wisps of mist that drift up, thin out and fade - pale as the
+    ghost, dithered, so the dark shows through."""
+    t = new_tile()
+    cols = [hexc("c8d4e0"), hexc("8a96a8"), hexc("5a6478"), hexc("343c4c")]
+    r = random.Random(91)
+    puffs = [(r.uniform(4, 12), r.uniform(6, 11), r.uniform(4.0, 5.5)) for _ in range(3)]
+    for k, (px, py, pr) in enumerate(puffs):
+        cy = py - stage * 1.3
+        rad = pr - stage * 0.5
+        for y in range(T):
+            for x in range(T):
+                d = math.hypot(x + 0.5 - px, (y + 0.5 - cy) * 1.5)
+                if d >= rad:
+                    continue
+                dense = (x + y) % 2 == 0 if d < rad * 0.55 and stage < 2 else (x + 2 * y + k) % 4 == 0
+                if dense:
+                    t[y][x] = cols[min(stage + (1 if d > rad * 0.55 else 0), 3)]
     return t
 
 
@@ -1382,20 +1414,27 @@ def draw_conveyor(left, frame):
     return t
 
 
+COW = {"W": "f0ece4", "w": "c4bcb0", "K": "1e1a18", "k": "3e3834", "P": "f0a8a8", "p": "c07478",
+       "H": "e0d4a8", "E": "101010", "L": "8a8276", "F": "2a2420", "t": "8a8276"}
+
+
 def draw_cow(frame):
-    t = new_tile()
-    for y in range(5, 12):
-        for x in range(2, 13):
-            t[y][x] = hexc("e8e0d0") if (x * 7 + y * 3) % 11 > 3 else hexc("1e1a18")
-    for y in range(3, 8):
-        for x in range(11, 15):
-            t[y][x] = hexc("e8e0d0")
-    plot(t, [(13, 5)], hexc("101010"))
-    plot(t, [(12, 2), (14, 2)], hexc("a09484"))
-    for x in (3, 5, 9, 11):
-        for y in range(12, 15):
-            t[y][x + (frame if x in (3, 9) else 0)] = hexc("4e463e")
-    return t
+    """A black and white cow, seen from the side, walking"""
+    legs = [["..WW.W....W.W...", "..LL.L....L.L...", "..LL.L....L.L...", "..FF.F....F.F..."],
+            ["..WW..W..W..W...", "..LL..L..L..L...", "..L...L..L...L..", ".FF...F..F...F.."]][frame]
+    pic = ["...........H..H.",
+           "..........KWWWWK",
+           "...........WEWK.",
+           "..........WWWKKP",
+           "..kKKWWWWKKWWPpP",
+           ".tKKKKWWWKKKWPPp",
+           ".tWKKWWWWWKKW...",
+           ".tWWWWWWKKWWW...",
+           ".KWWWWWKKKWWW...",
+           "..wwwwwwwwwww...",
+           "..ww.wPPw.ww....",
+           ] + legs
+    return from_pic(pic, {k: hexc(v) for k, v in COW.items()})
 
 
 def draw_dirt2():
@@ -1597,6 +1636,11 @@ def build_tiles():
     tiles += [(f"COVER{i}", draw_cover(i)) for i in range(2)]
     tiles += [(f"EMBERS{i}", draw_embers(i)) for i in range(4)]
     tiles += [(f"GLITTER{i}", draw_glitter(i)) for i in range(4)]
+    tiles += [(f"EMBERS_ALT{i}", draw_embers(i, EMBERS_BLUE)) for i in range(4)]
+    tiles += [(f"GLITTER_ALT{i}", draw_glitter(i, GLITTER_ORANGE)) for i in range(4)]
+    tiles += [(f"GLITTER_STONE{i}", draw_glitter(i, GLITTER_STONE)) for i in range(4)]
+    tiles += [(f"GLITTER_DRAGON{i}", draw_glitter(i, GLITTER_GREEN)) for i in range(4)]
+    tiles += [(f"MIST{i}", draw_mist(i)) for i in range(4)]
     tiles += [(f"CRUMBS{i}", draw_crumbs(i)) for i in range(3)]
     tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
     tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]

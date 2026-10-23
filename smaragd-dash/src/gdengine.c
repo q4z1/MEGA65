@@ -911,10 +911,23 @@ static void creature_move(int8_t x, int8_t y, uint8_t base) {
         store(x, y, base + dirp);
         return;
     }
-    if (base == O_FIREFLY_1 || base == O_ALT_FIREFLY_1)  // the cell it left
+    switch (base) {  // the cell it left
+    case O_FIREFLY_1:
         event(x, y, EV_FIREFLY);
-    else if (base == O_BUTTER_1 || base == O_ALT_BUTTER_1)
+        break;
+    case O_ALT_FIREFLY_1:
+        event(x, y, EV_ALT_FIREFLY);
+        break;
+    case O_BUTTER_1:
         event(x, y, EV_BUTTERFLY);
+        break;
+    case O_ALT_BUTTER_1:
+        event(x, y, EV_ALT_BUTTERFLY);
+        break;
+    case O_STONEFLY_1:
+        event(x, y, EV_STONEFLY);
+        break;
+    }
 }
 
 static bool touches(int8_t x, int8_t y, uint16_t e) {
@@ -1562,9 +1575,10 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
             if (flag(GDF_CREATURES_BACKWARDS))
                 ccw = !ccw;
             dirn = ccw ? (dir + 3) & 3 : (dir + 1) & 3;
-            if (is_like_space(x, y, cm[dir]))
+            if (is_like_space(x, y, cm[dir])) {
                 move(x, y, cm[dir], O_DRAGONFLY_1 + dir);
-            else
+                event(x, y, EV_DRAGONFLY);
+            } else
                 store(x, y, O_DRAGONFLY_1 + dirn);
         }
         break;
@@ -1590,6 +1604,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 uint8_t random_dir = dirs[rand_below(4)];
                 if (is_like_space(x, y, random_dir)) {
                     move(x, y, random_dir, O_GHOST);
+                    event(x, y, EV_GHOST);
                     break;
                 }
             }

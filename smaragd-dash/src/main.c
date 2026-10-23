@@ -72,13 +72,23 @@ static uint8_t nsprites;
 
 // What is left behind for a moment, on an empty cell: where a firefly was,
 // embers that rise and die down quickly; where a butterfly was, a soft
-// glitter that fades slowly, calm behind its quick round; crumbs where
-// Rockford dug, and dust beside a boulder that lands. Only the drawing
-// knows of it.
-enum { TR_NONE, TR_EMBERS, TR_GLITTER, TR_CRUMBS, TR_DUST_L, TR_DUST_R };
-static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUSTL0, T_DUSTR0};
-static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1};
-static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5};  // frames per stage
+// glitter that fades slowly, calm behind its quick round (both in the
+// colours of the creature: the alternative ones, the stonefly and the
+// dragonfly have their own); mist that drifts up where the ghost was;
+// crumbs where Rockford dug, and dust beside a boulder that lands. Only
+// the drawing knows of it.
+enum {
+    TR_NONE, TR_EMBERS, TR_GLITTER, TR_CRUMBS, TR_DUST_L, TR_DUST_R,
+    TR_EMBERS_ALT, TR_GLITTER_ALT, TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST
+};
+static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUSTL0, T_DUSTR0,
+                                      T_EMBERS_ALT0, T_GLITTER_ALT0, T_GLITTER_STONE0, T_GLITTER_DRAGON0, T_MIST0};
+static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1,
+                                     T_EMBERS_ALT3, T_GLITTER_ALT3, T_GLITTER_STONE3, T_GLITTER_DRAGON3, T_MIST3};
+static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5, 3, 5, 5, 4, 7};  // frames per stage
+// The trail of each creature's event (EV_*; 0: none)
+static const uint8_t event_trail[] = {TR_EMBERS, TR_GLITTER, 0, 0, TR_EMBERS_ALT, TR_GLITTER_ALT,
+                                      TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST};
 #define TRAILS 48
 static uint16_t trail_cell[TRAILS];
 static uint8_t trail_kind[TRAILS];  // TR_*
@@ -348,11 +358,8 @@ static void add_trails(void) {
     for (uint8_t k = 0; k < gd.nevents; k++) {
         uint16_t c = gd.events[k].cell;
         switch (gd.events[k].what) {
-        case EV_FIREFLY:
-            add_trail(c, TR_EMBERS);
-            break;
-        case EV_BUTTERFLY:
-            add_trail(c, TR_GLITTER);
+        default:
+            add_trail(c, event_trail[gd.events[k].what]);
             break;
         case EV_DUG:
             add_trail(c, TR_CRUMBS);
