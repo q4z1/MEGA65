@@ -365,7 +365,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/render.s` | the DMA jobs of a frame's playfield in assembler |
 | `src/input.c` | joysticks and keyboard |
-| `src/sound.c` | sound effects on the first and third SID (left and right) |
+| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title) |
 | `src/music.c` | music player on the second and fourth SID |
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |

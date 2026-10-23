@@ -1,8 +1,12 @@
-// Smaragd Dash: sound effects on the first SID.
-//   voice 1: Rockford, diamonds, clocks, keys and what else he takes
-//   voice 2: boulders, nuts, doors, bombs, the hammer, expanding walls,
-//   dirt, explosions   voice 3: switches, teleporters, amoeba, magic wall,
-//   slime, water, the time, the exit
+// Smaragd Dash: sound effects on six voices (two SIDs left, two right; the
+// second and fourth only in a cave, the title's music has them):
+//   voice 1: clocks, diamonds, keys and what else Rockford takes, the time
+//            counted into the score
+//   voice 2: boulders, nuts   voice 3: diamonds landing, the exit, the last
+//   seconds, a life, the cave being covered   voice 4: explosions, doors,
+//   bombs, the hammer, expanding walls   voice 5: Rockford's steps
+//   voice 6: teleporters, switches, magic wall, slime, water, amoeba
+// A sound of lower rank does not cut one off in its first third (sound.c).
 
 #ifndef SOUND_H
 #define SOUND_H
