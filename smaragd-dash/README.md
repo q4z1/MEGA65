@@ -22,9 +22,11 @@ elements.
 
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
-melody on the right channel. Fire starts the game, E the cave editor. The
-line under the logo takes turns: "press fire", the controls, and the
-version (the file `VERSION`, which is also in the disk's name).
+melody on the right channel. Fire starts the game, E the cave editor, Help
+or H shows how to play and the elements of the caves, and Run/Stop, pressed
+twice, goes back to BASIC (the game puts back the ROM and the screen it
+borrowed). The line under the logo takes turns: "press fire", the controls,
+and the version (the file `VERSION`, which is also in the disk's name).
 
 ### High scores
 
@@ -63,9 +65,12 @@ before building.
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
+| F1 | end the game: back to the title at once |
 | I (held, in a cave from GDash) | what Rockford carries and where gravity pulls |
 | up/down, fire/right, left; or type | the name for the high score table |
 | E (on the title) | the cave editor |
+| Help or H (on the title) | how to play, the elements |
+| Run/Stop twice (on the title) | back to BASIC |
 
 ## Cave editor
 
@@ -92,7 +97,7 @@ not saved. H shows the keys:
 | + and - | the next and the last slot |
 | C | a new cave: steel frame, dirt, inbox and exit |
 | D | empty the slot on the disk |
-| Run/Stop | back to the title |
+| Run/Stop | back to the title; the cave stays as it is for the next time |
 | H | the keys |
 
 The own caves play by GDash's rules (see below): what walks off an edge
@@ -100,8 +105,9 @@ comes back on the other side, unless the edge is steel, as in a new cave.
 There is one inbox: putting a new one turns the old one to dirt. A cave can
 be tried and saved when it has an inbox (or, from GDash, Rockford himself)
 and an exit. What would lose changes
-not saved - another slot, Run/Stop - and the keys C and D want to be pressed
-twice. On the values page up and down choose a line, left and right change
+not saved - another slot - and the keys C and D want to be pressed
+twice. Run/Stop loses nothing: the cave stays in memory, saved or not, and E
+on the title opens it again, until the game is left for BASIC. On the values page up and down choose a line, left and right change
 it (held: faster after a while), and the name is typed (Del goes back);
 Return or V go back to the cave. A cave from GDash keeps all its other
 properties; its speed, if it had the C64's timing, becomes milliseconds once
@@ -171,9 +177,11 @@ but four lines (a diagonal input the game never sends, two default cases,
 a corner of GLib's random numbers). `tests/test_editor.sh`
 tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
 game takes its keys from a script (`test_script` in `src/main.c`) and stops
-at its n-th stop; the screens of the eleven stops land in `build/test/`,
-and at the end the cave the script saved is checked on the disk. It builds
-the normal game again afterwards.
+at its n-th stop; the screens of the 17 stops land in `build/test/`
+(besides the editor: F1 ending a game, the title's help pages, the cave
+kept after Run/Stop, and at last BASIC's screen after Run/Stop twice on the
+title), and at the end the cave the script saved is checked on the disk. It
+builds the normal game again afterwards.
 
 What runs on the MEGA65 in assembler has its C original beside it, which
 the host's tests check; two tests check the assembler against it in Xemu.

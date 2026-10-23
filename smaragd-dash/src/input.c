@@ -11,6 +11,11 @@ static uint8_t column(uint8_t sel) {
 }
 
 uint8_t input_read(void) {
+    // The C65's extra column (Tab, Help, Esc, F9-F13) not selected: the ROM
+    // can leave it on, and then its keys read as joystick 1 and as the keys
+    // of every column (Help: right, Tab: down and P)
+    POKE(0xD608, 0x02);  // KEYCOL8 an output ...
+    POKE(0xD607, 0x03);  // ... high
     POKE(0xDC02, 0xFF);  // port A drives the matrix columns
     POKE(0xDC03, 0x00);
     POKE(0xDC00, 0xFF);

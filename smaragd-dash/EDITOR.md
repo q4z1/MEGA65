@@ -69,7 +69,9 @@ the status line says SAVED and the `*` is gone.
 
 ![Saved](screenshots/editor-saved.png)
 
-**7. Play it.** Run/Stop leaves the editor. On the title screen move right
+**7. Play it.** Run/Stop leaves the editor. The cave stays as you left it,
+saved or not: E brings you back to it until the game is left (Run/Stop
+twice on the title: BASIC). On the title screen move right
 past the last start cave until the status line says OWN CAVES, then press
 fire (see [Playing your caves](#playing-your-caves)).
 
@@ -155,9 +157,11 @@ cave of your own. Nothing is written to the disk until you save.
 
 **C** makes the same new cave in the slot you are on, **D** empties the slot
 on the disk (an empty slot is left out when the own caves are played). Both
-want the key twice, the status line asks for it. **+**, **-** and
-**Run/Stop** want it twice as well when there are changes not saved:
-NOT SAVED - + AGAIN: NEXT SLOT. Any other key in between cancels.
+want the key twice, the status line asks for it. **+** and **-** want it
+twice as well when there are changes not saved: NOT SAVED - + AGAIN: NEXT
+SLOT. Any other key in between cancels. **Run/Stop** loses nothing: the cave
+waits for you, saved or not, until you go back to BASIC (then the title
+asks: CAVE NOT SAVED - RUN/STOP AGAIN: BASIC).
 
 ## Name and values
 
@@ -193,7 +197,8 @@ status line shows emeralds, time, lives and score as in the game.
 - Rockford's way out is the exit, as in the game: the time left is counted
   into the score.
 - **Run/Stop** gives up the life when he is stuck. After he is dead, fire
-  (or a few seconds) brings you back; out of time, fire.
+  (or a few seconds) brings you back; out of time, fire. **F1** comes back
+  at once.
 - In a cave from GDash the status line also shows for a few seconds what
   Rockford collects (keys, skeletons, ...) and where gravity pulls; hold
   **I** to see it.
@@ -296,7 +301,7 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | THE CAVE NEEDS AN EXIT | put one (X) before trying or saving |
 | SAVED | the cave is in its slot on the disk |
 | COULD NOT SAVE | the disk is write protected, or it has no such slot |
-| NOT SAVED - + AGAIN: NEXT SLOT | the same key again throws the changes away (also -, Run/Stop) |
+| NOT SAVED - + AGAIN: NEXT SLOT | the same key again throws the changes away (also -) |
 | C AGAIN: A NEW CAVE | C again makes a new cave in place of this one |
 | D AGAIN: EMPTY THE SLOT | D again empties the slot on the disk |
 | THE SLOT IS EMPTY | done; the editor shows a new cave |
@@ -317,4 +322,4 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | C (twice) | a new cave |
 | D (twice) | empty the slot |
 | H | help page |
-| Run/Stop | back to the title |
+| Run/Stop | back to the title; the cave stays as it is for the next time |

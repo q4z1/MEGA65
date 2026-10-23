@@ -8,6 +8,7 @@ ram  $1F80+128       the calls into GDash's engine (link.ld .lowcode, gdfar.s)
 ram  $E000+8186      the cave editor's code (link.ld .editor), under the KERNAL
 
 # Banks 2 and 3, the C65 ROM's place, made writable (main.c)
+ram  $20000+1040     the editor's cave while the editor is closed (main.c edit_keep)
 ram  $24000+32768    GDash's engine (gdengine.ld), mapped to $4000 while it runs
 ram  $30000+41472    title logo, 288x144 pixels (mkgfx.py)
 
@@ -17,6 +18,11 @@ ram  $4DC00+7680     status line: 40 columns x 3 characters (video.c)
 ram  $50000+56320    framebuffer B (video.c)
 ram  $5DC00+2000     screen A: 40x25 characters of 2 bytes (video.c)
 ram  $5E400+2000     screen B (video.c)
+
+# Attic RAM: the C65 ROM's banks 2 and 3 as at the start, for BASIC (main.c)
+ram  $8000000+131072 the ROM's banks 2 and 3, copied back before BASIC
+ram  $8020000+1      a byte that tells if the attic RAM is there
+ram  $8020100+768    BASIC's palette 0, put back before BASIC
 
 # Colour RAM, cleared to 0: no attributes (video.c)
 ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)

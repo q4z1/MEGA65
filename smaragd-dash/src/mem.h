@@ -59,15 +59,30 @@ _Static_assert(TILES_OFF + TILE_COUNT * 256ul <= 0xF800, "the tiles reach the co
 
 // Where the C65 ROM is. The game needs none of it - the KERNAL is switched
 // out, the disk read without the DOS - and makes it writable at the start
-// (main.c; a reset loads the ROM again): GDash's engine for the own caves
-// (gdengine.ld, linked for $4000-$BFFF, where gdfar.s maps it while it
-// runs) and the title logo.
+// (main.c; a copy in the attic RAM goes back before BASIC, a reset loads
+// the ROM again): GDash's engine for the own caves (gdengine.ld, linked for
+// $4000-$BFFF, where gdfar.s maps it while it runs), the title logo and the
+// editor's cave while the editor is closed.
 #define GD_BANK   2
 #define GD_OFF    0x4000u  // SMARAGD.GD at $24000-$2BFFF
 #define GD_SIZE   0x8000u
 #define LOGO_BANK 3
 #define LOGO_OFF  0x0000u  // SMARAGD.LOGO at $30000, LOGO_W x LOGO_H pixels
 _Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0x10000, "the logo leaves bank 3");
+// The editor's cave while the editor is closed (main.c's edit_keep), in
+// front of GDash's engine
+#define KEEP_BANK 2
+#define KEEP_OFF  0x0000u  // $20000, FILE_SIZE bytes
+_Static_assert(KEEP_OFF + FILE_SIZE <= GD_OFF, "the kept cave reaches GDash's engine");
+
+// ---------------------------------------------------------------- attic RAM
+
+// The C65 ROM's banks 2 and 3 as they were at the start, copied back before
+// the game goes back to BASIC (main.c's to_basic); behind them a byte that
+// tells if the attic RAM is there, and BASIC's palette
+#define ROM_SAVE_MB    0x80     // $8000000-$801FFFF
+#define ROM_SAVE_BANKS 2        // the probe at $8020000
+#define PAL_SAVE_OFF   0x0100u  // BASIC's palette at $8020100, 768 bytes
 
 // ---------------------------------------------------------------- banks 4 and 5
 

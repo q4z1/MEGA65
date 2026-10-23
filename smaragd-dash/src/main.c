@@ -110,6 +110,10 @@ static uint8_t trail_next;
 static bool pal;
 static uint8_t frame;
 static uint8_t held, pressed;       // IN_* now, and newly pressed this frame
+// Keys as the MEGA65 types them ($D610)
+#define KEY_RUNSTOP 0x03
+#define KEY_HELP    0x1F
+#define KEY_F1      0xF1
 #ifdef SHOT_AT
 // -DSHOT_AT=n (tools/record-shots.sh): after n frames the emulator is told
 // to stop (0, then $42 to $D6CF, with -testing), and Xemu's -screenshot
@@ -147,6 +151,11 @@ static uint8_t cur_x, cur_y;
 static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static bool have_logo;              // the logo file was on the disk
+static bool rom_ram;                // the C65 ROM's banks 2 and 3 writable (mem.h)
+static bool rom_toggled;            // ... by the hypervisor, which protects them again
+static bool rom_saved;              // ... and kept in the attic RAM, for BASIC
+static bool kept;                   // the editor's cave kept (KEEP_BANK) ...
+static bool dirty;                  // ... changed since loaded or saved
 
 // The cave being played, as loaded from the disk - one of the game's
 // (CAVE01-1, ..., tools/mkcave.py) or an own one (a slot OWN01, ...; time 0
@@ -298,7 +307,16 @@ static const uint8_t test_script[][3] = {
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {10, 0, 0},
     {0, 0, 0},                                            // 10: the title
     {2, 0, IN_BUTTON}, {250, 0, 0}, {200, 0, 0}, {0, 0, 0},  // 11: playing own cave 1
-    {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
+    {1, KEY_F1, 0}, {150, 0, 0}, {0, 0, 0},               // 12: F1, the title again
+    {1, 'H', 0}, {60, 0, 0}, {0, 0, 0},                   // 13: help, how to play
+    {1, ' ', 0}, {60, 0, 0}, {0, 0, 0},                   // 14: help, the elements
+    {1, ' ', 0}, {60, 0, 0}, {1, 'E', 0}, {120, 0, 0},    // the editor: slot 1 as it was left
+    {1, '4', 0}, {4, 0, IN_BUTTON}, {10, 0, 0},           // steel at 3,3, not saved
+    {2, 0, IN_RESTART}, {120, 0, 0}, {1, 'E', 0}, {120, 0, 0},
+    {0, 0, 0},                                            // 15: kept, with the steel and *
+    {2, 0, IN_RESTART}, {120, 0, 0}, {2, 0, IN_RESTART}, {10, 0, 0},
+    {0, 0, 0},                                            // 16: Run/Stop on the title: BASIC?
+    {2, 0, IN_RESTART}, {0, 0, 0},                        // 17: BASIC (Xemu is stopped from outside)
 #endif
 };
 static uint8_t test_pos, test_left, test_in, test_key;
@@ -1475,7 +1493,7 @@ static void logo_page(void) {
         video_big_text(CENTRE(8), 44, "DASH");
         video_text(CENTRE(26), 88, "DIG  -  COLLECT  -  ESCAPE");
         video_text(CENTRE(32), 136, "JOYSTICK, GAMEPAD OR CURSOR KEYS");
-        video_text(CENTRE(35), 156, "P PAUSE  RUN/STOP GIVE UP  E EDITOR");
+        video_text(CENTRE(34), 156, "HELP OR H: HOW TO PLAY   E: EDITOR");
     }
 }
 
@@ -1494,7 +1512,7 @@ static void logo_frame(uint16_t pf) {
                 title_line("UP/DOWN: LEVEL   LEFT/RIGHT: CAVE");
                 break;
             case 5:
-                title_line("P PAUSE  RUN/STOP GIVE UP  E EDITOR");
+                title_line("HELP OR H: HOW TO PLAY   E: EDITOR");
                 break;
             case 7:
                 title_line("VERSION " VERSION);
@@ -1511,20 +1529,170 @@ static void logo_frame(uint16_t pf) {
     }
 }
 
-// A key typed (ASCII, letters in upper case), or 0
+// A key typed (ASCII, letters in upper case), or 0. Run/Stop is left out:
+// it is read from the matrix (IN_RESTART); typed as well, it would count
+// twice.
 static uint8_t get_key(void) {
 #if defined(EDITTEST) || defined(FLOWTEST)
     uint8_t key = test_key;
     test_key = 0;
 #else
-    uint8_t key = PEEK(0xD610);
-    if (key) {
-        POKE(0xD610, 0);
-        if (key >= 'a' && key <= 'z')
-            key -= 'a' - 'A';
-    }
+    uint8_t key;
+    do {
+        key = PEEK(0xD610);
+        if (key)
+            POKE(0xD610, 0);
+    } while (key == KEY_RUNSTOP);
+    if (key >= 'a' && key <= 'z')
+        key -= 'a' - 'A';
 #endif
     return key;
+}
+
+// Wait on a page for a key or the button
+static void page_wait(void) {
+    bool armed = false;
+    for (;;) {
+        title_frame();
+        if (get_key() || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
+            break;
+        if (!(held & IN_BUTTON))
+            armed = true;
+    }
+}
+
+// The title's help (Help or H): how to play, then the elements of the
+// game's caves
+static void help_pages(void) {
+    static const char *const keys[7] = {
+        "MOVE      JOYSTICK OR CURSOR KEYS",
+        "SNAP      FIRE AND A DIRECTION",
+        "P         PAUSE",
+        "RUN/STOP  GIVE UP THE LIFE",
+        "F1        END THE GAME",
+        "I         HELD: WHAT ROCKFORD CARRIES",
+        "TITLE     E EDITOR  RUN/STOP BASIC",
+    };
+    static const uint8_t tile[10] = {T_DIAMOND0, T_OUTBOX0, T_BOULDER, T_FIREFLY0, T_BUTTERFLY0,
+                                     T_AMOEBA0, T_MAGIC0, T_SLIME0, T_NUT, T_CLOCK};
+    static const char *const what[10] = {
+        "EMERALD    COLLECT THEM",
+        "EXIT       OPENS WITH ENOUGH",
+        "BOULDER    FALLS AND ROLLS",
+        "FIREFLY    DEADLY, EXPLODES",
+        "BUTTERFLY  EXPLODES INTO EMERALDS",
+        "AMOEBA     ENCLOSED: EMERALDS",
+        "MAGIC WALL BOULDERS INTO EMERALDS",
+        "SLIME      THINGS DROP THROUGH",
+        "NUT        A BOULDER CRACKS IT",
+        "CLOCK      MORE TIME",
+    };
+    text_cancel();
+    video_clear();
+    video_palette(0);
+    status_center("ANY KEY: THE ELEMENTS");
+    video_text_in(CENTRE(11), 0, "HOW TO PLAY", title_row);
+    video_text(1, 16, "DIG FOR EMERALDS: ENOUGH OF THEM OPEN");
+    video_text(1, 32, "THE EXIT. GET THERE BEFORE TIME IS UP.");
+    for (uint8_t i = 0; i < 7; i++)
+        video_text(2, 56 + i * 16, keys[i]);
+    page_wait();
+    video_clear();
+    status_center("ANY KEY: BACK");
+    video_text_in(CENTRE(12), 0, "THE ELEMENTS", title_row);
+    for (uint8_t i = 0; i < 10; i++) {
+        video_tile(2, 16 + i * 16, tile[i]);
+        video_text(5, 16 + i * 16, what[i]);
+    }
+    page_wait();
+}
+
+// ---------------------------------------------------------------- back to BASIC
+
+// The hypervisor's call $70 turns the write protection of the C65 ROM's
+// banks 2 and 3 on or off
+static void rom_toggle(void) {
+    __asm__ volatile("lda #$70\n sta $d640\n clv\n sei\n ldz #0" ::: "a", "x", "y", "memory");
+}
+
+// The C65 ROM's banks 2 and 3 (128K) to or from the attic RAM, in jobs of
+// 32K
+static void rom_copy(bool back) {
+    dma_begin(back ? ROM_SAVE_MB : 0, back ? 0 : ROM_SAVE_MB);
+    for (uint8_t k = 0; k < 4; k++) {
+        uint16_t off = (k & 1) ? 0x8000 : 0;
+        uint8_t rom_bank = 2 + (k >> 1), save_bank = k >> 1;
+        if (back)
+            dma_copy(off, save_bank, off, rom_bank, 0x8000);
+        else
+            dma_copy(off, rom_bank, off, save_bank, 0x8000);
+    }
+    dma_run();
+}
+
+// What the game changes of the VIC-IV, as BASIC had it at the start: put
+// back in this order, the "hot" registers last, which set up the rest. The
+// KERNAL's reset does not touch most of them.
+static const uint8_t vic_reg[] = {0x54, 0x58, 0x59, 0x5E, 0x5C, 0x5D, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65,
+                                  0x4C, 0x4D, 0x4E, 0x4F, 0x15, 0x20, 0x21, 0x31, 0x18, 0x16, 0x11};
+static uint8_t vic_was[sizeof vic_reg];
+static uint8_t d030_was;
+
+// BASIC's palette 0 (red, green, blue: 768 bytes) to or from the attic RAM,
+// behind the ROM's copy, through a piece in bank 0
+static void basic_palette(bool back) {
+    static uint8_t part[64];
+    POKE(0xD070, 0x00);  // edit palette 0
+    for (uint16_t i = 0; i < 768; i += 64) {
+        volatile uint8_t *reg = (volatile uint8_t *)(0xD100 + i);
+        if (back) {
+            dma_begin(ROM_SAVE_MB, 0);
+            dma_copy(PAL_SAVE_OFF + i, ROM_SAVE_BANKS, (uint16_t)part, 0, 64);
+            dma_run();
+            for (uint8_t k = 0; k < 64; k++)
+                reg[k] = part[k];
+        } else {
+            for (uint8_t k = 0; k < 64; k++)
+                part[k] = reg[k];
+            dma_begin(0, ROM_SAVE_MB);
+            dma_copy((uint16_t)part, 0, PAL_SAVE_OFF + i, ROM_SAVE_BANKS, 64);
+            dma_run();
+        }
+    }
+}
+
+// The screen as BASIC had it, before the game changes it
+static void basic_save(void) {
+    for (uint8_t i = 0; i < sizeof vic_reg; i++)
+        vic_was[i] = PEEK(0xD000 + vic_reg[i]);
+    d030_was = PEEK(0xD030);
+    if (rom_saved)
+        basic_palette(false);
+}
+
+// BASIC as after switching on: the ROM and the screen as they were, then
+// the KERNAL's reset
+__attribute__((noreturn)) static void to_basic(void) {
+    music_stop();
+    sound_off();
+    if (rom_saved) {
+        rom_copy(true);
+        basic_palette(true);
+    }
+    if (rom_toggled)
+        rom_toggle();
+    for (uint8_t i = 0; i < sizeof vic_reg; i++)
+        POKE(0xD000 + vic_reg[i], vic_was[i]);
+    POKE(0xD070, 0x00);
+    POKE(0xD030, rom_saved ? d030_was : d030_was & ~0x04);  // else the ROM's colours
+    while (PEEK(0xD610))  // no keys for BASIC
+        POKE(0xD610, 0);
+    // The KERNAL at $E000 (C65 ROM bank 3), the stack as at a reset
+    __asm__ volatile("sei\n lda #0\n tax\n tay\n taz\n map\n eom\n"
+                     " lda #$37\n sta $01\n lda $d030\n ora #$80\n sta $d030\n"
+                     " lda #0\n tab\n see\n ldy #1\n tys\n ldx #$ff\n txs\n"
+                     " jmp ($fffc)" ::: "a", "x", "y", "memory");
+    __builtin_unreachable();
 }
 
 // The logo and the high score table take turns, like an arcade machine
@@ -1544,6 +1712,7 @@ static bool title_screen(bool scores) {
     bool armed = false;
     bool editor = false;
     uint16_t pf = 0;  // frames on this page
+    uint8_t basic = 0;  // frames Run/Stop again goes back to BASIC
     while (get_key())  // forget the keys typed in the game
         ;
     for (;;) {
@@ -1552,12 +1721,37 @@ static bool title_screen(bool scores) {
         else
             logo_frame(pf);
         title_frame();
+        if (basic && (!--basic || (pressed & ~IN_RESTART))) {
+            basic = 0;
+            title_status();
+        }
         title_pick();
         if (armed && (pressed & IN_BUTTON))
             break;
-        if (get_key() == 'E') {
+        uint8_t key = get_key();
+        if (key == 'E') {
             editor = true;
             break;
+        }
+        if (key == 'H' || key == KEY_HELP) {
+            help_pages();
+            scores = false;
+            logo_page();
+            title_status();
+            pf = 0;
+            armed = false;
+            basic = 0;
+            continue;
+        }
+        // Run/Stop twice: back to BASIC, unless the ROM is gone
+        if (pressed & IN_RESTART) {
+            bool can = !rom_ram || rom_saved;
+            if (basic && can)
+                to_basic();
+            status_center(!can            ? "FOR BASIC, RESET THE MEGA65"
+                          : kept && dirty ? "CAVE NOT SAVED - RUN/STOP AGAIN: BASIC"
+                                          : "RUN/STOP AGAIN: BACK TO BASIC");
+            basic = 150;
         }
 #ifdef SCREENCAST
         if (pf == DEMO_TITLE_FRAMES)  // on the logo page, the first
@@ -1586,7 +1780,7 @@ static bool title_screen(bool scores) {
 
 // ---------------------------------------------------------------- caves
 
-enum { END_DIED, END_EXITED };
+enum { END_DIED, END_EXITED, END_QUIT };  // QUIT: F1 ends the game
 
 // ---------------------------------------------------------------- the rules
 
@@ -1681,6 +1875,11 @@ static uint8_t play_cave(void) {
     cover_cave(0);
 
     for (;;) {
+        if (get_key() == KEY_F1) {
+            sound_off();
+            cover_cave(1);
+            return END_QUIT;
+        }
         if (pressed & IN_PAUSE) {
             paused = !paused;
             if (paused) {
@@ -1809,7 +2008,8 @@ static uint8_t play_cave(void) {
 //   S                       save it into its slot
 //   + -                     the next and the last slot
 //   C                       a new cave           D  empty the slot
-//   Run/Stop                back to the title
+//   Run/Stop                back to the title; the cave stays as it is
+//                           until the editor is opened again
 // What would lose changes not saved, or the slot, wants its key twice.
 
 // The editor's code is an overlay (link.ld): in the RAM under the KERNAL,
@@ -1825,7 +2025,7 @@ static uint8_t play_cave(void) {
 #define PENS     12
 #define PEN_FLY  6   // the firefly; the butterfly is next
 #define NAME_LEN 21  // what the status line has room for (mkcave.py)
-#define KEY_STOP 0x03  // Run/Stop, as the editor's key
+#define KEY_STOP KEY_RUNSTOP  // Run/Stop (IN_RESTART), as the editor's key
 #define KEY_DEL  0x14
 
 static const char pen_keys[PENS] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'I', 'X'};
@@ -1842,7 +2042,6 @@ static const char name_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /:.!-,"; 
 static uint8_t slot;          // the one edited, from 0
 static uint8_t pen;           // the element chosen
 static uint8_t pen_dir = DIR_LEFT;  // a firefly's or butterfly's
-static bool dirty;            // changed since loaded or saved
 static bool have_slot;        // the slot is on the disk
 static uint8_t again;         // the key that does it when pressed again
 static uint8_t note;          // frames a note stays in the status line
@@ -2055,18 +2254,6 @@ static EDITOR bool twice(uint8_t key, bool always, const char *what) {
     return false;
 }
 
-// Wait on a page of the editor for a key or the button
-static EDITOR void page_wait(void) {
-    bool armed = false;
-    for (;;) {
-        title_frame();
-        if (get_key() || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
-            break;
-        if (!(held & IN_BUTTON))
-            armed = true;
-    }
-}
-
 static EDITOR void edit_help(void) {
     static const char *const lines[8] = {
         "MOVE     CURSOR KEYS OR JOYSTICK",
@@ -2236,11 +2423,29 @@ static EDITOR void edit_values(void) {
     note = 0;
 }
 
+// The edited cave in KEEP_BANK (mem.h) when the editor is left, and back
+// from there when it is opened again: it stays as it was, saved or not,
+// until the game ends. Not without the ROM's banks as RAM.
+static EDITOR void edit_keep(bool back) {
+    dma_begin(0, 0);
+    if (back)
+        dma_copy(KEEP_OFF, KEEP_BANK, (uint16_t)&file, 0, sizeof file);
+    else
+        dma_copy((uint16_t)&file, 0, KEEP_OFF, KEEP_BANK, sizeof file);
+    dma_run();
+}
+
 static EDITOR void editor(void) {
     play_mode = PLAY_TEST;
     again = 0;
-    edit_load();
-    cur_x = cur_y = 2;
+    if (kept) {
+        edit_keep(true);
+        loaded = 0xFF;
+        edit_view();
+    } else {
+        edit_load();
+        cur_x = cur_y = 2;
+    }
     edit_camera(true);
     memset(covered, 1, sizeof covered);
     cover_cave(0);
@@ -2327,13 +2532,16 @@ static EDITOR void editor(void) {
                 edit_load();
             }
             break;
-        case KEY_STOP:
-            if (twice(key, false, "NOT SAVED - RUN/STOP AGAIN: LEAVE")) {
-                show_cursor = false;
-                cover_cave(1);
-                return;
+        case KEY_STOP:  // nothing is lost: the cave is kept
+            if (rom_ram) {
+                edit_keep(false);
+                kept = true;
+            } else if (!twice(key, false, "NOT SAVED - RUN/STOP AGAIN: LEAVE")) {
+                break;
             }
-            break;
+            show_cursor = false;
+            cover_cave(1);
+            return;
         }
     }
 }
@@ -2374,6 +2582,10 @@ static void play_game(void) {
         demo_left = 0;
 #endif
         uint8_t end = play_cave();
+        if (end == END_QUIT) {  // straight back to the title
+            hs_new = HS_COUNT;
+            return;
+        }
         score += game.score;
         if (end == END_EXITED)
             cave_no++;
@@ -2412,12 +2624,24 @@ static bool rom_takes(uint8_t v) {
     return probe == v;
 }
 
-// The C65 ROM's banks 2 and 3 writable (mem.h): the hypervisor's call $70
-// turns its write protection on or off
+// The attic RAM is there: it takes a byte (behind the ROM's copy)
+static bool attic_takes(uint8_t v) {
+    static uint8_t probe;
+    dma_begin(0, ROM_SAVE_MB);
+    dma_fill(v, 0, ROM_SAVE_BANKS, 1);
+    dma_run();
+    dma_begin(ROM_SAVE_MB, 0);
+    dma_copy(0, ROM_SAVE_BANKS, (uint16_t)&probe, 0, 1);
+    dma_run();
+    return probe == v;
+}
+
+// The C65 ROM's banks 2 and 3 writable (mem.h; rom_toggle)
 static bool rom_writable(void) {
     if (rom_takes(0xA5) && rom_takes(0x5A))
         return true;
-    __asm__ volatile("lda #$70\n sta $d640\n clv\n sei\n ldz #0" ::: "a", "x", "y", "memory");
+    rom_toggle();
+    rom_toggled = true;
     return rom_takes(0xA5) && rom_takes(0x5A);
 }
 
@@ -2510,13 +2734,21 @@ int main(void) {
     POKE(0xFFFB, (uint16_t)&rti >> 8);
     pal = !(PEEK(0xD06F) & 0x80);
 
+    // The ROM's banks 2 and 3 into the attic RAM, before anything is
+    // written there (rom_takes' probe too), and the screen as BASIC had it:
+    // for the way back
+    if (attic_takes(0xA5) && attic_takes(0x5A)) {
+        rom_copy(false);
+        rom_saved = true;
+    }
+    basic_save();
     video_init();
     sound_init();
     init_tiles();
     // The tiles from the disk - without the spinner, which is made of
     // them -, the title logo and the high scores (mem.h)
     disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
-    bool rom_ram = rom_writable();
+    rom_ram = rom_writable();
     have_logo = rom_ram && load("LOADING", "SMARAGD.LOGO", LOGO_BANK, LOGO_OFF);
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);
