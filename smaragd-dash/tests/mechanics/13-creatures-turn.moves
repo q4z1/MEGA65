@@ -1,0 +1,8 @@
+# Rockford stands at the inbox; at the hatching the direction was turned
+= backwards=1
+14.               # two seconds: turned back
+= backwards=0
+14.
+= backwards=1
+12R U             # the creature switch
+= backwards=0

@@ -1,0 +1,38 @@
+; Amoeba (fast from the start) shut in: its cells turn into emeralds; amoeba
+; 2 in the open grows too big (more than a tenth of the cave) and turns into
+; boulders; in a box with both, amoeba 2 explodes where they meet
+[BDCFF]
+Version=0.5
+[game]
+Name=Amoeba effects
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+A=AMOEBA2
+[/mapcodes]
+[cave]
+Name=Amoeba effects
+Size=16 9 0 0 15 8
+CaveTime=200
+DiamondsRequired=5
+AmoebaTime=0
+AmoebaGrowthProb=1.0 1.0
+Amoeba2Time=0
+Amoeba2GrowthProb=1.0 1.0
+Amoeba2Threshold=0.1
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWW
+WWWWWWW        W
+WWa  WW        W
+WWWWWWW        W
+WWWWWWW   A    W
+WWa  WW        W
+WW  AWWWWWWWWWWW
+WWWWWWWP      XW
+WWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

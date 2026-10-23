@@ -1,0 +1,9 @@
+# While Rockford hatched, the slime let through what its C64 random numbers
+# allowed: the emerald, the nut, the chasing boulder (which went after
+# Rockford then) and the flying boulder; the boulder and the waiting boulder
+# wait above it, the flying emerald below; the bladder did not get through at
+# the first scan and stays below it for good
+= @2,3=DIAMOND* @4,3=NUT* @3,3=CHASING_STONE @9,1=FLYING_STONE*
+= @3,1=STONE @5,1=WAITING_STONE @10,3=FLYING_DIAMOND @8,3=BLADDER*
+20.
+= @8,3=BLADDER* @8,1=SPACE

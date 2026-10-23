@@ -1,0 +1,38 @@
+; A bomb snapped up without a step, put down with fire, going off; the
+; rocket launcher (infinite rockets) taken by walking onto it, rockets fired
+; right, up, left and down
+[BDCFF]
+Version=0.5
+[game]
+Name=Bombs and rockets
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+B=BOMB
+L=ROCKET_LAUNCHER
+[/mapcodes]
+[cave]
+Name=Bombs and rockets
+Size=20 12 0 0 19 11
+CaveTime=200
+DiamondsRequired=5
+RocketLauncher.infinite=true
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+W                  W
+W                  W
+W                  W
+W                  W
+W                  W
+W PB L             W
+W                  W
+W                  W
+W                  W
+W                 XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

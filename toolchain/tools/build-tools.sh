@@ -66,7 +66,8 @@ if [ ! -x "$HERE/bin/amiga-run" ]; then
     cp "$HERE/src/amiga-run-build/amiga-run" "$HERE/bin/"
 fi
 
-if [ ! -x "$HERE/bin/gdash-oracle" ]; then
+# made anew when its own sources changed
+if [ ! -x "$HERE/bin/gdash-oracle" ] || [ -n "$(find "$HERE/gdash-oracle" -newer "$HERE/bin/gdash-oracle")" ]; then
     if [ ! -d "$HERE/src/gdash/.git" ]; then
         git clone -q "$GDASH_REPO" "$HERE/src/gdash"
     fi

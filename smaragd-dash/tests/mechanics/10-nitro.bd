@@ -1,0 +1,31 @@
+; Nitro packs: one falls onto a brick wall and explodes, which sets off a
+; second one beside it a step later; another one falls onto dirt and stays
+[BDCFF]
+Version=0.5
+[game]
+Name=Nitro
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+n=NITRO
+[/mapcodes]
+[cave]
+Name=Nitro
+Size=14 8 0 0 13 7
+CaveTime=200
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWW
+W...n...n....W
+WP...........W
+W... ... ....W
+W... n.......W
+W...ww......XW
+W............W
+WWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

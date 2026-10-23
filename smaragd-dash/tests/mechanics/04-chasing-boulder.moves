@@ -1,0 +1,6 @@
+# Rockford stands at the inbox; the waiting boulder falls and chases him
+D D 4R 3D         # down beside the pillar
+6R 4U 6L 4D 6R    # round it, the boulder behind him
+4U 6L 4D 6R 4U
+6L 4D 6R 4U 6L
+= st=living has=CHASING_STONE no=WAITING_STONE

@@ -11,11 +11,13 @@ build starts it: seed 0), step by step as on the MEGA65.
       the moves as the screencast build loads them (tools/record-tour.sh)
 
 The moves: U R D L walk, u r d l the same with fire (snap; place a bomb,
-fire a rocket, use the hammer), . wait a step, a number repeats what
+fire a rocket, use the hammer), . wait a step, X give up (Run/Stop:
+GDash's suicide), a number repeats what
 follows, a * after a move repeats it until Rockford gets there (pushing
 works only now and then); # starts a comment, ! shows the map there. They
 start when Rockford stands in the cave; the steps before (hatching, being
-born out of the inbox) are added.
+born out of the inbox) are added. A line that starts with = says what must
+be so at that point (Play.check), e.g. "= key1=1 @12,5=DIAMOND st=out".
 
 A demo file holds the input of every step from the start of the cave, as
 tools/solve.c writes them: two bytes of load address (not used), then
@@ -35,79 +37,139 @@ sys.path.insert(0, HERE)
 import cavekit as ck  # noqa: E402
 
 GEN = os.path.join(ROOT, "build", "democave")
-LIB = os.path.join(GEN, "democave.so")
-DIR_NONE, IN_FIRE = 4, 8
+DIR_NONE, IN_FIRE, IN_SUICIDE = 4, 8, 16
 STATES = ["not born", "living", "out of time", "dead", "out"]
 
 
-def library():
-    """The engine as a shared library, made anew when a source changed"""
-    os.makedirs(GEN, exist_ok=True)
+def library(variant="", cflags=()):
+    """The engine as a shared library, made anew when a source changed;
+    a variant (its own directory in build/democave) with other cflags:
+    GD_EXACT for GDash's random numbers, --coverage (tests/test_mechanics.py)"""
+    gen = os.path.join(GEN, variant)
+    lib_path = os.path.join(gen, "democave.so")
+    os.makedirs(gen, exist_ok=True)
     srcs = [os.path.join(ROOT, "src", f) for f in ("gdengine.c", "gdengine.h", "engine.h")] + \
         [os.path.join(HERE, f) for f in ("democave_lib.c", "cavekit.py")]
-    if not os.path.exists(LIB) or os.path.getmtime(LIB) < max(os.path.getmtime(f) for f in srcs):
-        ck.write_c(GEN)
-        cc = subprocess.run(["cc", "-shared", "-fPIC", "-O2", "-w", "-I" + os.path.join(ROOT, "src"), "-I" + GEN,
-                             "-o", LIB, os.path.join(HERE, "democave_lib.c"),
-                             os.path.join(ROOT, "src", "gdengine.c"), os.path.join(GEN, "gdcave.c")],
-                            capture_output=True, text=True)
+    if not os.path.exists(lib_path) or os.path.getmtime(lib_path) < max(os.path.getmtime(f) for f in srcs):
+        ck.write_c(gen)
+        cc = subprocess.run(["cc", "-shared", "-fPIC", "-O2", "-w", *cflags, "-I" + os.path.join(ROOT, "src"),
+                             "-I" + gen, "-o", lib_path, os.path.join(HERE, "democave_lib.c"),
+                             os.path.join(ROOT, "src", "gdengine.c"), os.path.join(gen, "gdcave.c")],
+                            capture_output=True, text=True, cwd=gen)
         if cc.returncode:
             sys.exit(cc.stderr)
-    lib = ctypes.CDLL(LIB)
+    lib = ctypes.CDLL(lib_path)
     lib.dc_cave.restype = ctypes.POINTER(ctypes.c_uint8 * (ck.W * ck.H))
     return lib
 
 
 def read_moves(path):
-    """[(input, show the map before it, until Rockford moves)] of a moves file"""
-    text = re.sub(r"#[^\n]*", "", open(path).read())
-    out, show = [], False
-    for n, c, until in re.findall(r"(\d*)([URDLurdl.!])(\*?)", text):
-        if c == "!":
-            show = True
+    """[(input, show the map before it, until Rockford moves, what must be so
+    before it)] of a moves file; input None: the end"""
+    out, show, expect = [], False, []
+    for line in open(path).read().splitlines():
+        line = line.split("#")[0].strip()
+        if line.startswith("="):
+            expect += [tuple(w.split("=", 1)) for w in line[1:].split()]
             continue
-        if c == ".":
-            inp = DIR_NONE
-        elif c in "URDL":
-            inp = "URDL".index(c)
-        else:
-            inp = "urdl".index(c) | IN_FIRE
-        for _ in range(int(n or 1)):
-            out.append((inp, show, bool(until)))
-            show = False
-    if show:
-        out.append((None, True, False))
+        for n, c, until in re.findall(r"(\d*)([URDLurdl.!X])(\*?)", line):
+            if c == "!":
+                show = True
+                continue
+            if c == ".":
+                inp = DIR_NONE
+            elif c == "X":
+                inp = DIR_NONE | IN_SUICIDE
+            elif c in "URDL":
+                inp = "URDL".index(c)
+            else:
+                inp = "urdl".index(c) | IN_FIRE
+            for _ in range(int(n or 1)):
+                out.append((inp, show, bool(until), expect))
+                show, expect = False, []
+    out.append((None, show, False, expect))
     return out
 
 
+# What a "=" line of the moves can ask for: a value of dc_line, by its name
+# there (st, dia: the emeralds collected, keys, ...) or one of these, an
+# element anywhere (has=NAME, no=NAME) or in a cell (@x,y=NAME; NAME* for
+# any whose name starts so)
+EXPECT_STATES = {"born": 0, "living": 1, "timeout": 2, "dead": 3, "out": 4}
+EXPECT_VALUES = {
+    "amoeba": ["sleeping", "awake", "toobig", "enclosed"], "amoeba2": ["sleeping", "awake", "toobig", "enclosed"],
+    "magic": ["dormant", "active", "expired"],
+    "grav": {"still": "0", "up": "1", "right": "3", "down": "5", "left": "7"},
+}
+SWITCHES = ["backwards", "expwall", "replicators", "conveyors", "convdir", "gravswitch"]
+
+
 class Play:
-    def __init__(self, bd_path):
+    def __init__(self, bd_path, lib=None, cave=1):
         _, caves = ck.read_bd(bd_path, 0)
-        if not caves or isinstance(caves[0][2], ck.CaveError):
-            sys.exit(f"{bd_path}: {caves[0][2] if caves else 'no cave'}")
-        self.cave = caves[0][2]
+        if len(caves) < cave or isinstance(caves[cave - 1][2], ck.CaveError):
+            sys.exit(f"{bd_path}: {caves[cave - 1][2] if len(caves) >= cave else 'no cave ' + str(cave)}")
+        self.cave = caves[cave - 1][2]
         self.raw = ctypes.create_string_buffer(self.cave.tobytes())
-        self.lib = library()
+        self.lib = lib or library()
         self.lib.dc_start(self.raw, 0)
         self.inputs = []
+        self.lines = []  # dc_line after each step, if the library has it
         self.state = (ctypes.c_int * 15)()
+        self.buf = ctypes.create_string_buffer(256)
 
     def st(self):
         self.lib.dc_state(self.state)
         return list(self.state)
 
     def step(self, inp):
-        self.lib.dc_step(inp & 7, inp & IN_FIRE)
+        self.lib.dc_step(inp & 7, inp & IN_FIRE, inp & IN_SUICIDE)
+        self.lib.dc_line(len(self.inputs), self.buf, len(self.buf))
+        self.lines.append(self.buf.value.decode())
         self.inputs.append(inp)
 
+    def values(self):
+        """dc_line's values by name, of the last step"""
+        self.lib.dc_line(len(self.inputs), self.buf, len(self.buf))
+        words = self.buf.value.decode().split()[2:]
+        v = dict(w.split("=") for w in words)
+        v["dia"], v["needed"] = v["dia"].split("/")
+        v["key1"], v["key2"], v["key3"] = v.pop("keys").split(",")
+        v["amoeba"], v["amoeba2"] = v["amoeba"].split(",")
+        v.update(zip(SWITCHES, v.pop("sw")))
+        return v
+
+    def check(self, expect):
+        """What of expect ([(name, value)]) is not so, as text"""
+        v, cells, bad = self.values(), self.lib.dc_cave().contents, []
+        for name, want in expect:
+            if name.startswith("@"):
+                x, y = (int(n) for n in name[1:].split(","))
+                got = ck.GD_EL[cells[y * ck.W + x]].name
+            elif name in ("has", "no"):
+                there = {ck.GD_EL[cells[y * ck.W + x]].name
+                         for y in range(self.cave.v["h"]) for x in range(self.cave.v["w"])}
+                found = any(n.startswith(want[:-1]) for n in there) if want.endswith("*") else want in there
+                got, want = ("yes" if found else "no"), ("yes" if name == "has" else "no")
+            elif name == "st":
+                got, want = v["st"], str(EXPECT_STATES[want])
+            elif name in EXPECT_VALUES:
+                names = EXPECT_VALUES[name]
+                got, want = v[name], names[want] if isinstance(names, dict) else str(names.index(want))
+            else:
+                got = v[name]
+            if got != want and not (want.endswith("*") and got.startswith(want[:-1])):
+                bad.append(f"step {len(self.inputs)}: {name} {got}, not {want}")
+        return bad
+
     def born(self):
-        """Steps until Rockford stands in the cave"""
+        """Steps until Rockford stands in the cave (or is dead already)"""
         while True:
             s = self.st()
             cells = self.lib.dc_cave().contents
-            if s[0] == 1 and cells[s[2] * ck.W + s[1]] == ck.O["PLAYER"]:
+            if s[0] == 1 and cells[s[2] * ck.W + s[1]] == ck.O["PLAYER"] or s[0] > 1:
                 return
-            if s[0] not in (0, 1) or len(self.inputs) > 500:
+            if len(self.inputs) > 500:
                 sys.exit("Rockford is not born")
             self.step(DIR_NONE)
 
@@ -141,20 +203,23 @@ class Play:
               f"{s[6]} s; keys {s[8]} {s[9]} {s[10]}, sweet {s[11]}, hammer {s[12]}")
 
 
-def play(bd_path, moves_path, every=0):
-    p = Play(bd_path)
+def play(bd_path, moves_path, every=0, lib=None, cave=1, quiet=False):
+    """The moves played; (Play, out, what was not as the moves say)"""
+    p = Play(bd_path, lib, cave)
     p.born()
-    for inp, show, until in read_moves(moves_path):
-        if show:
+    bad = []
+    for inp, show, until, expect in read_moves(moves_path):
+        if show and not quiet:
             p.show()
+        bad += p.check(expect)
         if inp is None:
             break
         at = p.st()[1:3]
         for _ in range(100 if until else 1):
-            if p.st()[0] != 1:
+            if until and p.st()[0] != 1:  # the cave goes on after Rockford, as in GDash
                 break
             p.step(inp)
-            if every and len(p.inputs) % every == 0:
+            if every and not quiet and len(p.inputs) % every == 0:
                 p.show()
             if p.st()[1:3] != at:
                 break
@@ -163,11 +228,16 @@ def play(bd_path, moves_path, every=0):
             break
         p.step(DIR_NONE)
     s = p.st()
-    print(f"{STATES[s[0]]} after {len(p.inputs)} steps: {s[3]}/{s[4]} emeralds, {s[6]} s left")
-    return p, s[0] == 4
+    if not quiet:
+        print(f"{STATES[s[0]]} after {len(p.inputs)} steps: {s[3]}/{s[4]} emeralds, {s[6]} s left")
+        for b in bad:
+            print("  not as the moves say: " + b)
+    return p, s[0] == 4, bad
 
 
 def pack(inputs):
+    if any(inp & IN_SUICIDE for inp in inputs):
+        sys.exit("democave: a demo file has no X")
     out = bytearray([0x00, 0x20])
     i = 0
     while i < len(inputs):
@@ -184,12 +254,12 @@ def main():
     args = sys.argv[1:]
     if len(args) >= 3 and args[0] == "play":
         every = int(args[args.index("--every") + 1]) if "--every" in args else 0
-        _, ok = play(args[1], args[2], every)
-        return 0 if ok else 1
+        _, ok, bad = play(args[1], args[2], every)
+        return 0 if ok and not bad else 1
     if len(args) == 4 and args[0] == "pack":
-        p, ok = play(args[1], args[2])
-        if not ok:
-            sys.exit("democave: Rockford does not get out")
+        p, ok, bad = play(args[1], args[2])
+        if not ok or bad:
+            sys.exit("democave: Rockford does not get out" if not ok else "democave: not as the moves say")
         with open(args[3], "wb") as f:
             f.write(pack(p.inputs))
         print(f"{args[3]}: {len(p.inputs)} steps")

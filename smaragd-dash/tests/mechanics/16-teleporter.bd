@@ -1,0 +1,29 @@
+; A teleporter whose way out is blocked: GDash looks for the next one along
+; the cave, past its end to the top, and Rockford comes out of that one
+[BDCFF]
+Version=0.5
+[game]
+Name=Teleporter
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+T=TELEPORTER
+[/mapcodes]
+[cave]
+Name=Teleporter
+Size=12 6 0 0 11 5
+CaveTime=200
+DiamondsRequired=1
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W  T d    XW
+WWWWWWWWWWWW
+WWWWWWWWWWWW
+WP TW      W
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

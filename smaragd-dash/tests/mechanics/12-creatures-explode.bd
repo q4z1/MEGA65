@@ -1,0 +1,33 @@
+; Each kind of flier beside an amoeba blows up, each into what it turns into:
+; firefly and alt firefly into space, butterfly and alt butterfly into
+; emeralds, stonefly into boulders, dragonfly into space
+[BDCFF]
+Version=0.5
+[game]
+Name=Creatures explode
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+f=A_FIREFLYl
+b=A_BUTTERFLYl
+s=STONEFLYl
+y=DRAGONFLYl
+[/mapcodes]
+[cave]
+Name=Creatures explode
+Size=20 6 0 0 19 5
+CaveTime=200
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWW
+WQaWfaWCaWbaWsaWyaWW
+WWWWWWWWWWWWWWWWWWWW
+WP                XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

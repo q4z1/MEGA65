@@ -1,0 +1,6 @@
+# Rockford stands at the inbox; a boulder lies above the voodoo, dirt between them
+4R r              # snap the dirt under the boulder
+L L 2.            # away from it; it falls onto the voodoo
+= @6,3=GRAVESTONE @5,2=PRE_STEEL_3 st=living
+5.                # steel walls round the gravestone; 20 s less time (the oracle compares it)
+= @5,2=STEEL @7,4=STEEL @6,3=GRAVESTONE no=VOODOO st=living

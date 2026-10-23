@@ -1,0 +1,12 @@
+# Rockford stands at the inbox; two nitro packs lie on the dirt of his row
+R R r             # the dirt under the first one: it falls
+3.
+= @4,4=NITRO_PACK_F
+.                 # onto the brick wall: it explodes, and sets off the one beside it
+= @4,4=NITRO_EXPL* @5,4=NITRO_PACK_EXPLODE
+.
+= @6,4=NITRO_EXPL*
+6.
+4R r              # the dirt under the other one: it falls onto dirt and stays
+4.
+= @8,3=NITRO_PACK @8,4=DIRT st=living

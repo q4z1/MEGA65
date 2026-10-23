@@ -2271,18 +2271,25 @@ static bool rom_writable(void) {
 #ifdef GDCHECK
 // tests/test_gdmega65.py: every own cave on the disk played for
 // GDCHECK_STEPS steps with the input tests/gdplay.c gives it (seed: the
-// slot's number), the digest of each step (gddigest.h) into bank 4, slot
+// slot's number) - or, if its file CHECKnn has moves, with those (as a
+// demo file: count and input, DIR_* | IN_FIRE | CHECK_SUICIDE; then
+// standing still) -, the digest of each step (gddigest.h) into bank 4, slot
 // after slot; then the emulator is told to stop.
 #include "gddigest.h"
 #ifndef GDCHECK_STEPS
 #define GDCHECK_STEPS 200
 #endif
-#define GDCHECK_BANK 4
+#define GDCHECK_BANK  4
+#define CHECK_MOVES   760   // bytes of CHECKnn (build.sh: 3 blocks)
+#define CHECK_SUICIDE 0x10  // Run/Stop (tools/democave.py's IN_SUICIDE)
 _Static_assert(OWN_SLOTS * GDCHECK_STEPS * 4UL <= 0x10000, "the digests in one bank");
 
 static void gd_check(void) {
     static const uint8_t dirs[] = {MV_STILL, MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT,
                                    MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_UP_RIGHT};
+    static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
+    static uint8_t moves[CHECK_MOVES];
+    static char moves_file[] = "CHECK00";
     static uint32_t d;
     dma_begin(0, 0);
     dma_fill(0, 0, GDCHECK_BANK, 0);
@@ -2290,13 +2297,33 @@ static void gd_check(void) {
     for (uint8_t n = 0; n < OWN_SLOTS; n++) {
         if (!load_own(n) || !file.own.time)
             continue;
+        moves_file[5] = '0' + (n + 1) / 10;
+        moves_file[6] = '0' + (n + 1) % 10;
+        if (!disk_load(moves_file, 0, (uint16_t)moves))
+            moves[0] = 0;
+        const uint8_t *p = moves;
+        uint8_t left = 0, step = DIR_NONE;
+        bool scripted = moves[0] != 0;
         gd_start(&file.own, 0);
         uint32_t lcg = n + 1;
         uint16_t at = (uint16_t)n * GDCHECK_STEPS * 4;
         for (uint16_t t = 0; t < GDCHECK_STEPS; t++, at += 4) {
-            lcg = lcg * 1103515245u + 12345u;
-            uint16_t in = (lcg >> 16) & 0x7FFF;
-            gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+            if (scripted) {
+                if (!left && p[0]) {
+                    left = p[0];
+                    step = p[1];
+                    p += 2;
+                }
+                if (left)
+                    left--;
+                else
+                    step = DIR_NONE;
+                gd_iterate(mv[step & 7], (step & IN_FIRE) != 0, (step & CHECK_SUICIDE) != 0);
+            } else {
+                lcg = lcg * 1103515245u + 12345u;
+                uint16_t in = (lcg >> 16) & 0x7FFF;
+                gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+            }
             d = gd_digest();
             dma_begin(0, 0);
             dma_copy((uint16_t)&d, 0, at, GDCHECK_BANK, 4);

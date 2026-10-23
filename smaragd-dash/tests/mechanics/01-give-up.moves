@@ -1,0 +1,9 @@
+# Rockford stands at the inbox
+3R                # the emerald
+= dia=1 st=living
+X                 # gives up: in his place an explosion, a stage on in the same scan
+= @5,2=EXPLODE_2 st=living
+14.               # GDash takes him for dead once it has not seen him for 16 steps
+= st=living @5,2=SPACE
+.
+= st=dead

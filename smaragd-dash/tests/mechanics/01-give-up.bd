@@ -1,0 +1,24 @@
+; Run/Stop: Rockford gives up (GDash's suicide) and explodes
+[BDCFF]
+Version=0.5
+[game]
+Name=Give up
+Caves=1
+Levels=1
+[cave]
+Name=Give up
+Size=12 6 0 0 11 5
+CaveTime=100
+DiamondsRequired=1
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W..........W
+W.P..d..X..W
+W..........W
+W..........W
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

@@ -1,0 +1,37 @@
+; Slime as the C64 games have it (SlimePermeabilityC64): its own random
+; numbers, seeded by the cave, decide when it lets something through
+[BDCFF]
+Version=0.5
+[game]
+Name=Slime C64
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+s=SLIME
+n=NUT
+w=WAITINGBOULDER
+c=CHASINGBOULDER
+b=BLADDER
+F=FLYINGBOULDER
+D=FLYINGDIAMOND
+[/mapcodes]
+[cave]
+Name=Slime C64
+Size=14 7 0 0 13 6
+CaveTime=200
+DiamondsRequired=5
+SlimePermeabilityC64=124
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWW
+WWdrnwcW   WWW
+WWsssssWsssWWW
+WW     Wb  WWW
+WWWWWWWWbFDWWW
+WP          XW
+WWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

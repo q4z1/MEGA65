@@ -1,0 +1,37 @@
+; Pushing: a waiting boulder goes every time; after the sweet a boulder goes
+; every time too, and so do a mega boulder (PushingMegaStonesAfterSweet),
+; which would not before, and a chasing boulder
+[BDCFF]
+Version=0.5
+[game]
+Name=Sweet push
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+w=WAITINGBOULDER
+c=CHASINGBOULDER
+S=SWEET
+M=MEGABOULDER
+[/mapcodes]
+[cave]
+Name=Sweet push
+Size=16 9 0 0 15 8
+CaveTime=200
+DiamondsRequired=5
+PushingMegaStonesAfterSweet=true
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWW
+WPw   WWWWWWWWWW
+W.WWWWWWWWWWWWWW
+W.S r   WWWWWWWW
+W.WWWWWWWWWWWWWW
+W.  M   WWWWWWWW
+W.WWWWWWWWWWWWWW
+W.  c   WWWWWWXW
+WWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

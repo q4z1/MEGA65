@@ -1,0 +1,36 @@
+; DummyProperties.alwayskillsplayer: whatever hurts a voodoo kills Rockford
+; - a dragonfly touching one, a boulder falling onto one (penalty), a bomb
+; going off beside one, a butterfly's explosion reaching one. Here all of
+; them happen while he hatches, and he dies as he comes out
+[BDCFF]
+Version=0.5
+[game]
+Name=Voodoo hurts
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+V=DUMMY
+y=DRAGONFLYl
+B=IGNITEDBOMB1
+[/mapcodes]
+[cave]
+Name=Voodoo hurts
+Size=20 7 0 0 19 6
+CaveTime=200
+DiamondsRequired=5
+DummyProperties.alwayskillsplayer=true
+DummyProperties.penalty=true
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+WWyVWWWrWWWWWWCaWWWW
+WWWWWWW WWBVWVWWWWWW
+WWWWWWWVWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWW
+WP                XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

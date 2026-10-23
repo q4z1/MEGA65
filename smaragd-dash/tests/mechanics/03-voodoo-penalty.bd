@@ -1,0 +1,32 @@
+; A boulder falls on the voodoo: with DummyProperties.penalty it leaves a
+; time penalty (time off) that turns into a gravestone; the player lives
+[BDCFF]
+Version=0.5
+[game]
+Name=Voodoo penalty
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+V=DUMMY
+[/mapcodes]
+[cave]
+Name=Voodoo penalty
+Size=12 6 0 0 11 5
+CaveTime=100
+PenaltyTime=20
+DiamondsRequired=5
+DummyProperties.penalty=true
+DummyProperties.destructable=false
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W.....r....W
+WP.........W
+W.....V....W
+W..........W
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

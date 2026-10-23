@@ -1,0 +1,5 @@
+# Rockford stands at the inbox, the teleporter right of him, a wall behind it
+R R               # into the teleporter: out of the one at the top
+= p=4,1 @3,4=TELEPORTER @2,4=SPACE
+6R                # and out
+= st=out dia=1

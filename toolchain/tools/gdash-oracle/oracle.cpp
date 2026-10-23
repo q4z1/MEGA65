@@ -12,16 +12,26 @@
 //   gdash-oracle play <file.bd> <level> <steps> [cave]
 //                                         playing with pseudo-random input: a
 //                                         line per step, the map's hash, state
+//   gdash-oracle moves <file.bd> <level> <cave> <inputs>
+//                                         playing the input of the file, a
+//                                         character per step (U R D L . walk
+//                                         or stand, u r d l , the same with
+//                                         fire, X suicide): a line per step with all the
+//                                         player has and the cave's switches
+//                                         (smaragd-dash/tests/test_mechanics.py)
 //
 // Element codes are GDash's elements without their scanned twins, in its
 // order: smaragd-dash/tools/cavekit.py's.
 #include "config.h"
 #include <glib.h>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <sstream>
+#include <string>
 #include "cave/caveset.hpp"
 #include "cave/cavestored.hpp"
 #define private public
@@ -225,6 +235,41 @@ int main(int argc, char **argv) {
                 for (int x = 0; x < r.w; x++)
                     printf("%02x", code_of[r.map(x, y)]);
             printf("\n");
+        }
+        return 0;
+    }
+    if (!strcmp(argv[1], "moves")) {
+        unsigned n = atoi(argv[4]) - 1;
+        std::ifstream in(argv[5]);
+        std::string inputs((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (n >= cs.caves.size()) {
+            fprintf(stderr, "no cave %u\n", n + 1);
+            return 1;
+        }
+        CaveRendered r(cs.caves[n], level, 0);
+        r.setup_for_game();
+        int t = 0;
+        for (char c : inputs) {
+            bool suicide = c == 'X';
+            const char *dirs = strchr("URDL.", suicide || c == ',' ? '.' : toupper(c));
+            if (!dirs || !c)
+                continue;
+            static const GdDirectionEnum mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
+            r.iterate(mv[dirs - "URDL."], islower(c) || c == ',', suicide);
+            unsigned hash = 2166136261u;
+            for (int y = 0; y < r.h; y++)
+                for (int x = 0; x < r.w; x++)
+                    hash = (hash ^ code_of[r.map(x, y)]) * 16777619u;
+            // as smaragd-dash/tools/democave_lib.c's dc_line
+            printf("%d %08x st=%d dia=%d/%d time=%d score=%d speed=%d p=%d,%d keys=%d,%d,%d sweet=%d hammer=%d "
+                   "dkey=%d skel=%d grav=%d gate=%d amoeba=%d,%d magic=%d sw=%d%d%d%d%d%d\n",
+                   t++, hash, (int)r.player_state, (int)r.diamonds_collected, (int)r.diamonds_needed, (int)r.time,
+                   (int)r.score, (int)r.speed, (int)r.player_x, (int)r.player_y, (int)r.key1, (int)r.key2,
+                   (int)r.key3, (int)r.sweet_eaten, (int)r.got_pneumatic_hammer, (int)r.diamond_key_collected,
+                   (int)r.skeletons_collected, (int)r.gravity, (int)r.gate_open, (int)r.amoeba_state,
+                   (int)r.amoeba_2_state, (int)r.magic_wall_state, (int)r.creatures_backwards,
+                   (int)r.expanding_wall_changed, (int)r.replicators_active, (int)r.conveyor_belts_active,
+                   (int)r.conveyor_belts_direction_changed, (int)r.gravity_switch_active);
         }
         return 0;
     }

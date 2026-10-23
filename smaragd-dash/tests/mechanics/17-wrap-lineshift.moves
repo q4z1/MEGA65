@@ -1,0 +1,7 @@
+# Rockford stands at the inbox; the boulder above has fallen through the gap
+# at the bottom and come in at the top again, and goes on falling round
+= has=STONE_F
+4L                # off the left edge: in on the right, a row higher
+= p=11,2
+L R R             # and back off the right edge: in on the left, a row lower
+= p=0,3 st=living

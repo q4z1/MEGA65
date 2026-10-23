@@ -72,6 +72,15 @@ case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
             [ -f "$f" ] && set -- "$@" "$f=$(basename "$f" .bin)"
         done ;;
 esac
+# The check build (-DGDCHECK, tests/test_gdmega65.py): a file of moves for
+# each slot, CHECK01 ..., empty (3 blocks), which the test fills
+case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
+    *" -DGDCHECK "*)
+        head -c 762 /dev/zero > build/gen/check.bin
+        for n in $(seq -w 1 20); do
+            set -- "$@" "build/gen/check.bin=CHECK$n"
+        done ;;
+esac
 KEEP="--keep SMARAGD.SCORES"
 for f in build/caves/*.bin; do
     case "$f" in

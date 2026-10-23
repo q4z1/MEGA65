@@ -1,0 +1,36 @@
+; A waiting boulder falls and becomes a chasing boulder, which follows where
+; Rockford was 16 steps before, round a steel pillar, and steps aside when
+; the way is blocked
+[BDCFF]
+Version=0.5
+[game]
+Name=Chasing boulder
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+w=WAITINGBOULDER
+[/mapcodes]
+[cave]
+Name=Chasing boulder
+Size=20 12 0 0 19 11
+CaveTime=200
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+WP.w               W
+W                  W
+W                  W
+W      WWWW        W
+W      WWWW        W
+W      WWWW        W
+W                  W
+W                  W
+W                  W
+W                 XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

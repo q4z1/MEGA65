@@ -1,0 +1,13 @@
+# Rockford stands at the inbox on the brick wall, the hammer right of him
+R                 # the hammer
+= hammer=1 p=3,1
+r                 # hammering down to the right
+= @4,1=PNEUMATIC_ACTIVE_RIGHT @3,1=PLAYER_PNEUMATIC_RIGHT
+6.
+= @4,2=SPACE @3,1=PLAYER
+l                 # and to the left
+= @2,1=PNEUMATIC_ACTIVE_LEFT @3,1=PLAYER_PNEUMATIC_LEFT
+6.
+= @2,2=SPACE @3,1=PLAYER
+20.               # the walls come back
+= @4,2=BRICK @2,2=BRICK

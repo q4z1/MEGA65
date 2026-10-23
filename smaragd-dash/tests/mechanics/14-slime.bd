@@ -1,0 +1,40 @@
+; Slime that lets everything through (SlimePermeability=1): emerald,
+; boulder and nut fall through it, so do a waiting and a chasing boulder;
+; a bladder, a flying boulder and a flying emerald rise through it - the
+; bladder only as it lies there at the start (O_BLADDER): one that has risen
+; to the slime stays below it, in GDash too
+[BDCFF]
+Version=0.5
+[game]
+Name=Slime
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+s=SLIME
+n=NUT
+w=WAITINGBOULDER
+c=CHASINGBOULDER
+b=BLADDER
+F=FLYINGBOULDER
+D=FLYINGDIAMOND
+[/mapcodes]
+[cave]
+Name=Slime
+Size=14 7 0 0 13 6
+CaveTime=200
+DiamondsRequired=5
+SlimePermeability=1.0
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWW
+WWdrnwcW   WWW
+WWsssssWsssWWW
+WW     Wb  WWW
+WWWWWWWWbFDWWW
+WP          XW
+WWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

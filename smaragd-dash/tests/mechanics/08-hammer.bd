@@ -1,0 +1,31 @@
+; The pneumatic hammer: taken, used right and left on the brick wall below
+; beside Rockford; the hammered walls come back (PneumaticHammer.wallsreappear)
+[BDCFF]
+Version=0.5
+[game]
+Name=Hammer
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+m=PNEUMATIC_HAMMER
+[/mapcodes]
+[cave]
+Name=Hammer
+Size=12 6 0 0 11 5
+CaveTime=200
+DiamondsRequired=5
+PneumaticHammer.wallsreappear=true
+PneumaticHammer.wallsreappearframes=20
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W Pm      XW
+W wwwwwwww W
+W          W
+W          W
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

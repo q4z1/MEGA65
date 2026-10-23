@@ -1,0 +1,42 @@
+; A voodoo that does not disappear in explosions (DummyProperties.destructable
+; off): a butterfly's explosion leaves a time penalty in its place, a bomb's
+; leaves it alone. Amoeba 2 shut in turns into emeralds. A biter takes lava
+; for space. The rocket launcher snapped up without a step
+[BDCFF]
+Version=0.5
+[game]
+Name=Voodoo in explosions
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+V=DUMMY
+A=AMOEBA2
+b=BITERr
+L=LAVA
+R=ROCKET_LAUNCHER
+B=BOMB
+[/mapcodes]
+[cave]
+Name=Voodoo in explosions
+Size=20 9 0 0 19 8
+CaveTime=200
+DiamondsRequired=5
+DummyProperties.destructable=false
+Amoeba2Time=0
+Amoeba2GrowthProb=1.0 1.0
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+WWCaWWA WWWbLWWWWWWW
+WVWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWW
+W    V             W
+W                  W
+WPB R              W
+W                 XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

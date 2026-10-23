@@ -1,0 +1,30 @@
+; A cow shut in by dirt turns into a skeleton after seven steps; Rockford
+; takes it (SkeletonsWorthDiamonds: an emerald), and the free cow walks
+[BDCFF]
+Version=0.5
+[game]
+Name=Cow
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+c=COWl
+[/mapcodes]
+[cave]
+Name=Cow
+Size=12 6 0 0 11 5
+CaveTime=200
+DiamondsRequired=1
+SkeletonsWorthDiamonds=1
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W...c......W
+WP.........W
+W......   cW
+W.........XW
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

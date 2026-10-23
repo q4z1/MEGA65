@@ -1,0 +1,27 @@
+; A cave with open edges and BorderProperties.lineshift: Rockford walks off
+; the right edge and comes in on the left one row lower; a boulder falls
+; through the bottom and comes in at the top
+[BDCFF]
+Version=0.5
+[game]
+Name=Wrap and lineshift
+Caves=1
+Levels=1
+[cave]
+Name=Wrap and lineshift
+Size=12 6 0 0 11 5
+CaveTime=200
+DiamondsRequired=5
+BorderProperties.lineshift=true
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWW WWWWW
+WWWWWW WWWWW
+WWWWWWrWWW  
+   P    WWWW
+WWWWWW WWWWX
+WWWWWW WWWWW
+[/map]
+[/cave]
+[/game]

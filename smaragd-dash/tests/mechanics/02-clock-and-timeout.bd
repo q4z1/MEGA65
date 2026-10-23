@@ -1,0 +1,30 @@
+; The clock gives bonus time - more than the cave's most, which GDash takes
+; off again - and then the time runs out
+[BDCFF]
+Version=0.5
+[game]
+Name=Clock and timeout
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+k=CLOCK
+[/mapcodes]
+[cave]
+Name=Clock and timeout
+Size=12 5 0 0 11 4
+CaveTime=10
+CaveMaxTime=12
+BonusTime=5
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWW
+W..........W
+WP.k......XW
+W..........W
+WWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

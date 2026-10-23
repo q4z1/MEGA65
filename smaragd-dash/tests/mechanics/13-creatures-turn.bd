@@ -1,0 +1,34 @@
+; Fireflies and butterflies circling; their direction is turned at the
+; hatching and every two seconds (EnemyDirectionProperties), and by the
+; creature switch
+[BDCFF]
+Version=0.5
+[game]
+Name=Creatures turn
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+S=FIREFLYBUTTERFLYSWITCH
+[/mapcodes]
+[cave]
+Name=Creatures turn
+Size=16 8 0 0 15 7
+CaveTime=200
+DiamondsRequired=5
+EnemyDirectionProperties.time=2
+EnemyDirectionProperties.changeathatching=true
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWW
+W   WWW   WWW  W
+W Q WWW B WWW  W
+W   WWW   WWW  W
+WWWWWWWWWWWWWWWW
+W.............SW
+WP............XW
+WWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

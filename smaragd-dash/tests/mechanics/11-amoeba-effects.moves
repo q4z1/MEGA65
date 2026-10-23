@@ -1,0 +1,6 @@
+# While Rockford hatched, it all happened: the amoeba shut in is emeralds,
+# amoeba 2 grew too big and its boulders fell, the box with both is empty
+= amoeba=enclosed amoeba2=toobig @2,2=DIAMOND @4,2=DIAMOND no=AMOEBA no=AMOEBA_2 @2,5=SPACE @4,6=SPACE
+= @7,5=STONE @14,5=STONE
+3R
+= st=living

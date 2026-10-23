@@ -1,0 +1,37 @@
+; Acid eats the dirt left of and below it; water flows left and down; a
+; horizontal expanding wall grows left, a vertical one down - the ways the
+; demo caves do not show
+[BDCFF]
+Version=0.5
+[game]
+Name=Spreading
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+x=HEXPANDINGWALL
+v=VEXPANDINGWALL
+a=ACID
+~=WATER
+[/mapcodes]
+[cave]
+Name=Spreading
+Size=14 9 0 0 13 8
+CaveTime=200
+DiamondsRequired=5
+AcidProperties=DIRT 1.0
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWW
+W   xW  vW..aW
+WWWWWWWW WWW.W
+WWWWWWWWWWWWWW
+W    ~WWWWWWWW
+W     WWWWWWWW
+WWWWWWWWWWWWWW
+WP          XW
+WWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

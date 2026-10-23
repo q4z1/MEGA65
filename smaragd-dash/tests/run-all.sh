@@ -1,0 +1,50 @@
+#!/bin/sh
+# All of Smaragd Dash's tests, one after the other, with a line for each and
+# a summary at the end; the log of each in build/test/NAME.log.
+#
+#   tests/run-all.sh           the host's tests (a minute) and those in Xemu
+#                              (some 15 minutes)
+#   tests/run-all.sh --host    the host's only
+#
+# Host: tools/cavekit.py, GDash's engine against GDash itself (a few games
+# with pseudo-random input, tests/test_gdengine.sh) and every mechanic of
+# it (tests/test_mechanics.py), the build with the solver. Xemu: the engine
+# as the MEGA65 runs it against the host (tests/test_gdmega65.py, with the
+# mechanics' scenarios), the DMA jobs of render.s against the C loop over
+# all 25 caves of level 1 (tests/test_render.sh, which also has the
+# screencast build solve them), the editor (tests/test_editor.sh).
+# They all build into build/, so they run one by one; the normal build is
+# made again at the end.
+
+cd "$(dirname "$0")/.."
+OUT=build/test
+mkdir -p $OUT
+failed=0
+passed=0
+
+run() {
+    name=$1
+    shift
+    start=$(date +%s)
+    if "$@" >$OUT/$name.log 2>&1; then
+        passed=$((passed + 1))
+        result=ok
+    else
+        failed=$((failed + 1))
+        result=FAIL
+    fi
+    printf '%-5s %-12s %4ss  %s\n' $result "$name" $(($(date +%s) - start)) "$(tail -1 $OUT/$name.log)"
+}
+
+run build ./build.sh
+run cavekit python3 tests/test_cavekit.py
+run gdengine tests/test_gdengine.sh
+run mechanics python3 tests/test_mechanics.py
+if [ "$1" != --host ]; then
+    run gdmega65 python3 tests/test_gdmega65.py
+    run render tests/test_render.sh 25
+    run editor tests/test_editor.sh
+fi
+./build.sh >$OUT/build.log 2>&1
+echo "$passed passed, $failed failed (logs in $OUT)"
+[ $failed -eq 0 ]

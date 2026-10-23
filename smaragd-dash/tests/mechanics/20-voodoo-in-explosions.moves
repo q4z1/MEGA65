@@ -1,0 +1,13 @@
+# While Rockford hatched: the butterfly blew up at its amoeba, and the
+# voodoo in its explosion left a time penalty, now a gravestone (30 s off);
+# amoeba 2, shut in, turned into emeralds; the biter went into the lava
+= @1,2=GRAVESTONE @6,1=DIAMOND @7,1=DIAMOND no=BITER* @12,1=LAVA
+r                 # the bomb snapped up
+= p=1,6 @1,6=PLAYER_BOMB
+R U U R           # beside the voodoo
+r                 # the bomb down between them
+= @4,4=BOMB_TICK*
+L L D D 6.        # away; it goes off and leaves the voodoo
+= @5,4=VOODOO st=living
+R R r             # the rocket launcher snapped up
+= p=3,6 @3,6=PLAYER_ROCKET_LAUNCHER @4,6=SPACE

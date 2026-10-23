@@ -5,9 +5,13 @@
 //
 //   gdplay cave <file>                   the values after the start
 //   gdplay play <file> <steps> <seed>    playing; seed: of the input
-//   gdplay check <file> <steps> <seed>   the same, a digest per step
+//   gdplay check <file> <steps> <seed> [moves]
+//                                        the same, a digest per step
 //                                        (gddigest.h), as the game built
-//                                        with -DGDCHECK writes them
+//                                        with -DGDCHECK writes them; with
+//                                        the input of a CHECKnn file
+//                                        (moves) as main.c's gd_check
+//                                        takes it
 //
 // <file> holds a GdCaveFile (tools/cavekit.py). Built with GD_EXACT for
 // GDash's random numbers, without it for the game's (tests/test_gdmega65.py).
@@ -21,6 +25,7 @@
 
 static GdCaveFile cave_file;
 static unsigned lcg;
+static uint8_t moves[1024];  // of a CHECKnn file, without its load address
 
 static unsigned next_rand(void) {
     lcg = lcg * 1103515245u + 12345u;
@@ -54,11 +59,35 @@ int main(int argc, char **argv) {
     }
     static const uint8_t dirs[] = {MV_STILL, MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT,
                                    MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_UP_RIGHT};
+    static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
     int steps = atoi(argv[3]);
     lcg = atoi(argv[4]);
+    if (argc > 5) {
+        FILE *m = fopen(argv[5], "rb");
+        if (!m || fseek(m, 2, SEEK_SET) || !fread(moves, 1, sizeof moves - 1, m)) {
+            fprintf(stderr, "gdplay: cannot read %s\n", argv[5]);
+            return 1;
+        }
+        fclose(m);
+    }
+    const uint8_t *p = moves;
+    uint8_t left = 0, step = DIR_NONE;
     for (int t = 0; t < steps; t++) {
-        unsigned in = next_rand();
-        gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+        if (moves[0]) {  // as main.c's gd_check
+            if (!left && p[0]) {
+                left = p[0];
+                step = p[1];
+                p += 2;
+            }
+            if (left)
+                left--;
+            else
+                step = DIR_NONE;
+            gd_iterate(mv[step & 7], (step & IN_FIRE) != 0, (step & 0x10) != 0);
+        } else {
+            unsigned in = next_rand();
+            gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+        }
         if (!strcmp(argv[1], "check")) {
             printf("%08x\n", gd_digest());
             continue;

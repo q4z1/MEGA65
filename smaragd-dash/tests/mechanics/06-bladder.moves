@@ -1,0 +1,18 @@
+# Rockford stands at the inbox. While he hatched, the bladder under the brick
+# wall slid off it and rose, the one beside the voodoo became a clock
+= @12,1=BLADDER* @13,2=SPACE @16,2=CLOCK
+R R R R           # pushed right: two steps, the bladder before him
+= @6,2=BLADDER* p=5,2
+R                 # dirt behind it: it goes down past the dirt
+= @6,3=BLADDER* p=6,2
+D                 # below Rockford it cannot go on: dirt all round
+= @6,3=BLADDER* p=6,2
+4R 3D 7R U        # round to the right of the next one
+L                 # pushed left: two cells on from Rockford
+= @15,4=BLADDER* p=16,4
+D 6L 2U R         # above the third one, which the dirt held
+D                 # pushed down: two cells below Rockford
+= @11,5=BLADDER* p=11,4
+L U U             # away; it rises again
+16.
+= @11,3=BLADDER*

@@ -1,0 +1,5 @@
+# The dragonfly touched its voodoo at once: Rockford is dead before he hatched
+= st=dead
+6.                # the cave goes on: the boulder falls onto its voodoo, the bomb
+                  # goes off beside its own, the butterfly's explosion turns one into an emerald
+= @11,2=BOMB_EXPL* @7,3=GRAVESTONE @13,2=DIAMOND no=VOODOO

@@ -150,11 +150,25 @@ shows the whole RAM with what is free, the program by source file, and the
 disk; it also checks that the caves, the moves and the high scores fit
 the variables they are loaded into.
 
+`tests/run-all.sh` runs all of the tests below, one after the other, with a
+line for each and the logs in `build/test/` (`--host`: only those on the
+host, a minute; with Xemu some 15 minutes more).
+
 The tests of `tools/cavekit.py` run on the host, `python3 tests/test_cavekit.py`.
 `tests/test_gdengine.sh` plays caves of GDash's own collection with the
 game's GDash engine on the host, step by step beside GDash's own code (see
 [below](#own-caves-and-gdash); `--all` for all of them, `--gds` for the C64
-games GDash imports). `tests/test_editor.sh`
+games GDash imports), with pseudo-random input. `python3
+tests/test_mechanics.py` makes every mechanic of the engine happen: each
+small cave in `tests/mechanics/` (and the demo caves) has moves that make
+one thing happen - a bladder pushed every way, the hammer, nitro going off
+in a chain, slime, a chasing boulder, a voodoo hurt, ... - and `=` lines
+that say what must come of it; each is played step by step beside GDash
+(`gdash-oracle moves`), comparing the map and all the player has after
+every step, and with the game's random numbers. With `--coverage` it tells
+how much of `src/gdengine.c` it runs; together with GDash's collection all
+but four lines (a diagonal input the game never sends, two default cases,
+a corner of GLib's random numbers). `tests/test_editor.sh`
 tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
 game takes its keys from a script (`test_script` in `src/main.c`) and stops
 at its n-th stop; the screens of the eleven stops land in `build/test/`,
@@ -164,12 +178,14 @@ the normal game again afterwards.
 What runs on the MEGA65 in assembler has its C original beside it, which
 the host's tests check; two tests check the assembler against it in Xemu.
 `python3 tests/test_gdmega65.py` plays some 200 caves of GDash's
-collection (or the files given) with GDash's engine as the MEGA65 runs it
-(built with `-DGDCHECK`: a digest of every step, `src/gddigest.h`, into
-bank 4) and compares each step with `tests/gdplay.c` on the host.
-`tests/test_render.sh` lets the screencast build make each frame's DMA
-jobs with `src/render.s` and with the C loop (`-DRENDER_CHECK`) and counts
-the frames where they differ. Built with `-DGDPROF`, the game measures how
+collection and the mechanics' scenarios (or the files given) with GDash's
+engine as the MEGA65 runs it (built with `-DGDCHECK`: a digest of every
+step, `src/gddigest.h`, into bank 4; a scenario's moves in the slot's file
+`CHECKnn`) and compares each step with `tests/gdplay.c` on the host; if
+Xemu hangs, it names the cave. `tests/test_render.sh` lets the screencast
+build make each frame's DMA jobs with `src/render.s` and with the C loop
+(`-DRENDER_CHECK`), counts the frames where they differ, and checks that
+it got through all the caves. Built with `-DGDPROF`, the game measures how
 long GDash's engine and the frames take (by CIA 1's timer, read from a
 memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
 
@@ -257,9 +273,10 @@ GDash's engine at work, each with the moves that solve it:
 `tools/democave.py play demo/NAME.bd demo/NAME.moves` plays one on the host
 with the game's engine (started with the screencast's random numbers) and
 tells how it ends; `!` in the moves shows the map there. The moves are
-`U R D L` (`u r d l` with fire), `.` to wait, a number in front repeats,
-`L*` repeats until Rockford gets there (a push that works only now and
-then).
+`U R D L` (`u r d l` with fire), `.` to wait, `X` to give up, a number in
+front repeats, `L*` repeats until Rockford gets there (a push that works
+only now and then); a line that starts with `=` says what must be so at
+that point (`= key1=1 @12,5=DIAMOND st=out`, see `tools/democave.py`).
 
 `tools/record-tour.sh` films them being solved: the caves go into the slots
 of a disk of the game built with `-DSCREENCAST -DTOUR`, their moves onto it

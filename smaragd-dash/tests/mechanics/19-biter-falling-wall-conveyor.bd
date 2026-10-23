@@ -1,0 +1,38 @@
+; A biter eats its way through dirt and emeralds, goes into space and last
+; into a boulder, leaving a boulder where it was; boxed in, it turns. A
+; falling wall drops onto Rockford when he stands under it. Flying boulders
+; rise and stick under a conveyor belt going right, which carries them
+; along its underside the other way, left
+[BDCFF]
+Version=0.5
+[game]
+Name=Biter, falling wall, conveyor
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+b=BITERr
+f=FALLINGWALL
+>=CONVEYORRIGHT
+F=FLYINGBOULDER
+[/mapcodes]
+[cave]
+Name=Biter, falling wall, conveyor
+Size=16 9 0 0 15 8
+CaveTime=200
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWW
+Wb.d rWW>>>>>>>W
+WWWWWWWW       W
+WbWWWWWW    FFFW
+WWWWWWWWWWWWWWWW
+W  f           W
+W              W
+WP            XW
+WWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

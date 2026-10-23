@@ -1,0 +1,34 @@
+; Bladders rise; Rockford pushes them sideways (straight, or down past
+; dirt in the way) and down (two cells), never up; one beside the voodoo
+; turns into a clock; one under a brick wall slides off it to the side
+[BDCFF]
+Version=0.5
+[game]
+Name=Bladder
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+b=BLADDER
+V=DUMMY
+[/mapcodes]
+[cave]
+Name=Bladder
+Size=20 8 0 0 19 7
+CaveTime=200
+DiamondsRequired=5
+DummyProperties.destructable=false
+CaveScheduling=ms
+FrameTime=150
+[map]
+WWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWW w WWWWW
+WP  b  .  .. b .bV.W
+W..... ..........W.W
+W..........b..  b..W
+W.......... .......W
+W.................XW
+WWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]
