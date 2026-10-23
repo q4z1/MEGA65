@@ -69,6 +69,17 @@ _Static_assert(TILES_OFF + TILE_COUNT * 256ul <= 0xF800, "the tiles reach the co
 #define LOGO_BANK 3
 #define LOGO_OFF  0x0000u  // SMARAGD.LOGO at $30000, LOGO_W x LOGO_H pixels
 _Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0x10000, "the logo leaves bank 3");
+// A step of GDash's engine while it is made in parts (main.c, "steps"):
+// what lies at $C000 - cave[], moved[], gd (shared.ld) -, the step's and a
+// copy of the one shown, behind the logo
+#define STEP_AT    0xC000u
+#define STEP_SIZE  0x7E0u    // to file at $C7E0
+#define STEP_BANK  3
+#define STEP_SHOWN 0xC000u   // $3C000
+#define STEP_WORK  0xC800u   // $3C800
+_Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= STEP_SHOWN, "the logo reaches the steps");
+_Static_assert(STEP_SHOWN + STEP_SIZE <= STEP_WORK && STEP_WORK + STEP_SIZE <= 0xE000u, "the steps");
+
 // The editor's cave while the editor is closed (main.c's edit_keep), in
 // front of GDash's engine
 #define KEEP_BANK 2

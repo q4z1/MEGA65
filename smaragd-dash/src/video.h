@@ -44,6 +44,12 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
 
 void video_show(void);
 
+// The raster lines where video_sync and video_show begin to wait for their
+// windows, and the frame's lines (PAL 625, NTSC 525): the time left for
+// what runs before them (main.c's steps of GDash's engine)
+extern uint16_t video_sync_line, video_show_line, video_lines;
+uint16_t video_raster(void);  // the physical raster line now
+
 // Background (pixel value 0) white for the exit flash, or black again
 void video_flash(bool on);
 

@@ -20,6 +20,7 @@ _Static_assert(COLS * FB_COL == FB_SIZE, "a framebuffer is not as mem.h has it")
 static uint16_t text_x;        // TEXTXPOS for the status line
 static uint16_t text_y;        // first raster line of the text area
 static uint16_t bottom;        // first raster line of the bottom border
+uint16_t video_sync_line, video_show_line, video_lines;
 static uint8_t back;           // framebuffer being drawn: 0 = A, 1 = B
 static uint8_t shown_fx;       // fine scroll of the framebuffer on screen
 static uint8_t drawn_fx;       // fine scroll of the one just drawn
@@ -76,6 +77,9 @@ void video_init(void) {
     text_x = PEEK(0xD04C) | ((PEEK(0xD04D) & 0x0F) << 8);
     text_y = PEEK(0xD04E) | ((PEEK(0xD04F) & 0x0F) << 8);
     bottom = PEEK(0xD04A) | ((PEEK(0xD04B) & 0x0F) << 8);
+    video_sync_line = text_y + 34;
+    video_show_line = bottom + 2;
+    video_lines = (PEEK(0xD06F) & 0x80) ? 525 : 625;
     POKE(0xD05D, PEEK(0xD05D) & 0x7F);  // hot registers off
 
     // Side borders one character wider: hides the scrolled-in column
@@ -123,7 +127,7 @@ void video_init(void) {
 
 // ---------------------------------------------------------------- frame
 
-static uint16_t raster(void) {
+uint16_t video_raster(void) {
     uint8_t lo, hi;
     do {
         hi = PEEK(0xD053);
@@ -135,7 +139,7 @@ static uint16_t raster(void) {
 static void wait_raster(uint16_t from, uint16_t to) {
     uint16_t r;
     do
-        r = raster();
+        r = video_raster();
     while (r < from || r >= to);
 }
 
@@ -144,14 +148,41 @@ static void set_text_x(uint16_t x) {
     POKE(0xD04D, (PEEK(0xD04D) & 0xF0) | (x >> 8));
 }
 
+#ifdef SCROLLPROF
+// Built with -DSCROLLPROF (main.c): the raster lines the work before
+// video_sync (the game) and before video_show (the drawing) takes, in
+// steps of 32 lines (1 ms), and how often it came too late for its window
+volatile uint16_t sp_logic[20], sp_draw[20], sp_sync_late, sp_show_late;
+static uint16_t sp_mark;
+
+static uint16_t sp_lines(uint16_t from, uint16_t to) {
+    return to >= from ? to - from : to + 625 - from;
+}
+#endif
+
 void video_sync(void) {
+#ifdef SCROLLPROF
+    uint16_t r0 = video_raster(), n = sp_lines(sp_mark, r0) / 32;
+    sp_logic[n > 19 ? 19 : n]++;
+    if (r0 >= text_y + 46 && r0 < bottom + 2)
+        sp_sync_late++;
+#endif
     // Separator row: 2 rows of 16 raster lines below the top of the text.
     // Each of its pixel rows is a single colour, so shifting it is invisible.
     wait_raster(text_y + 34, text_y + 46);
     set_text_x(text_x - 2 * shown_fx);
+#ifdef SCROLLPROF
+    sp_mark = video_raster();
+#endif
 }
 
 void video_show(void) {
+#ifdef SCROLLPROF
+    uint16_t r1 = video_raster(), m = sp_lines(sp_mark, r1) / 32;
+    sp_draw[m > 19 ? 19 : m]++;
+    if (r1 >= bottom + 40 || r1 < text_y + 34)
+        sp_show_late++;
+#endif
     wait_raster(bottom + 2, bottom + 40);
     uint16_t scr = back ? SCREEN_B : SCREEN_A;
     POKE(0xD060, (uint8_t)scr);
@@ -159,6 +190,9 @@ void video_show(void) {
     set_text_x(text_x);
     shown_fx = drawn_fx;
     back ^= 1;
+#ifdef SCROLLPROF
+    sp_mark = video_raster();
+#endif
 }
 
 // One copy job in the list at p (see dma_job), written inline: this runs

@@ -204,8 +204,12 @@ then runs for a minute; the disk has small caves of its own for that.
 build make each frame's DMA jobs with `src/render.s` and with the C loop
 (`-DRENDER_CHECK`), counts the frames where they differ, and checks that
 it got through all the caves. Built with `-DGDPROF`, the game measures how
-long GDash's engine and the frames take (by CIA 1's timer, read from a
-memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
+long GDash's engine and the frames take (by CIA 1's timer and the raster,
+read from a memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
+`tools/scroll-profile.sh` plays the caves with their moves built with
+`-DSCROLLPROF` and tells how smooth they ran: frames dropped (by cave), the
+view's steps in pixels per frame, how long the game's work and the drawing
+took in each frame and the most a step of the engine took.
 
 The slots for the own caves (`OWN01` ... `OWN20`, see `tools/mkcave.py`)
 go onto the disk empty; like the high scores, a new build keeps them from
@@ -431,15 +435,27 @@ cells is drawn afterwards over an empty cell, with DMA transparency for
 pixel value 0: on a character column as two tile halves, otherwise one DMA
 job per pixel column, which copies every 8th byte of the tile into every
 8th byte of the framebuffer column (the DMA's skip rate). Their list (6K) lies
-below the program at $0800, where BASIC had its screen; the game never
-goes back to BASIC. Horizontal fine scrolling
+below the program at $0800, where BASIC had its screen (the KERNAL's reset
+makes it anew when the game goes back to BASIC). Horizontal fine scrolling
 moves the character generator (TEXTXPOS); it is switched while the thin line
 is drawn, whose pixel rows are single colours, so the status line stays in
 place. The frame loop: game logic during the vertical blank, the
 switch at the line, drawing, then waiting for the next blank to show the new
 framebuffer. The cave's clock goes by the MEGA65's frame counter, so a frame
 that takes longer does not slow the cave down; a step of GDash's engine
-takes as long as it says (at most 25 a second, as in GDash). The view moves
+takes as long as it says (at most 25 a second, as in GDash).
+
+A step of the engine in a full cave (boulders falling everywhere, a swarm
+of fireflies) takes up to 20 ms, longer than a frame leaves for it. So it
+is made in parts before its tick: in each frame, before the switch at the
+line and before the new framebuffer is shown, the engine scans rows of the
+cave as long as the raster says there is time (it knows the most a row has
+taken), and the step is shown at its tick. It begins one frame before the
+tick, or more when the last steps took longer. Meanwhile the screen shows
+the last step: between the parts the step's state (cave, moves and the
+engine's variables at $C000, 2K) waits in bank 3 and the shown one is put
+back, three DMA copies of 0.1 ms. The player's input goes into the step
+until the engine has come to his cell. The view moves
 with Rockford: inside a box of 64 x 32 pixels round the middle he walks on
 a still cave, beyond it the cave moves under him exactly as far as he goes,
 frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).

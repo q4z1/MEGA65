@@ -3,5 +3,6 @@
 
 .section .gdjump,"ax",@progbits
     jmp gd_start
-    jmp gd_iterate
     jmp gd_time_visible
+    jmp gd_step_begin
+    jmp gd_step_rows

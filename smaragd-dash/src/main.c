@@ -183,7 +183,10 @@ uint8_t rnd(void) {
     return (uint8_t)rnd_state;
 }
 #ifdef SCREENCAST
-static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/solve.c)
+// the cave's moves (DEMOnn, see tools/solve.c), where the editor's code
+// would be: the screencast never opens the editor
+#define demo_moves ((uint8_t *)EDIT_AT)
+_Static_assert(DEMO_MAX <= EDIT_SIZE, "the moves in the editor's place");
 #endif
 
 #if defined(EDITDEMO) && !defined(EDITTEST)
@@ -544,11 +547,22 @@ static void draw_trails(void) {
     }
 }
 
+#ifdef SCROLLPROF
+// Built with -DSCROLLPROF: how smooth the view moves while a cave plays,
+// read from a memory dump: frames of the loop by the MEGA65's frames they
+// took (1 is right, more: frames dropped), and the view's steps in pixels
+// per frame
+volatile uint16_t sp_frames[4];   // 1, 2, 3, more
+volatile uint16_t sp_step[17];    // |dx| + |dy| of the view, 0-16
+volatile uint16_t sp_drop[26];    // frames dropped, by cave
+volatile uint16_t sp_step_lines;  // the most raster lines a step took
+#endif
+
 #ifdef GDPROF
 // Built with -DGDPROF: how long GDash's engine and the frames take while a
 // cave from GDash plays, read from a memory dump (CIA 1's timer A runs
 // free at about 1 MHz; the game uses no CIA interrupts)
-volatile uint32_t prof_engine;    // timer ticks in gd_iterate since the cave started
+volatile uint32_t prof_engine;    // raster lines of GDash's steps since the cave started
 volatile uint16_t prof_steps;     // its steps
 volatile uint16_t prof_busy[16];  // frames by their work before the wait, 2 ms each
 
@@ -947,6 +961,71 @@ static void status_intro(void) {
 
 // ---------------------------------------------------------------- frames
 
+// ---------------------------------------------------------------- steps
+
+// A step of GDash's engine is made in parts in the frames before its tick,
+// in the time each frame leaves before video_sync and before video_show
+// (gd_step_rows watches the raster), and shown at its tick: a step that
+// takes longer than a frame leaves (a full cave) costs no frame. The
+// screen meanwhile shows the last step. Between the parts the step's state
+// (what lies at $C000: cave[], moved[], gd) waits in STEP_BANK at
+// STEP_WORK and the shown one is at $C000 (a copy at STEP_SHOWN), so all
+// but the engine see the step shown.
+enum { ST_IDLE, ST_MAKING, ST_MADE };
+static uint8_t step_state;
+static bool step_begun;       // gd_step_begin has run
+static bool step_taken;       // the player has taken his input
+static uint8_t step_in;       // the input (IN_*) given to the step
+static uint16_t step_cost;    // raster lines the parts took
+static uint16_t step_lines;   // ... in the last steps, at most (it decays)
+static bool gd_suicide;       // Run/Stop, for GDash's next step
+static uint8_t latched = DIR_NONE;  // a direction pressed since the last step took one
+static bool fire_latched;     // ... and fire
+_Static_assert(2 * CAVE_SIZE + GD_STATE_SIZE == STEP_SIZE, "what lies at $C000 (shared.ld)");
+
+static void step_dma(uint16_t off, bool in) {
+    dma_begin(0, 0);
+    if (in)
+        dma_copy(off, STEP_BANK, STEP_AT, 0, STEP_SIZE);
+    else
+        dma_copy(STEP_AT, 0, off, STEP_BANK, STEP_SIZE);
+    dma_run();
+}
+
+// GDash's directions for IN_*
+static uint8_t step_move(uint8_t in) {
+    static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
+    return mv[in & 7] | (in & IN_FIRE ? 0x80 : 0);
+}
+
+// Work on the step until the raster is near `end`
+static void step_work(uint16_t end) {
+    if (step_state != ST_MAKING)
+        return;
+    uint16_t r0 = video_raster();
+    end = (end + video_lines - 12) % video_lines;  // the copies below
+    if (!step_begun) {
+        step_dma(STEP_SHOWN, false);
+        gd_step_begin(step_move(step_in) & 0x7F, (step_in & IN_FIRE) != 0, gd_suicide);
+        gd_suicide = false;
+        step_begun = true;
+    } else {
+        step_dma(STEP_WORK, true);
+    }
+    uint8_t r = gd_step_rows(step_move(step_in), end, video_lines);
+    step_dma(STEP_WORK, false);
+    step_dma(STEP_SHOWN, true);
+    if ((r & 2) && !step_taken) {  // what was pressed until now is used
+        step_taken = true;
+        latched = DIR_NONE;
+        fire_latched = false;
+    }
+    if (r & 1)
+        step_state = ST_MADE;
+    uint16_t r1 = video_raster();
+    step_cost += r1 >= r0 ? r1 - r0 : r1 + video_lines - r0;
+}
+
 static void next_frame(void) {
 #ifdef GDPROF
     if (!show_cursor) {
@@ -954,6 +1033,7 @@ static void next_frame(void) {
         prof_busy[busy > 15 ? 15 : busy]++;
     }
 #endif
+    step_work(video_sync_line);
     video_sync();
 #ifdef GDPROF
     prof_synced = prof_timer();
@@ -966,6 +1046,7 @@ static void next_frame(void) {
         s->tile = T_CURSOR;
     }
     video_render(tiles, cam_x, cam_y, sprites, nsprites);
+    step_work(video_show_line);
     video_show();
     SHOT_TICK();
     sound_frame();
@@ -1807,8 +1888,6 @@ enum { END_DIED, END_EXITED, END_QUIT };  // QUIT: F1 ends the game
 // Every cave plays by GDash's rules (gdengine.c, mapped in for each step by
 // gdfar.s); `game` is taken from its state after each step, for the status
 // line, the drawing and the sounds.
-static bool gd_suicide;  // Run/Stop, for GDash's next step
-
 static void game_from_gd(void) {
     static const uint8_t state[] = {PS_HATCHING, PS_ALIVE, PS_TIMEOUT, PS_DEAD, PS_EXITED};
     game.state = state[gd.player_state];
@@ -1835,6 +1914,10 @@ static void rules_start(void) {
     game.def = &cave_def;
     game.facing = DIR_DOWN;
     gd_suicide = false;
+    step_state = ST_IDLE;
+    step_lines = 0;
+    latched = DIR_NONE;
+    fire_latched = false;
     items_fresh = true;
 #ifdef GDPROF
     prof_engine = 0;
@@ -1852,18 +1935,23 @@ static void rules_start(void) {
     game_from_gd();
 }
 
-static void rules_tick(uint8_t in) {
-    static const uint8_t mv[] = {MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_STILL};
-    uint8_t dir = in & 7;
+// The step made at its tick: shown from now on. One not made yet is made at
+// once (the frames wait for it then).
+static void rules_tick(void) {
+    while (step_state == ST_MAKING)  // a whole frame
+        step_work((video_raster() + video_lines - 70) % video_lines);
+    step_dma(STEP_WORK, true);
+    step_state = ST_IDLE;
+    if (!step_taken) {  // no player took it
+        latched = DIR_NONE;
+        fire_latched = false;
+    }
+    step_lines = step_cost > step_lines ? step_cost : step_lines - step_lines / 8;
 #ifdef GDPROF
-    uint16_t t0 = prof_timer();
-#endif
-    gd_iterate(mv[dir], (in & IN_FIRE) != 0, gd_suicide);
-#ifdef GDPROF
-    prof_engine += (uint16_t)(t0 - prof_timer());
+    prof_engine += step_cost;
     prof_steps++;
 #endif
-    gd_suicide = false;
+    uint8_t in = step_in, dir = in & 7;
     game.moving = dir != DIR_NONE;
     game.snapping = game.moving && (in & IN_FIRE);
     if (game.moving)
@@ -1876,9 +1964,7 @@ static uint8_t play_cave(void) {
     uint16_t tick_len;  // in 1/3 ms
     uint16_t tick_acc = 0;
     uint16_t shown_time = 0;  // for the clock's tick under ten seconds (GDash's)
-    uint8_t latched = DIR_NONE;
     uint8_t last_dir = DIR_NONE;  // the direction held in the frame before
-    bool fire_latched = false;
     bool paused = false;
     uint8_t after = 0;  // frames since Rockford died
     uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
@@ -1897,6 +1983,7 @@ static uint8_t play_cave(void) {
     for (;;) {
         if (get_key() == KEY_F1) {
             sound_off();
+            step_state = ST_IDLE;  // a step being made is not shown
             cover_cave(1);
             return END_QUIT;
         }
@@ -1934,17 +2021,31 @@ static uint8_t play_cave(void) {
         else if (frames > 3)  // a pause or the start: no steps to catch up
             frames = 3;
         tick_acc += frame_len * frames;
-        if (tick_acc >= tick_len && game.state != PS_TIMEOUT && game.state != PS_EXITED) {
-            tick_acc -= tick_len;
-            uint8_t in = dir != DIR_NONE ? dir : latched;
-            if (fire_latched)
-                in |= IN_FIRE;
+        bool ticks = game.state != PS_TIMEOUT && game.state != PS_EXITED;
+        // The next step is begun as many frames before its tick as the
+        // last ones took (at least one), and takes the input until the
+        // player has taken it
+        if (ticks && step_state == ST_IDLE) {
+            uint16_t left = tick_acc >= tick_len ? 0 : (tick_len - tick_acc + frame_len - 1) / frame_len;
+            uint16_t ahead = 1 + step_lines / (video_lines * 2 / 5);
+            if (left <= ahead) {
+                step_state = ST_MAKING;
+                step_begun = step_taken = false;
+                step_cost = 0;
 #ifdef SCREENCAST
-            in = demo_next();
+                step_in = demo_next();
 #endif
-            latched = DIR_NONE;
-            fire_latched = false;
-            rules_tick(in);
+            }
+        }
+#ifndef SCREENCAST
+        if (step_state == ST_MAKING && !step_taken)
+            step_in = (dir != DIR_NONE ? dir : latched) | (fire_latched ? IN_FIRE : 0);
+#else
+        (void)(latched | fire_latched);  // the moves come from the disk
+#endif
+        if (tick_acc >= tick_len && ticks) {
+            tick_acc -= tick_len;
+            rules_tick();
             tick_len = gd_step_ms() * 3;  // GDash's steps take as long as it says
             add_trails();
             if (moved[game.player] != DIR_NONE)
@@ -1957,6 +2058,13 @@ static uint8_t play_cave(void) {
                 sound_exit();
             }
         }
+#ifdef SCROLLPROF
+        sp_frames[frames > 3 ? 3 : frames - 1]++;
+        if (frames > 1 && game.state == PS_ALIVE)
+            sp_drop[cave_no < 25 ? cave_no : 25] += frames - 1;
+        if (step_lines > sp_step_lines)
+            sp_step_lines = step_lines;
+#endif
         // How far the moves of the tick have come: they end with the next
         // one, so what stops always reaches its cell.
         slide = tick_acc >= tick_len ? 0 : 16 - tick_acc * 16 / tick_len;
@@ -1974,16 +2082,25 @@ static uint8_t play_cave(void) {
 
         switch (game.state) {
         case PS_ALIVE:
-        case PS_HATCHING:
+        case PS_HATCHING: {
+#ifdef SCROLLPROF
+            uint16_t ox = cam_x, oy = cam_y;
+#endif
             status_play();
             camera(false);
+#ifdef SCROLLPROF
+            uint8_t st = (cam_x > ox ? cam_x - ox : ox - cam_x) + (cam_y > oy ? cam_y - oy : oy - cam_y);
+            sp_step[st > 16 ? 16 : st]++;
+#endif
             break;
+        }
         case PS_DEAD:
             status_play();
             // the cave goes on; after a while the button ends it
             if (after < 255)
                 after++;
             if ((after > 50 && (pressed & IN_BUTTON)) || after == 255) {
+                step_state = ST_IDLE;  // a step being made is not shown
                 cover_cave(1);
                 return END_DIED;
             }
@@ -1991,6 +2108,7 @@ static uint8_t play_cave(void) {
         case PS_TIMEOUT:
             status_center("OUT OF TIME");
             if (pressed & IN_BUTTON) {
+                step_state = ST_IDLE;  // a step being made is not shown
                 cover_cave(1);
                 return END_DIED;
             }
@@ -2005,6 +2123,7 @@ static uint8_t play_cave(void) {
                     sound_bonus();
                 status_game();
             } else {
+                step_state = ST_IDLE;  // a step being made is not shown
                 cover_cave(1);
                 return END_EXITED;
             }
@@ -2832,6 +2951,13 @@ static bool rom_writable(void) {
 #define CHECK_SUICIDE 0x10  // Run/Stop (tools/democave.py's IN_SUICIDE)
 _Static_assert(OWN_SLOTS * GDCHECK_STEPS * 4UL <= 0x10000, "the digests in one bank");
 
+// A whole step at once, as gd_iterate on the host
+static void gd_check_step(uint8_t move, bool fire, bool suicide) {
+    gd_step_begin(move, fire, suicide);
+    while (!(gd_step_rows(move | (fire ? 0x80 : 0), 0, 0) & 1))
+        ;
+}
+
 static void gd_check(void) {
     static const uint8_t dirs[] = {MV_STILL, MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT,
                                    MV_UP, MV_RIGHT, MV_DOWN, MV_LEFT, MV_UP_RIGHT};
@@ -2866,11 +2992,11 @@ static void gd_check(void) {
                     left--;
                 else
                     step = DIR_NONE;
-                gd_iterate(mv[step & 7], (step & IN_FIRE) != 0, (step & CHECK_SUICIDE) != 0);
+                gd_check_step(mv[step & 7], (step & IN_FIRE) != 0, (step & CHECK_SUICIDE) != 0);
             } else {
                 lcg = lcg * 1103515245u + 12345u;
                 uint16_t in = (lcg >> 16) & 0x7FFF;
-                gd_iterate(dirs[in % 10], (in >> 4) % 8 == 0, false);
+                gd_check_step(dirs[in % 10], (in >> 4) % 8 == 0, false);
             }
             d = gd_digest();
             dma_begin(0, 0);

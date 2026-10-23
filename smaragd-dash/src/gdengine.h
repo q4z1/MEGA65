@@ -79,8 +79,17 @@ extern GdState gd;
 // seed: its random numbers
 void gd_start(const GdCaveFile *f, uint32_t seed);
 
-// A step: the player's direction (MV_*) and fire, or giving up (suicide)
+// A step: the player's direction (MV_*) and fire, or giving up (suicide);
+// on the host (the MEGA65 has the parts below)
 void gd_iterate(uint8_t player_move, bool player_fire, bool suicide);
+
+// A step in parts (gdengine.c), the scan's rows as long as there is time:
+// gd_step_rows until bit 0 of its result is set (bit 1: the player has
+// taken the input, MV_* | 0x80 for fire); end and lines are raster lines
+// (gd_step_end comes with the last call)
+void gd_step_begin(uint8_t player_move, bool player_fire, bool suicide);
+uint8_t gd_step_rows(uint8_t input, uint16_t end, uint16_t lines);
+void gd_step_end(void);
 
 // The seconds left as GDash shows them
 uint16_t gd_time_visible(void);

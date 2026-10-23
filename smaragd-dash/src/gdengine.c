@@ -342,6 +342,7 @@ static void store(int8_t x, int8_t y, uint8_t e) {
 static uint8_t sc_move;
 static bool sc_fire, sc_inbox_toggle, sc_amoeba_found_enclosed, sc_amoeba_2_found_enclosed;
 static uint16_t sc_amoeba_count, sc_amoeba_2_count;
+static bool st_taken;  // the player has taken sc_move and sc_fire in this step
 uint32_t gd_scan_ckdelay;  // the C64's delay of the cells scan_cells passed
 
 // Something for the drawing's little effects at x, y (gd.events, EV_*);
@@ -1427,6 +1428,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_PLAYER_PNEUMATIC_LEFT:
     case O_PLAYER_PNEUMATIC_RIGHT:
         player(x, y, e, sc_move, sc_fire);
+        st_taken = true;
         break;
     case O_PNEUMATIC_ACTIVE_RIGHT:
     case O_PNEUMATIC_ACTIVE_LEFT:
@@ -2180,29 +2182,41 @@ static int32_t count_down(int32_t t) {
 }
 
 
-void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
-    prof_mark(255);
-    const GdCaveFile *f = gd.f;
-    bool amoeba_found_enclosed = true, amoeba_2_found_enclosed = true;
-    uint16_t amoeba_count = 0, amoeba_2_count = 0;
-    bool inbox_toggle, start_signal = false;
-    int16_t time_decrement_sec = 0;
+// A step in three parts, so the program can show its frames while a step
+// that takes long is made (main.c): gd_step_begin, gd_step_rows as long as
+// there is time, gd_step_end (which gd_step_rows calls after the last row).
+// gd_iterate is all of them at once.
+static uint8_t st_y, st_ymax;   // the next row of the scan, and its last
+#ifdef GD_FAR
+static uint8_t st_row_max;      // the most raster lines a row took in this step
+static uint8_t st_end_max = 40; // ... and gd_step_end, in any step
+#endif
 
-    gd.sound = 0;
-    gd.nevents = 0;
-    clear_moved();
+// The player's direction for scan_cell: without diagonals unless the cave
+// has them
+__attribute__((noinline)) static void step_input(uint8_t player_move, bool player_fire) {
     if (!flag(GDF_DIAGONAL_MOVEMENTS)) {
         if (player_move == MV_UP_RIGHT || player_move == MV_DOWN_RIGHT)
             player_move = MV_RIGHT;
         else if (player_move == MV_UP_LEFT || player_move == MV_DOWN_LEFT)
             player_move = MV_LEFT;
     }
+    sc_move = player_move;
+    sc_fire = player_fire;
+}
+
+__attribute__((noinline)) void gd_step_begin(uint8_t player_move, bool player_fire, bool suicide) {
+    prof_mark(255);
+    gd.sound = 0;
+    gd.nevents = 0;
+    clear_moved();
+    step_input(player_move, player_fire);
+    st_taken = false;
     if (gd.player_seen_ago < 100)
         gd.player_seen_ago++;
     if (gd.pneumatic_hammer_active_delay > 0)
         gd.pneumatic_hammer_active_delay--;
     gd.inbox_flash_toggle = !gd.inbox_flash_toggle;
-    inbox_toggle = gd.inbox_flash_toggle;
     if (gd.gate_open_flash > 0)
         gd.gate_open_flash--;
     gd.score = 0;
@@ -2217,22 +2231,84 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
                     store(x, y, O_BRICK), SOUND(SND_GROW);
             }
     gd.ckdelay_current = 0;
-    sc_move = player_move;
-    sc_fire = player_fire;
-    sc_inbox_toggle = inbox_toggle;
-    sc_amoeba_found_enclosed = amoeba_found_enclosed;
-    sc_amoeba_2_found_enclosed = amoeba_2_found_enclosed;
-    sc_amoeba_count = amoeba_count;
-    sc_amoeba_2_count = amoeba_2_count;
+    sc_inbox_toggle = gd.inbox_flash_toggle;
+    sc_amoeba_found_enclosed = true;
+    sc_amoeba_2_found_enclosed = true;
+    sc_amoeba_count = 0;
+    sc_amoeba_2_count = 0;
     gd_scan_ckdelay = 0;
+    if (flag(GDF_BORDER_SCAN_FIRST_AND_LAST)) {
+        st_y = 0;
+        st_ymax = gd.h - 1;
+    } else {
+        st_y = 1;
+        st_ymax = gd.h - 2;
+    }
+#ifdef GD_FAR
+    st_row_max = 4;
+#endif
     prof_mark(0);
-    if (flag(GDF_BORDER_SCAN_FIRST_AND_LAST))
-        scan_cells(0, gd.h - 1, gd.w);
-    else
-        scan_cells(1, gd.h - 2, gd.w);
-    prof_mark(1);
+}
+
+#ifdef GD_FAR
+// The raster lines from the physical raster line now to `end`, in a frame
+// of `lines`; 0 once it is past (the windows the program gives are shorter
+// than lines - 64). No lines: no end (gd_iterate).
+__attribute__((noinline)) static uint16_t lines_left(uint16_t end, uint16_t lines) {
+    if (!lines)
+        return 0x7FFF;
+    volatile uint8_t *const io = (volatile uint8_t *)0xD000;
+    uint8_t lo, hi;
+    do {
+        hi = io[0x53];
+        lo = io[0x52];
+    } while (hi != io[0x53]);
+    uint16_t r = (uint16_t)(hi & 7) << 8 | lo;
+    uint16_t left = end >= r ? end - r : end + lines - r;
+    return left > lines - 64 ? 0 : left;
+}
+#endif
+
+// Rows of the scan while the raster is before `end` (raster lines, a frame
+// of `lines`; on the host all of them), with the player's input (MV_* and
+// fire: 0x80) for as long as he has not taken it; then gd_step_end. Bit 0
+// of the result: the step is made; bit 1: the player has taken the input.
+__attribute__((noinline)) uint8_t gd_step_rows(uint8_t input, uint16_t end, uint16_t lines) {
+    if (!st_taken)
+        step_input(input & 0x7F, (input & 0x80) != 0);
+    (void)end;
+    (void)lines;
+    for (;;) {
+        bool last = st_y > st_ymax;  // the rows are done: gd_step_end
+#ifdef GD_FAR
+        uint8_t *most = last ? &st_end_max : &st_row_max;
+        uint16_t before = lines_left(end, lines);
+        if (before < (uint16_t)*most + 8)
+            return st_taken ? 2 : 0;
+#endif
+        if (last)
+            gd_step_end();
+        else
+            scan_cells(st_y, st_y, gd.w);
+#ifdef GD_FAR
+        uint16_t took = before - lines_left(end, lines);
+        if (took > *most)
+            *most = took > 250 ? 250 : took;
+#endif
+        if (last)
+            return st_taken ? 3 : 1;
+        st_y++;
+    }
+}
+
+__attribute__((noinline)) void gd_step_end(void) {
+    const GdCaveFile *f = gd.f;
+    bool amoeba_found_enclosed, amoeba_2_found_enclosed;
+    uint16_t amoeba_count, amoeba_2_count;
+    bool start_signal = false;
+    int16_t time_decrement_sec = 0;
+
     gd.ckdelay_current += gd_scan_ckdelay;
-    inbox_toggle = sc_inbox_toggle;
     amoeba_found_enclosed = sc_amoeba_found_enclosed;
     amoeba_2_found_enclosed = sc_amoeba_2_found_enclosed;
     amoeba_count = sc_amoeba_count;
@@ -2387,6 +2463,14 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
         gd.replicators_wait_frame--;
     if (gd.player_state != GD_PL_TIMEOUT && gd.time == 0)
         gd.player_state = GD_PL_TIMEOUT;
-    gd.last_direction = player_move;
+    gd.last_direction = sc_move;
     prof_mark(4);
 }
+
+#ifndef GD_FAR  // on the MEGA65 the program calls the parts (main.c)
+void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
+    gd_step_begin(player_move, player_fire, suicide);
+    while (!(gd_step_rows(player_move | (player_fire ? 0x80 : 0), 0xFFFF, 0) & 1))
+        ;
+}
+#endif

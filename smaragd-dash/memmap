@@ -11,6 +11,8 @@ ram  $E000+8186      the cave editor's code (link.ld .editor), under the KERNAL
 ram  $20000+1040     the editor's cave while the editor is closed (main.c edit_keep)
 ram  $24000+32768    GDash's engine (gdengine.ld), mapped to $4000 while it runs
 ram  $30000+41472    title logo, 288x144 pixels (mkgfx.py)
+ram  $3C000+2016     what is shown while a step of GDash's engine is made (main.c)
+ram  $3C800+2016     the step being made: cave[], moved[], gd (main.c)
 
 # Banks 4 and 5: framebuffers of 40 columns x 22 characters x 64 bytes
 ram  $40000+56320    framebuffer A (video.c)

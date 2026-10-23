@@ -4,7 +4,7 @@
 ; main.c loads to $1F80 (SMARAGD.LOW). The arguments stay as they came (A,
 ; X, Y and the imaginary registers), and so does what it returns (A, X).
 
-.global gd_start, gd_iterate, gd_time_visible
+.global gd_start, gd_time_visible, gd_step_begin, gd_step_rows
 
 .section .lowcode,"ax",@progbits
 
@@ -13,14 +13,19 @@ gd_start:
     jsr $4000
     jmp map_out
 
-gd_iterate:
+gd_step_begin:
     jsr map_in
-    jsr $4003
+    jsr $4006
+    jmp map_out
+
+gd_step_rows:
+    jsr map_in
+    jsr $4009
     jmp map_out
 
 gd_time_visible:
     jsr map_in
-    jsr $4006
+    jsr $4003
 map_out:
     pha
     phx
