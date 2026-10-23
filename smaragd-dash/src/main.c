@@ -75,21 +75,29 @@ static uint8_t nsprites;
 // glitter that fades slowly, calm behind its quick round (both in the
 // colours of the creature: the alternative ones, the stonefly and the
 // dragonfly have their own); a faint mist that drifts up where the ghost
-// was; crumbs where Rockford dug and behind a cow, and dust beside a
-// boulder that lands. Only the drawing knows of it.
+// was; crumbs where Rockford dug and behind a cow, purple ones behind the
+// biter, grit behind the chasing boulder and whatever falls or flies, a
+// glint behind a falling emerald, smoke behind a rocket, tiny bubbles
+// behind a bladder; dust beside a boulder that lands. Only the drawing
+// knows of it.
 enum {
     TR_NONE, TR_EMBERS, TR_GLITTER, TR_CRUMBS, TR_DUST_L, TR_DUST_R,
-    TR_EMBERS_ALT, TR_GLITTER_ALT, TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST
+    TR_EMBERS_ALT, TR_GLITTER_ALT, TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST,
+    TR_CRUMBS_BITER, TR_CRUMBS_GRIT, TR_DROPS, TR_GLINT, TR_SMOKE
 };
 static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUSTL0, T_DUSTR0,
-                                      T_EMBERS_ALT0, T_GLITTER_ALT0, T_GLITTER_STONE0, T_GLITTER_DRAGON0, T_MIST0};
+                                      T_EMBERS_ALT0, T_GLITTER_ALT0, T_GLITTER_STONE0, T_GLITTER_DRAGON0, T_MIST0,
+                                      T_CRUMBS_BITER0, T_CRUMBS_GRIT0, T_DROPS0, T_GLINT0, T_SMOKE0};
 static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1,
-                                     T_EMBERS_ALT3, T_GLITTER_ALT3, T_GLITTER_STONE3, T_GLITTER_DRAGON3, T_MIST3};
-static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5, 3, 5, 5, 4, 5};  // frames per stage
+                                     T_EMBERS_ALT3, T_GLITTER_ALT3, T_GLITTER_STONE3, T_GLITTER_DRAGON3, T_MIST3,
+                                     T_CRUMBS_BITER2, T_CRUMBS_GRIT2, T_DROPS2, T_GLINT3, T_SMOKE2};
+static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5, 3, 5, 5, 4, 5, 3, 3, 4, 3, 4};  // frames per stage
 // The trail of each creature's event (EV_*; 0: none)
 static const uint8_t event_trail[] = {TR_EMBERS, TR_GLITTER, 0, 0, TR_EMBERS_ALT, TR_GLITTER_ALT,
-                                      TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST, TR_CRUMBS};
-#define TRAILS 48
+                                      TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST, TR_CRUMBS,
+                                      TR_CRUMBS_BITER, TR_DROPS, TR_CRUMBS_GRIT, TR_CRUMBS_GRIT, TR_GLINT,
+                                      TR_SMOKE};
+#define TRAILS 64
 static uint16_t trail_cell[TRAILS];
 static uint8_t trail_kind[TRAILS];  // TR_*
 static uint8_t trail_tile[TRAILS];  // its stage now

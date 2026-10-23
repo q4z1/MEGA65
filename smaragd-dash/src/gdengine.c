@@ -354,6 +354,12 @@ static void event(int8_t x, int8_t y, uint8_t what) {
     }
 }
 
+// The same for a cell that something has just left (it is empty now)
+static void left(int8_t x, int8_t y, uint8_t what) {
+    if (get(x, y) == O_SPACE)
+        event(x, y, what);
+}
+
 static void store_dir(int8_t x, int8_t y, uint8_t dir, uint8_t e) {
     store(x + gd_dx[dir], y + gd_dy[dir], e);
 }
@@ -1397,10 +1403,12 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_DIRT_BALL_F:
         if (!gd.gravity_disabled)
             do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_BALL);
+        left(x, y, EV_DUG);
         break;
     case O_DIRT_LOOSE_F:
         if (!gd.gravity_disabled)
             do_fall_roll_or_stop(x, y, gd.gravity, O_DIRT_LOOSE);
+        left(x, y, EV_DUG);
         break;
     case O_STONE_F:
         if (!gd.gravity_disabled) {
@@ -1411,6 +1419,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, gd.gravity, f->stone_bouncing_effect);
         }
+        left(x, y, EV_FALLING);
         break;
     case O_MEGA_STONE_F:
         if (!gd.gravity_disabled) {
@@ -1421,6 +1430,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, gd.gravity, O_MEGA_STONE);
         }
+        left(x, y, EV_FALLING);
         break;
     case O_DIAMOND_F:
         if (!gd.gravity_disabled) {
@@ -1430,6 +1440,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, gd.gravity, f->diamond_bouncing_effect);
         }
+        left(x, y, EV_FALLING_DIAMOND);
         break;
     case O_NUT_F:
         if (!gd.gravity_disabled) {
@@ -1437,6 +1448,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, gd.gravity, O_NUT);
         }
+        left(x, y, EV_FALLING);
         break;
     case O_FLYING_STONE_F:
         if (!gd.gravity_disabled) {
@@ -1448,6 +1460,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_STONE);
         }
+        left(x, y, EV_FALLING);
         break;
     case O_FLYING_DIAMOND_F:
         if (!gd.gravity_disabled) {
@@ -1458,6 +1471,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
                 break;
             do_fall_roll_or_stop(x, y, fall_dir, O_FLYING_DIAMOND);
         }
+        left(x, y, EV_FALLING_DIAMOND);
         break;
     case O_NITRO_PACK:
         do_start_fall(x, y, gd.gravity, O_NITRO_PACK_F);
@@ -1472,6 +1486,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
             else
                 explode(x, y);
         }
+        left(x, y, EV_FALLING);
         break;
     case O_NITRO_PACK_EXPLODE:
         explode(x, y);
@@ -1548,6 +1563,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     }
     case O_CHASING_STONE:
         chasing_stone(x, y);
+        left(x, y, EV_CHASING_STONE);
         break;
     case O_REPLICATOR:
         if (gd.replicators_wait_frame == 0 && flag(GDF_REPLICATORS_ACTIVE) && !gd.gravity_disabled) {
@@ -1560,8 +1576,10 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_BITER_2:
     case O_BITER_3:
     case O_BITER_4:
-        if (gd.biters_wait_frame == 0)
+        if (gd.biters_wait_frame == 0) {
             biter(x, y);
+            left(x, y, EV_BITER);
+        }
         break;
     case O_DRAGONFLY_1:
     case O_DRAGONFLY_2:
@@ -1597,6 +1615,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_BLADDER_7:
     case O_BLADDER_8:
         bladder(x, y);
+        left(x, y, EV_BLADDER);
         break;
     case O_GHOST:
         if (flies_blow_up(x, y)) {
@@ -1736,6 +1755,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
             move(x, y, gc, O_FALLING_WALL_F);
         else
             store(x, y, O_FALLING_WALL);
+        left(x, y, EV_FALLING);
         break;
     }
     case O_CONVEYOR_RIGHT:
@@ -1744,15 +1764,19 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         break;
     case O_ROCKET_1:
         rocket(x, y, MV_RIGHT, O_ROCKET_1);
+        left(x, y, EV_ROCKET);
         break;
     case O_ROCKET_2:
         rocket(x, y, MV_UP, O_ROCKET_2);
+        left(x, y, EV_ROCKET);
         break;
     case O_ROCKET_3:
         rocket(x, y, MV_LEFT, O_ROCKET_3);
+        left(x, y, EV_ROCKET);
         break;
     case O_ROCKET_4:
         rocket(x, y, MV_DOWN, O_ROCKET_4);
+        left(x, y, EV_ROCKET);
         break;
     case O_EXPLODE_3:
         store(x, y, f->explosion_3_effect);

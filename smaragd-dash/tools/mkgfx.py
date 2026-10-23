@@ -512,6 +512,7 @@ GLITTER_BLUE = (["a0f0ff", "30b0f0", "2850c8", "1c3480"], "a050a0")     # butter
 GLITTER_ORANGE = (["ffb030", "f06414", "a01c08", "5a1006"], "ffd060")   # alternative butterfly
 GLITTER_STONE = (["d8cabc", "a8968a", "78685a", "4a423c"], "a8968a")    # stonefly
 GLITTER_GREEN = (["8cf0b0", "3cc870", "16904a", "0c5a30"], "a0f0ff")    # dragonfly
+GLITTER_EMERALD = (["e4fff0", "8cf0b0", "3cc870", "16904a"], "8cf0b0")  # a falling emerald
 
 
 def draw_glitter(stage, colours=GLITTER_BLUE):
@@ -551,18 +552,53 @@ def draw_mist(stage):
     return t
 
 
-def draw_crumbs(stage):
+CRUMBS_DIRT = [["8a5a30", "6b4322"], ["6b4322", "4a2c16"], ["4a2c16", "3a2210"]]
+CRUMBS_BITER = [["8c30a0", "501860"], ["501860", "3a1046"], ["3a1046", "200828"]]
+CRUMBS_GRIT = [["78685a", "4a423c"], ["4a423c", "3a3430"], ["3a3430", "1e1a18"]]
+
+
+def draw_crumbs(stage, colours=CRUMBS_DIRT):
     """Dug dirt: a few crumbs that trickle down and darken - quietly, it
-    happens at every step through dirt."""
+    happens at every step through dirt (and behind a cow; in purple behind
+    the biter, grey grit behind the chasing boulder)."""
     t = new_tile()
-    cols = [[hexc("8a5a30"), hexc("6b4322")], [hexc("6b4322"), hexc("4a2c16")],
-            [hexc("4a2c16"), hexc("3a2210")]][stage]
+    cols = [hexc(c) for c in colours[stage]]
     r = random.Random(90)
     crumbs = [(r.randint(3, 12), r.uniform(3, 9)) for _ in range(5)]
     for k, (x, y) in enumerate(crumbs[:[3, 2, 1][stage]]):
         cy = int(round(y + stage * (2.2 + 0.4 * k)))
         if cy < T:
             t[cy][x] = cols[k & 1]
+    return t
+
+
+def draw_drops(stage):
+    """Bladder: two tiny bubbles that rise after it and burst - a pixel or
+    two, pale blue, then gone."""
+    t = new_tile()
+    cols = [hexc("a0f0ff"), hexc("5aa8d0"), hexc("2c6890")]
+    for k, (x, y) in enumerate(((6, 11), (10, 13))[:2 - stage // 2]):
+        cy = y - stage * 2 - k
+        if stage == 0 and k == 0:  # the bigger one: a little ring
+            plot(t, [(x, cy - 1), (x - 1, cy), (x + 1, cy), (x, cy + 1)], cols[1])
+        else:
+            plot(t, [(x, cy)], cols[min(stage, 2)])
+    return t
+
+
+def draw_smoke(stage):
+    """Rocket: a small puff of smoke that thins out and fades, with a
+    spark at first"""
+    t = new_tile()
+    cols = [hexc("8a8e98"), hexc("5c606a"), hexc("3a3d44")]
+    r = 2.6 - 0.5 * stage
+    for y in range(T):
+        for x in range(T):
+            d = math.hypot(x + 0.5 - 8, (y + 0.5 - 8 + stage) * 1.2)
+            if d < r and (x + y + stage) % 2 == 0:
+                t[y][x] = cols[stage]
+    if stage == 0:
+        plot(t, [(8, 8)], hexc("ffc840"))
     return t
 
 
@@ -1638,6 +1674,11 @@ def build_tiles():
     tiles += [(f"GLITTER_STONE{i}", draw_glitter(i, GLITTER_STONE)) for i in range(4)]
     tiles += [(f"GLITTER_DRAGON{i}", draw_glitter(i, GLITTER_GREEN)) for i in range(4)]
     tiles += [(f"MIST{i}", draw_mist(i)) for i in range(4)]
+    tiles += [(f"CRUMBS_BITER{i}", draw_crumbs(i, CRUMBS_BITER)) for i in range(3)]
+    tiles += [(f"CRUMBS_GRIT{i}", draw_crumbs(i, CRUMBS_GRIT)) for i in range(3)]
+    tiles += [(f"DROPS{i}", draw_drops(i)) for i in range(3)]
+    tiles += [(f"GLINT{i}", draw_glitter(i, GLITTER_EMERALD)) for i in range(4)]
+    tiles += [(f"SMOKE{i}", draw_smoke(i)) for i in range(3)]
     tiles += [(f"CRUMBS{i}", draw_crumbs(i)) for i in range(3)]
     tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
     tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]
