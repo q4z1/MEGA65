@@ -43,5 +43,6 @@ print("the view's steps (pixels: frames):", {i: v for i, v in enumerate(words("s
 print("the game before video_sync (1 ms each):", words("sp_logic", 20), "too late:", words("sp_sync_late", 1)[0])
 print("the drawing before video_show (1 ms each):", words("sp_draw", 20), "too late:", words("sp_show_late", 1)[0])
 print("the most raster lines (32 us) a step of GDash's engine took:", words("sp_step_lines", 1)[0])
+print("... by cave:", {i + 1: v for i, v in enumerate(words("sp_cave_lines", 26)) if v})
 PY
 ./build.sh >$OUT/profile-build.log 2>&1

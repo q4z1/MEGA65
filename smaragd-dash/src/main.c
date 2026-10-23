@@ -152,8 +152,10 @@ static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static bool have_logo;              // the logo file was on the disk
 static bool rom_ram;                // the C65 ROM's banks 2 and 3 writable (mem.h)
+#ifndef SCREENCAST
 static bool rom_toggled;            // ... by the hypervisor, which protects them again
 static bool rom_saved;              // ... and kept in the attic RAM, for BASIC
+#endif
 static bool kept;                   // the editor's cave kept (KEEP_BANK) ...
 static bool dirty;                  // ... changed since loaded or saved
 
@@ -556,6 +558,7 @@ volatile uint16_t sp_frames[4];   // 1, 2, 3, more
 volatile uint16_t sp_step[17];    // |dx| + |dy| of the view, 0-16
 volatile uint16_t sp_drop[26];    // frames dropped, by cave
 volatile uint16_t sp_step_lines;  // the most raster lines a step took
+volatile uint16_t sp_cave_lines[26];  // ... by cave
 #endif
 
 #ifdef GDPROF
@@ -1654,6 +1657,7 @@ static void page_wait(void) {
     }
 }
 
+#ifndef SCREENCAST  // which plays the caves: no help, no BASIC (room in bank 0)
 // The title's help (Help or H): how to play, then the elements of the
 // game's caves
 static void help_pages(void) {
@@ -1702,11 +1706,7 @@ static void help_pages(void) {
 
 // ---------------------------------------------------------------- back to BASIC
 
-// The hypervisor's call $70 turns the write protection of the C65 ROM's
-// banks 2 and 3 on or off
-static void rom_toggle(void) {
-    __asm__ volatile("lda #$70\n sta $d640\n clv\n sei\n ldz #0" ::: "a", "x", "y", "memory");
-}
+static void rom_toggle(void);
 
 // The C65 ROM's banks 2 and 3 (128K) to or from the attic RAM, in jobs of
 // 32K
@@ -1787,6 +1787,7 @@ __attribute__((noreturn)) static void to_basic(void) {
                      " jmp ($fffc)" ::: "a", "x", "y", "memory");
     __builtin_unreachable();
 }
+#endif
 
 // The logo and the high score table take turns, like an arcade machine
 // waiting for a player; after a game the table comes first. True if E was
@@ -1834,6 +1835,7 @@ static bool title_screen(bool scores) {
             editor = true;
             break;
         }
+#ifndef SCREENCAST
         if (key == 'H' || key == KEY_HELP) {
             help_pages();
             scores = false;
@@ -1854,7 +1856,7 @@ static bool title_screen(bool scores) {
                                           : "RUN/STOP AGAIN: BACK TO BASIC");
             basic = 150;
         }
-#ifdef SCREENCAST
+#else
         if (pf == DEMO_TITLE_FRAMES)  // on the logo page, the first
             break;
 #endif
@@ -2064,6 +2066,8 @@ static uint8_t play_cave(void) {
             sp_drop[cave_no < 25 ? cave_no : 25] += frames - 1;
         if (step_lines > sp_step_lines)
             sp_step_lines = step_lines;
+        if (step_lines > sp_cave_lines[cave_no < 25 ? cave_no : 25])
+            sp_cave_lines[cave_no < 25 ? cave_no : 25] = step_lines;
 #endif
         // How far the moves of the tick have come: they end with the next
         // one, so what stops always reaches its cell.
@@ -2914,6 +2918,13 @@ static bool rom_takes(uint8_t v) {
     return probe == v;
 }
 
+// The hypervisor's call $70 turns the write protection of the C65 ROM's
+// banks 2 and 3 on or off
+static void rom_toggle(void) {
+    __asm__ volatile("lda #$70\n sta $d640\n clv\n sei\n ldz #0" ::: "a", "x", "y", "memory");
+}
+
+#ifndef SCREENCAST
 // The attic RAM is there: it takes a byte (behind the ROM's copy)
 static bool attic_takes(uint8_t v) {
     static uint8_t probe;
@@ -2925,13 +2936,16 @@ static bool attic_takes(uint8_t v) {
     dma_run();
     return probe == v;
 }
+#endif
 
 // The C65 ROM's banks 2 and 3 writable (mem.h; rom_toggle)
 static bool rom_writable(void) {
     if (rom_takes(0xA5) && rom_takes(0x5A))
         return true;
     rom_toggle();
+#ifndef SCREENCAST
     rom_toggled = true;
+#endif
     return rom_takes(0xA5) && rom_takes(0x5A);
 }
 
@@ -3034,11 +3048,13 @@ int main(void) {
     // The ROM's banks 2 and 3 into the attic RAM, before anything is
     // written there (rom_takes' probe too), and the screen as BASIC had it:
     // for the way back
+#ifndef SCREENCAST
     if (attic_takes(0xA5) && attic_takes(0x5A)) {
         rom_copy(false);
         rom_saved = true;
     }
     basic_save();
+#endif
     video_init();
     sound_init();
     init_tiles();

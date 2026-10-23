@@ -101,9 +101,9 @@ static uint32_t rand_int(void) {
     return rng;
 }
 
-static uint32_t rand_below(uint32_t n) {
-    return rand_int() % n;
-}
+// 0 to n - 1: the engine asks for 4 and 16, powers of two (a division of
+// 32 bits takes thousands of cycles on the 6502)
+#define rand_below(n) (rand_int() & ((n) - 1))
 #endif
 
 // g_rand_boolean
@@ -111,9 +111,28 @@ static bool rand_bool(void) {
     return (rand_int() & (1u << 15)) != 0;
 }
 
-// Probabilities are of a million: rand_int_range(0, 1000000) < p
+// Probabilities are of a million: rand_int_range(0, 1000000) < p; for the
+// game 0-999999 as the high half of the random number times a million (no
+// division), on the MEGA65 by its multiplier (MULTINA, MULTINB, MULTOUT)
 static bool chance(uint32_t p) {
+#ifdef GD_EXACT
     return rand_below(1000000) < p;
+#elif defined(GD_FAR)
+    volatile uint8_t *const m = (volatile uint8_t *)0xD770;
+    uint32_t r = rand_int();
+    m[0] = (uint8_t)r;
+    m[1] = (uint8_t)(r >> 8);
+    m[2] = (uint8_t)(r >> 16);
+    m[3] = (uint8_t)(r >> 24);
+    m[4] = 0x40;  // 1000000 = $0F4240
+    m[5] = 0x42;
+    m[6] = 0x0F;
+    m[7] = 0;
+    r = m[12] | (uint16_t)m[13] << 8 | (uint32_t)m[14] << 16 | (uint32_t)m[15] << 24;
+    return r < p;
+#else
+    return (uint32_t)((uint64_t)rand_int() * 1000000u >> 32) < p;
+#endif
 }
 
 // The C64's random numbers, for the predictable slime
@@ -166,6 +185,7 @@ _Static_assert(CAVE_H == 22, "row_at[]");
 #define GDC_FALLS       0x08  // does nothing in the scan but do_start_fall with gravity
 #define GDC_SPACE       0x10  // is_like_space
 #define GDC_SLOPED_UP   0x20  // P_SLOPED_UP
+#define GDC_ROUND       0x40  // P_SLOPED_LEFT and P_SLOPED_RIGHT: rolled off both ways
 #define GDC_IDLE        0x80  // does nothing in the scan, adds no delay (bit 7: bmi)
 
 #ifndef GD_FAR
@@ -186,7 +206,7 @@ _Static_assert(offsetof(GdState, w) == 2 && offsetof(GdState, h) == 3 && offseto
                    GDF_LINESHIFT == 0x02000000ul && CAVE_W == 40 && CAVE_H == 22,
                "src/gdcell.s");
 
-uint8_t gd_class[256];
+uint8_t gd_class[O_COUNT];  // as gd_flags[]: the cave holds no other codes
 void gd_clear_moved(void);
 _Static_assert(DIR_NONE == 4 && CAVE_SIZE == 880, "src/gdscan.s");
 #define clear_moved gd_clear_moved
@@ -195,6 +215,10 @@ void gd_clear_scanned(void);
 bool gd_find_player(bool first);
 extern int8_t gd_found_x, gd_found_y;
 _Static_assert(offsetof(GdState, gravity) == 46 && offsetof(GdState, gravity_disabled) == 92 && MV_DOWN == 5,
+               "src/gdscan.s");
+_Static_assert(offsetof(GdState, magic_wall_state) == 116 && offsetof(GdState, sound) == 126 &&
+                   GD_MW_ACTIVE == 1 && SND_MAGIC == 0x40 && O_MAGIC_WALL == 17 && O_EXPANDING_WALL == 46 &&
+                   O_EXPANDING_STEEL_WALL == 49,
                "src/gdscan.s");
 
 static void set_classes(void) {
@@ -214,6 +238,8 @@ static void set_classes(void) {
             c |= GDC_SPACE;
         if (p & P_SLOPED_UP)
             c |= GDC_SLOPED_UP;
+        if ((p & (P_SLOPED_LEFT | P_SLOPED_RIGHT)) == (P_SLOPED_LEFT | P_SLOPED_RIGHT))
+            c |= GDC_ROUND;
         if (e <= O_DIRT || e == O_BRICK || e == O_STEEL)
             c |= GDC_IDLE;
         gd_class[e] = c;
@@ -1752,7 +1778,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         }
         break;
     case O_ACID:
-        if (rand_below(1000000) <= f->acid_spread_ratio) {
+        if (chance(f->acid_spread_ratio + 1)) {  // rand_below(1000000) <= ratio
             SOUND(SND_HISS);
             store(x, y, f->acid_turns_to);
             if (is_like_element(x, y, MV_UP, f->acid_eats_this))
@@ -2188,13 +2214,16 @@ static int32_t count_down(int32_t t) {
 // gd_iterate is all of them at once.
 static uint8_t st_y, st_ymax;   // the next row of the scan, and its last
 #ifdef GD_FAR
-static uint8_t st_row_max;      // the most raster lines a row took in this step
-static uint8_t st_end_max = 40; // ... and gd_step_end, in any step
+// the most raster lines a row took in this step, and gd_step_end in any step
+static uint8_t st_most[2] = {0, 40};
+static uint16_t st_end, st_lines;  // gd_step_rows' end and lines
 #endif
 
-// The player's direction for scan_cell: without diagonals unless the cave
-// has them
-__attribute__((noinline)) static void step_input(uint8_t player_move, bool player_fire) {
+// The player's input for scan_cell (MV_* | 0x80 for fire): without
+// diagonals unless the cave has them
+__attribute__((noinline)) static void step_input(uint8_t input) {
+    uint8_t player_move = input & 0x7F;
+    sc_fire = (input & 0x80) != 0;
     if (!flag(GDF_DIAGONAL_MOVEMENTS)) {
         if (player_move == MV_UP_RIGHT || player_move == MV_DOWN_RIGHT)
             player_move = MV_RIGHT;
@@ -2202,7 +2231,6 @@ __attribute__((noinline)) static void step_input(uint8_t player_move, bool playe
             player_move = MV_LEFT;
     }
     sc_move = player_move;
-    sc_fire = player_fire;
 }
 
 __attribute__((noinline)) void gd_step_begin(uint8_t player_move, bool player_fire, bool suicide) {
@@ -2210,7 +2238,7 @@ __attribute__((noinline)) void gd_step_begin(uint8_t player_move, bool player_fi
     gd.sound = 0;
     gd.nevents = 0;
     clear_moved();
-    step_input(player_move, player_fire);
+    step_input(player_move | (player_fire ? 0x80 : 0));
     st_taken = false;
     if (gd.player_seen_ago < 100)
         gd.player_seen_ago++;
@@ -2245,16 +2273,17 @@ __attribute__((noinline)) void gd_step_begin(uint8_t player_move, bool player_fi
         st_ymax = gd.h - 2;
     }
 #ifdef GD_FAR
-    st_row_max = 4;
+    st_most[0] = 4;
 #endif
     prof_mark(0);
 }
 
 #ifdef GD_FAR
-// The raster lines from the physical raster line now to `end`, in a frame
-// of `lines`; 0 once it is past (the windows the program gives are shorter
-// than lines - 64). No lines: no end (gd_iterate).
-__attribute__((noinline)) static uint16_t lines_left(uint16_t end, uint16_t lines) {
+// The raster lines from the physical raster line now to st_end, in a frame
+// of st_lines; 0 once it is past (the windows the program gives are shorter
+// than st_lines - 64). No lines: no end (gd_check).
+__attribute__((noinline)) static uint16_t lines_left(void) {
+    uint16_t end = st_end, lines = st_lines;
     if (!lines)
         return 0x7FFF;
     volatile uint8_t *const io = (volatile uint8_t *)0xD000;
@@ -2275,15 +2304,19 @@ __attribute__((noinline)) static uint16_t lines_left(uint16_t end, uint16_t line
 // of the result: the step is made; bit 1: the player has taken the input.
 __attribute__((noinline)) uint8_t gd_step_rows(uint8_t input, uint16_t end, uint16_t lines) {
     if (!st_taken)
-        step_input(input & 0x7F, (input & 0x80) != 0);
+        step_input(input);
+#ifdef GD_FAR
+    st_end = end;
+    st_lines = lines;
+#else
     (void)end;
     (void)lines;
+#endif
     for (;;) {
         bool last = st_y > st_ymax;  // the rows are done: gd_step_end
 #ifdef GD_FAR
-        uint8_t *most = last ? &st_end_max : &st_row_max;
-        uint16_t before = lines_left(end, lines);
-        if (before < (uint16_t)*most + 8)
+        uint16_t before = lines_left();
+        if (before < (uint16_t)st_most[last] + 8)
             return st_taken ? 2 : 0;
 #endif
         if (last)
@@ -2291,9 +2324,9 @@ __attribute__((noinline)) uint8_t gd_step_rows(uint8_t input, uint16_t end, uint
         else
             scan_cells(st_y, st_y, gd.w);
 #ifdef GD_FAR
-        uint16_t took = before - lines_left(end, lines);
-        if (took > *most)
-            *most = took > 250 ? 250 : took;
+        uint16_t took = before - lines_left();
+        if (took > st_most[last])
+            st_most[last] = took > 250 ? 250 : took;
 #endif
         if (last)
             return st_taken ? 3 : 1;

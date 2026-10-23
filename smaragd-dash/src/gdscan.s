@@ -9,7 +9,11 @@
 ;   adds its delay (gd_ckdelay) to gd_scan_ckdelay and goes to scan_cell (C)
 ;   with its x, y and element - but a boulder, emerald, ... that only
 ;   starts to fall with gravity (GDC_FALLS) and lies on what holds it stays
-;   here. Every cell is unscanned afterwards.
+;   here: on what is not round, or on something round (GDC_ROUND) with no
+;   free cell and free cell below it on either side to roll to (as
+;   do_start_fall). So do a magic wall (it is only heard when it runs) and
+;   a wall that grows four ways with no free cell beside it. Every cell is
+;   unscanned afterwards.
 ; gd_cave_classes(first): the classes of all cells of the cave, or-ed; and
 ;   the last player in the cave (the first with first) into gd_found_x,
 ;   gd_found_y, as gd_find_player.
@@ -32,12 +36,20 @@ GD_W = gd + 2
 GD_H = gd + 3
 GD_GRAVITY = gd + 46
 GD_GRAVITY_DISABLED = gd + 92
+GD_MAGIC_WALL_STATE = gd + 116
+GD_SOUND = gd + 126
 MV_DOWN = 5
+GD_MW_ACTIVE = 1
+SND_MAGIC = $40
+O_MAGIC_WALL = 17
+O_EXPANDING_WALL = 46
+O_EXPANDING_STEEL_WALL = 49
 
 GDC_PLAYER = $01
 GDC_FALLS = $08
 GDC_SPACE = $10
 GDC_SLOPED_UP = $20
+GDC_ROUND = $40
 GDC_IDLE = $80
 
 .section .bss.gdscan,"aw",@nobits
@@ -52,6 +64,8 @@ sc_bit:     .fill 1             ; the cell's bit in its byte of gd_scanned[]
 sc_class:   .fill 1
 sc_ck:      .fill 2             ; the row's delay
 sc_save:    .fill 2             ; __rc20-__rc21 of the caller
+sc_nsx:     .fill 1             ; a cell beside: its byte in gd_scanned[]
+sc_nbit:    .fill 1             ; ... and its bit
 cc_or:      .fill 1
 cc_y:       .fill 1
 fp_first:   .fill 1
@@ -140,7 +154,76 @@ ck_high:
 falls:
     lda sc_class
     and #GDC_FALLS
+    bne fall_check
+    lda sc_e
+    cmp #O_MAGIC_WALL
+    beq magic
+    cmp #O_EXPANDING_WALL
+    beq grows
+    cmp #O_EXPANDING_STEEL_WALL
+    bne call
+
+    ; a wall that grows four ways: only where a cell beside is free (not at
+    ; the edges, where the cave goes round)
+grows:
+    ldy sc_x
     beq call
+    iny
+    cpy sc_w
+    bcs call
+    lda sc_y
+    beq call
+    inc a
+    cmp GD_H
+    bcs call
+    jsr left_bits               ; left
+    ldy sc_x
+    dey
+    jsr row_free
+    bcs call
+    jsr right_bits              ; right
+    ldy sc_x
+    iny
+    jsr row_free
+    bcs call
+    lda sc_bit                  ; below
+    sta sc_nbit
+    lda sc_sx
+    clc
+    adc #CAVE_W / 8
+    sta sc_nsx
+    lda sc_x
+    clc
+    adc #CAVE_W
+    tay
+    jsr row_free
+    bcs call
+    lda sc_sx                   ; above
+    sec
+    sbc #CAVE_W / 8
+    sta sc_nsx
+    sec
+    lda row
+    sbc #CAVE_W
+    sta ptr
+    lda row+1
+    sbc #0
+    sta ptr+1
+    ldy sc_x
+    jsr cell_free
+    bcs call
+    bra stays
+
+magic:                          ; heard while it runs
+    lda GD_MAGIC_WALL_STATE
+    cmp #GD_MW_ACTIVE
+    bne stays
+    lda GD_SOUND
+    ora #SND_MAGIC
+    sta GD_SOUND
+    bra stays
+
+fall_check:
     lda GD_GRAVITY_DISABLED
     bne stays
     lda GD_GRAVITY
@@ -165,8 +248,33 @@ falls:
     lda (row), y
     tax
     lda gd_class, x
-    and #GDC_SPACE | GDC_SLOPED_UP
-    beq stays
+    tax
+    and #GDC_SPACE
+    bne call                    ; below is free: it falls
+    txa
+    and #GDC_SLOPED_UP
+    beq stays                   ; nothing to roll off
+    txa
+    and #GDC_ROUND
+    beq call                    ; sloped one way only
+    ldy sc_x                    ; not at the edges, where the cave goes round
+    beq call
+    iny
+    cpy sc_w
+    bcs call
+
+    ; round below: it rolls if a side and the cell below it are free - the
+    ; left first, then the right
+    jsr left_bits
+    ldy sc_x
+    dey
+    jsr side_free
+    bcs call
+    jsr right_bits
+    ldy sc_x
+    iny
+    jsr side_free
+    bcc stays
 
 call:
     lda sc_e                    ; scan_cell(x, y, e)
@@ -223,6 +331,67 @@ done:
     sta row
     lda sc_save+1
     sta row+1
+    rts
+
+; The cell's bit in gd_scanned[] of x - 1 (left_bits) or x + 1
+; (right_bits) into sc_nsx, sc_nbit. A and X change.
+left_bits:
+    ldx sc_sx
+    lda sc_bit
+    lsr
+    bcc nbits
+    lda #$80                    ; bit 7 of the byte before
+    dex
+    bra nbits
+right_bits:
+    ldx sc_sx
+    lda sc_bit
+    asl
+    bcc nbits
+    lda #1                      ; bit 0 of the byte after
+    inx
+nbits:
+    sta sc_nbit
+    stx sc_nsx
+    rts
+
+; Carry set if the cell Y of the row and the one below it are free: like
+; space and not scanned (their bit sc_nbit in sc_nsx and the next row's
+; byte). A, X and Y change.
+side_free:
+    jsr row_free
+    bcc side_taken
+    tya
+    clc
+    adc #CAVE_W
+    tay
+    lda sc_nsx
+    clc
+    adc #CAVE_W / 8
+    sta sc_nsx
+    ; the cell below, as row_free
+
+; Carry set if the cell Y of the row (row_free) or of ptr (cell_free) is
+; free, its bit sc_nbit in gd_scanned[sc_nsx]. A and X change.
+row_free:
+    lda row
+    sta ptr
+    lda row+1
+    sta ptr+1
+cell_free:
+    lda (ptr), y
+    tax
+    lda gd_class, x
+    and #GDC_SPACE
+    beq side_taken
+    ldx sc_nsx
+    lda gd_scanned, x
+    and sc_nbit
+    bne side_taken
+    sec
+    rts
+side_taken:
+    clc
     rts
 
 ; row += CAVE_W, sc_rowsx += CAVE_W / 8 (A changes)

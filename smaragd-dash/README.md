@@ -487,13 +487,19 @@ BASIC's work area at $0200 (`link.ld`'s `.lowbss`).
 
 **The assembler.** What runs most often is 45GS02 assembly, each beside
 the C it replaces (which the host's tests use, see above): in GDash's
-engine the pass over the cave (`src/gdscan.s`: the cells, the ones that
-only lie still skipped at once, the player found on the way) and the
-access to a cell (`src/gdcell.s`: `cell`, `get`, `store`, `has_flag`);
-in the program the DMA jobs of a frame (`src/render.s`). A step of GDash's
-engine takes 2.5-6 ms in a full cave (it took up to 50 ms in C), and the
-cave's clock goes by the MEGA65's frame counter, so a longer one does not
-slow it down.
+engine the pass over the cave (`src/gdscan.s`: the cells; the ones that
+would do nothing are skipped at once - a boulder or an emerald that lies
+still, also on something round with no free cell to roll to on either
+side, a magic wall, which is only heard, a wall that grows four ways with
+no free cell beside it -; the player found on the way) and the access to a
+cell (`src/gdcell.s`: `cell`, `get`, `store`, `has_flag`); in the program
+the DMA jobs of a frame (`src/render.s`). The engine's chances (an amoeba
+growing, slime letting through) take no division: a number below a
+million is the high half of the random number times a million, by the
+MEGA65's multiplier. A step of GDash's engine takes 4-9 ms in the game's
+caves, with the copies of its parts (in C it took up to 50 ms); it is made
+in parts (see the frame loop above), and the cave's clock goes by the
+MEGA65's frame counter, so a longer one does not slow it down.
 
 **The title logo** (288x144 pixels, 41K) lies in bank 3, from where DMA
 copies it into both framebuffers for the title screen. The tiles (200 of 256
