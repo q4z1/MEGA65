@@ -360,6 +360,24 @@ static void left(int8_t x, int8_t y, uint8_t what) {
         event(x, y, what);
 }
 
+// The event of a thing that falls, is pushed or carried away from a cell
+static uint8_t moved_event(uint16_t e) {
+    switch (e) {
+    case O_DIAMOND:
+    case O_DIAMOND_F:
+    case O_FLYING_DIAMOND:
+    case O_FLYING_DIAMOND_F:
+        return EV_FALLING_DIAMOND;
+    case O_DIRT_BALL:
+    case O_DIRT_BALL_F:
+    case O_DIRT_LOOSE:
+    case O_DIRT_LOOSE_F:
+    case O_BOX:
+        return EV_DUG;
+    }
+    return e >= O_BLADDER && e <= O_BLADDER_8 ? EV_BLADDER : EV_FALLING;
+}
+
 static void store_dir(int8_t x, int8_t y, uint8_t dir, uint8_t e) {
     store(x + gd_dx[dir], y + gd_dy[dir], e);
 }
@@ -780,6 +798,8 @@ static bool do_push(int8_t x, int8_t y, uint8_t player_move, bool player_fire) {
         }
         break;
     }
+    if (result)  // where it was (Rockford steps in, but for a box)
+        event(x + gd_dx[player_move], y + gd_dy[player_move], moved_event(what));
     return result;
 }
 
@@ -810,6 +830,7 @@ static void do_start_fall(int8_t x, int8_t y, uint8_t falling_direction, uint8_t
                  is_like_space(x, y, ccw_eighth[falling_direction]))
             move(x, y, ccw_fourth[falling_direction], falling_element);
     }
+    left(x, y, moved_event(falling_element));
 }
 
 static bool do_fall_try_crush_voodoo(int8_t x, int8_t y, uint8_t fall_dir) {
@@ -1295,15 +1316,19 @@ static void conveyor(int8_t x, int8_t y) {
     if ((gd.gravity == MV_DOWN && moved_by_conveyor_top(x, y, MV_UP)) ||
         (gd.gravity == MV_UP && moved_by_conveyor_bottom(x, y, MV_UP))) {
         if (is_like_space(x, y, dir[MV_UP])) {
-            store_dir(x, y, dir[MV_UP], get_dir(x, y, MV_UP));
+            uint16_t e = get_dir(x, y, MV_UP);
+            store_dir(x, y, dir[MV_UP], e);
             store_dir(x, y, MV_UP, O_SPACE);
+            event(x, y - 1, moved_event(e));
         }
     }
     if ((gd.gravity == MV_UP && moved_by_conveyor_top(x, y, MV_DOWN)) ||
         (gd.gravity == MV_DOWN && moved_by_conveyor_bottom(x, y, MV_DOWN))) {
         if (is_like_space(x, y, dir[MV_DOWN])) {
-            store_dir(x, y, dir[MV_DOWN], get_dir(x, y, MV_DOWN));
+            uint16_t e = get_dir(x, y, MV_DOWN);
+            store_dir(x, y, dir[MV_DOWN], e);
             store_dir(x, y, MV_DOWN, O_SPACE);
+            event(x, y + 1, moved_event(e));
         }
     }
 }

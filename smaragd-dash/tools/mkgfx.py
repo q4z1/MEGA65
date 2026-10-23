@@ -959,17 +959,21 @@ def from_pic(rows, pal, t=None):
     return t
 
 
-def liquid(seed, stops, frame, bubbles=True):
-    """Water, acid, lava, slime: a surface that moves with the frames"""
+def liquid(seed, stops, frame, bubbles=True, frames=2):
+    """Water, acid, lava, slime: a surface that moves with the frames. With
+    four frames (water) the waves move on a quarter of their length each,
+    so they flow; with two they rock to and fro."""
     t = new_tile()
     n = Noise(seed, 4)
+    shift = 4 if frames == 2 else 2 * math.pi / 0.8 / frames
+    rise = 3 if frames == 2 else T // frames
     for y in range(T):
         for x in range(T):
-            v = 0.55 * n(x, y) + 0.3 * math.sin((x + frame * 4) * 0.8 + y * 0.35) * 0.5 + 0.25
+            v = 0.55 * n(x, y) + 0.3 * math.sin((x + frame * shift) * 0.8 + y * 0.35) * 0.5 + 0.25
             t[y][x] = steps(stops, v, 5)
     if bubbles:
         for bx, by in ((4, 11), (11, 5), (8, 13)):
-            by = (by - frame * 3) % T
+            by = (by - frame * rise) % T
             plot(t, [(bx, by)], stops[-1])
             plot(t, [(bx + 1, by + 1)], stops[-2])
     return t
@@ -992,7 +996,8 @@ def draw_lava(frame):
 
 
 def draw_water(frame):
-    return liquid(76, [hexc("081828"), hexc("104878"), hexc("3090e0"), hexc("a0f0ff"), hexc("e4fff0")], frame)
+    return liquid(76, [hexc("081828"), hexc("104878"), hexc("3090e0"), hexc("a0f0ff"), hexc("e4fff0")], frame,
+                  frames=4)
 
 
 def draw_box():
@@ -1238,7 +1243,7 @@ def draw_teleporter(frame):
             d = math.hypot(dx, dy)
             if d > 7.4:
                 continue
-            a = math.atan2(dy, dx) + d * 0.6 + frame * math.pi / 2
+            a = math.atan2(dy, dx) + d * 0.6 + frame * math.pi / 4  # four frames: a quarter turn of the pattern
             t[y][x] = steps(stops, 0.5 + 0.45 * math.sin(a * 2) * (1 - d / 9), 5)
     return t
 
@@ -1515,10 +1520,10 @@ def gd_tiles():
     out += [(f"AMOEBA2_{i}", draw_amoeba_2(i)) for i in range(4)]
     out += [(f"ALT_FIREFLY{i}", draw_alt_firefly(i)) for i in range(4)]
     out += [(f"ALT_BUTTERFLY{i}", draw_alt_butterfly(i)) for i in range(4)]
-    out += [(f"STONEFLY{i}", draw_stonefly(i * 2)) for i in range(2)]
+    out += [(f"STONEFLY{i}", draw_stonefly(i)) for i in range(4)]
     out += [(f"DRAGONFLY{i}", draw_dragonfly(i)) for i in range(2)]
     out += [("MEGA_BOULDER", draw_mega_boulder()), ("NUT", draw_nut())]
-    out += [(f"TELEPORTER{i}", draw_teleporter(i)) for i in range(2)]
+    out += [(f"TELEPORTER{i}", draw_teleporter(i)) for i in range(4)]
     out += [("BOULDER_GLUED", glued(draw_boulder())), ("DIAMOND_GLUED", glued(draw_emerald(0))),
             ("DIRT_GLUED", glued(draw_dirt())), ("RF_GLUED", glued(draw_rockford_set()["RF_VIEW4"])),
             ("BOULDER_WAITING", eyes(draw_boulder(), True)), ("BOULDER_CHASING", eyes(draw_boulder(), False))]
@@ -1585,9 +1590,9 @@ GD_TILES = [
     (r"POT", "POT"),
     (r"PNEUMATIC_HAMMER", "HAMMER"),
     (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER_ACTIVE0", 4, 2),
-    (r"TELEPORTER", "TELEPORTER0", 2, 2),
+    (r"TELEPORTER", "TELEPORTER0", 4, 3),
     (r"SKELETON", "SKELETON"),
-    (r"WATER(_\d+)?", "WATER0", 4, 2),
+    (r"WATER(_\d+)?", "WATER0", 4, 3),
     (r"COW_\d|COW_ENCLOSED_\d", "COW0", 2, 3),
     (r"AMOEBA", "AMOEBA0"),
     (r"AMOEBA_2", "AMOEBA2_0", 4, 3),
@@ -1605,7 +1610,7 @@ GD_TILES = [
     (r"ALT_FIREFLY_\d", "ALT_FIREFLY0", 4, 1),
     (r"BUTTER_\d", "BUTTERFLY0"),
     (r"ALT_BUTTER_\d", "ALT_BUTTERFLY0", 4, 2),
-    (r"STONEFLY_\d", "STONEFLY0", 2, 2),
+    (r"STONEFLY_\d", "STONEFLY0", 4, 2),
     (r"BITER_\d", "BITER0", 2, 2),
     (r"DRAGONFLY_\d", "DRAGONFLY0", 2, 1),
     (r"PLAYER_GLUED", "RF_GLUED"),
