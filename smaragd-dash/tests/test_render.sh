@@ -10,7 +10,8 @@
 #   tests/test_render.sh [caves]      (default: the first 6)
 #
 # $RENDER_CFLAGS goes into the build as well (tests/run-all.sh: -DDISK_FLAKY,
-# the loader with a controller that fails every third try).
+# the loader with a controller that fails every third try, and -DNMI_STORM,
+# an NMI somewhere in every frame).
 
 set -e
 cd "$(dirname "$0")/.."

@@ -1059,6 +1059,16 @@ static void next_frame(void) {
     uint8_t in = input_read();
     pressed = in & ~held;
     held = in;
+#ifdef NMI_STORM
+    // The NMI test (tests/test_render.sh with -DNMI_STORM): CIA 2's timer
+    // gives an NMI somewhere in each frame, as Restore does
+    PEEK(0xDD0D);  // the last one acknowledged
+    uint16_t at = (frame * 4099u & 0x3FFF) + 16;
+    POKE(0xDD04, at);
+    POKE(0xDD05, at >> 8);
+    POKE(0xDD0D, 0x81);  // timer A's NMI on
+    POKE(0xDD0E, 0x19);  // once, loaded, started
+#endif
 }
 
 static uint8_t joy_dir(uint8_t in) {
@@ -2905,8 +2915,10 @@ static void play_game(void) {
     }
 }
 
-// What the NMI vector points to: RTI
-static const uint8_t rti = 0x40;
+// What the NMI vector points to: RTI. Below $4000, where GDash's engine
+// never shows (gdfar.s maps it in while it runs, and Restore's NMI can come
+// then); link.ld's .lowbss is not loaded, so main() writes it.
+static uint8_t rti __attribute__((section(".lowbss")));
 
 // Banks 2 and 3 take a byte (the C65 ROM there is write-protected at first)
 static bool rom_takes(uint8_t v) {
@@ -3041,6 +3053,7 @@ int main(void) {
     // $E000 through the CPU port; Restore's NMI returns at once.
     __asm__ volatile("lda #0\n tax\n tay\n taz\n map\n eom\n lda #$35\n sta $01\n ldz #0"
                      ::: "a", "x", "y", "memory");
+    rti = 0x40;
     POKE(0xFFFA, (uint16_t)&rti);
     POKE(0xFFFB, (uint16_t)&rti >> 8);
     pal = !(PEEK(0xD06F) & 0x80);
