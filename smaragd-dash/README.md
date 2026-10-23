@@ -120,8 +120,11 @@ it is changed.
 
 The own caves are played from the title (right of cave 21): one after the
 other, empty slots left out, with three lives as usual; after the last one
-the first comes again. They have one level each and no place in the high
-score table, which is for the game's caves.
+the first comes again, in the next level - as GDash does, in its five levels
+(up and down pick the one to start with). A cave from GDash brings its
+levels along (`cavekit.py`); one made in the editor is the same in all of
+them. The own caves have no place in the high score table, which is for the
+game's caves.
 
 ## Building and running
 
@@ -138,7 +141,8 @@ smaragd-dash/build.sh                       # build only
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
 (`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
 (`CAVE01-1` ... `CAVE25-4`: cave and level), the slots for the own caves
-(`OWN01` ... `OWN20`), GDash's engine (`SMARAGD.GD`, `SMARAGD.LOW`) and the
+(`OWN01` ... `OWN20`, and `OWN01-2` ... `OWN20-5` for their other levels),
+GDash's engine (`SMARAGD.GD`, `SMARAGD.LOW`) and the
 editor (`SMARAGD.EDIT`); the screencast build adds
 its moves (`DEMO01`, ...; see below). F5 starts
 the disk (`-8 … -autoload`). Started as a bare PRG, without the disk, the
@@ -232,9 +236,12 @@ tools/cavekit.py convert game.bd caves-dir/         # .bd -> .cave files (and ba
 tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/  # disks to play a whole game on
 ```
 
-`import` takes all caves of the file in level 1, or `--cave N` or `N-M`,
-`--level L` (1-5) and `--slot N` to start with; `--as NAME=NAME2` puts one
-element in place of another. `disks` puts a whole game onto copies of the
+`import` takes all caves of the file in all five levels, or `--cave N` or
+`N-M`, `--level L` (1-5: that level alone) and `--slot N` to start with;
+`--as NAME=NAME2` puts one element in place of another. A slot keeps a
+cave's first level in `OWN01` and every level that differs from it in
+`OWN01-2` ... `OWN01-5`; a level without a file of its own plays the first
+(so do the caves of a disk of an older version, which has no such files). `disks` puts a whole game onto copies of the
 disk, 20 caves each (`game.d81` or `game-1.d81`, `game-2.d81`, ...), to be
 played as the own caves. All commands also take GDash's `.gds` files: they
 go through GDash's own code, `toolchain/tools/bin/gdash-oracle` (or

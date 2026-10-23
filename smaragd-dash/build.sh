@@ -9,7 +9,8 @@
 # and the calls into it (SMARAGD.LOW), the
 # caves (build/caves/caveNN-L.bin as CAVENN-L: cave and level), the
 # high scores (SMARAGD.SCORES), the slots for the caves of the editor
-# (build/caves/ownNN.bin as OWNNN, empty); the screencast build
+# (build/caves/ownNN.bin as OWNNN and ownNN-L.bin as OWNNN-L for their other
+# levels, empty); the screencast build
 # (-DSCREENCAST) gets its moves as well (demoNN.bin as DEMONN). The high
 # scores and the slots are kept from the old disk. The game loads them from that
 # disk. The version is in the file VERSION: on the title and in the disk's

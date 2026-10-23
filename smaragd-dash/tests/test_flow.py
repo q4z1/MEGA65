@@ -19,7 +19,10 @@ paused (the time stands) and goes on, the time runs out (fire: a life
 less), Rockford gives up three times (Run/Stop) - game over. The score gets
 into the table, the name is typed (ZQX), the table is written to the disk
 and shown first on the title, which then runs for a minute (logo and table
-in turn, as the high score page hung in version 1.0).
+in turn, as the high score page hung in version 1.0). Then the own caves,
+started in level 3: slot 1 has a cave of its own in level 3 (30 seconds),
+the other levels play the first (20 seconds) and the other slots are empty -
+after the exit comes slot 1 again in level 4. F1 ends that game.
 
 What the checkpoints and the disk's SMARAGD.SCORES must show is below. The
 normal build is made again at the end.
@@ -61,11 +64,15 @@ map:
 """ + "\n".join(["W" * 40, "W" * 40, "WWPWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWXWW"] + ["W" * 40] * 19)
 
 
-def cave_file(text, tmp):
+def write_cave(text, tmp):
     path = os.path.join(tmp, "c.cave")
     with open(path, "w") as f:
         f.write(text + "\n")
-    return ck.gd_from_cave(ck.read_cave_file(path)).tobytes()
+    return path
+
+
+def cave_file(text, tmp):
+    return ck.gd_from_cave(ck.read_cave_file(write_cave(text, tmp))).tobytes()
 
 
 def records(mem):
@@ -96,6 +103,11 @@ def main():
             disk.rewrite(f"CAVE{n}-1", disk.read(f"CAVE{n}-1")[:2] + exit_cave)
         disk.rewrite("CAVE01-2", disk.read("CAVE01-2")[:2] + box_cave)
         disk.rewrite("SMARAGD.SCORES", bytes(len(disk.read("SMARAGD.SCORES"))))  # the default table
+        own = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE, tmp)))
+        own3 = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE.replace("time = 20", "time = 30"), tmp)))
+        for name in disk.slots():
+            ck.write_slot(disk, name, None)
+        ck.write_slot(disk, "OWN01", [own, own, own3])
         disk.save()
         dump = os.path.join(tmp, "mem.bin")
         subprocess.run(["timeout", "900", XEMU, "-headless", "-sleepless", "-testing", "-besure",
@@ -137,7 +149,11 @@ def main():
         check("game over: the score gets into the table", at(16, screen="name") and rank < HS_COUNT)
         check("then the title, the table first", at(17, screen="title", hs_new=rank))
         check("the title runs on for a minute", at(18, screen="title"))
-        check("the script got to its end", 19 in by)
+        check("own caves in level 3: slot 1 from its file of level 3",
+              at(19, screen="cave", cave=0, level=2, state=PS_ALIVE) and by[19]["time"] > 20)
+        check("after the last slot the next level, the first level's file where it has none",
+              at(20, screen="cave", cave=0, level=3, state=PS_ALIVE) and by[20]["time"] <= 20)
+        check("the script got to its end", 21 in by)
 
         raw = ck.Disk(disk_path).read("SMARAGD.SCORES")[2:]
         table = [(raw[4 + 9 * i:7 + 9 * i].decode("latin-1"), int.from_bytes(raw[9 + 9 * i:13 + 9 * i], "little"))

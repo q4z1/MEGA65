@@ -243,7 +243,13 @@ static const uint8_t test_script[][3] = {
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
     SHOT,                                                 // 18: a minute later
-    SHOT, WAIT(FLOW_END, 0),                              // 19: the end
+    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
+    {2, 0, IN_BUTTON},                                    // the own caves in level 3
+    WAIT(W_ALIVE, 0), SHOT,                               // 19: slot 1, level 3's own file
+    {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0),
+    WAIT(W_ALIVE, 0), SHOT,                               // 20: the next level, the first's file
+    {1, KEY_F1, 0}, WAIT(W_TITLE, 0),
+    SHOT, WAIT(FLOW_END, 0),                              // 21: the end
 #elif defined(EDITDEMO)
     {150, 0, 0}, {1, 'E', 0}, {120, 0, 0},                // the title, E: the editor on slot 1
     SHOT,                                                 // 1: editor-cave
@@ -936,7 +942,7 @@ static void status_play(void) {
         status_game();
 }
 
-// "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12" for an
+// "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12/3" for an
 // own cave, "TEST" for the one in the editor
 static void status_intro(void) {
     status_begin();
@@ -953,7 +959,9 @@ static void status_intro(void) {
     } else if (play_mode == PLAY_OWN) {
         status_print(7, "OWN");
         put_num(11, cave_no + 1, 2);
-        col = 14;
+        status_put(13, '/');
+        put_num(14, level + 1, 1);
+        col = 16;
     } else {
         status_print(7, "TEST");
         col = 12;
@@ -1193,28 +1201,40 @@ static bool next_cave(void) {
     return load_cave(0);
 }
 
-// The file of slot n (from 0): OWN01, ...
-static const char *own_name(uint8_t n) {
-    static char file[] = "OWN00";
+// The file of slot n (from 0) in level lv (from 0): OWN01, ... in the
+// first level, OWN01-2, ... in the others
+static const char *own_name(uint8_t n, uint8_t lv) {
+    static char file[] = "OWN00-0";
     file[3] = '0' + (n + 1) / 10;
     file[4] = '0' + (n + 1) % 10;
+    file[5] = lv ? '-' : 0;
+    file[6] = '1' + lv;
     return file;
 }
 
-// Slot n from the disk into file.own; false if the disk has no such slot.
-// An empty one has time 0.
-static bool load_own(uint8_t n) {
+// Slot n from the disk into file.own in level lv: the level's own file if
+// it holds a cave (tools/cavekit.py writes one where a level of GDash's
+// differs from the first; the editor and an older disk have none), else
+// the first level's. False if the disk has no such slot; an empty one has
+// time 0.
+static bool load_own(uint8_t n, uint8_t lv) {
     loaded = 0xFF;
-    return load("LOADING OWN CAVE", own_name(n), 0, (uint16_t)&file.own);
+    if (lv && load("LOADING OWN CAVE", own_name(n, lv), 0, (uint16_t)&file.own) && file.own.time)
+        return true;
+    return load("LOADING OWN CAVE", own_name(n, 0), 0, (uint16_t)&file.own);
 }
 
-// The own cave cave_no, or the next one that is not empty (after the last
-// slot the first again); false if there is none
+// The own cave cave_no in the level, or the next one that is not empty;
+// after the last slot the first of the next level, and after the last
+// level that one again. False if there is none
 static bool next_own(void) {
     for (uint8_t k = 0; k < OWN_SLOTS; k++, cave_no++) {
-        if (cave_no >= OWN_SLOTS)
+        if (cave_no >= OWN_SLOTS) {
             cave_no = 0;
-        if (!have_gdash || !load_own(cave_no))
+            if (level < OWN_LEVELS - 1)
+                level++;
+        }
+        if (!have_gdash || !load_own(cave_no, level))
             return false;
         if (file.own.time) {
             use_own_cave();
@@ -1323,11 +1343,11 @@ static void title_line(const char *text) {
 // The status line on the title: what the game starts with, and the hi-score
 static void title_status(void) {
     status_begin();
+    status_print(2, "LEVEL");
+    put_num(8, start_level + 1, 1);
     if (start_cave == CAVE_COUNT) {
-        status_print(2, "OWN CAVES");
+        status_print(11, "OWN CAVES");
     } else {
-        status_print(2, "LEVEL");
-        put_num(8, start_level + 1, 1);
         status_print(11, "CAVE");
         put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
     }
@@ -1337,19 +1357,22 @@ static void title_status(void) {
 }
 
 // Up and down pick the level, left and right the cave to start with; right
-// of the last one come the own caves
+// of the last one come the own caves, with GDash's levels
 #define LAST_START ((CAVE_COUNT - 1) / START_STEP * START_STEP)
 
 static void title_pick(void) {
     uint8_t l = start_level, c = start_cave;
-    if ((pressed & IN_UP) && l < LEVELS - 1)
-        l++;
-    if ((pressed & IN_DOWN) && l)
-        l--;
     if ((pressed & IN_RIGHT) && c < CAVE_COUNT)
         c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
     if ((pressed & IN_LEFT) && c)
         c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
+    uint8_t top = (c == CAVE_COUNT ? OWN_LEVELS : LEVELS) - 1;
+    if ((pressed & IN_UP) && l < top)
+        l++;
+    if ((pressed & IN_DOWN) && l)
+        l--;
+    if (l > top)
+        l = top;
     if (l != start_level || c != start_cave) {
         start_level = l;
         start_cave = c;
@@ -2360,7 +2383,7 @@ static EDITOR void edit_camera(bool jump) {
 
 // The slot from the disk; an empty one (or none) gives a new cave
 static EDITOR void edit_load(void) {
-    have_slot = load_own(slot);
+    have_slot = load_own(slot, 0);
     if (!have_slot || !file.own.time)
         new_cave();
     if (cur_x >= file.own.w)
@@ -2509,6 +2532,15 @@ static EDITOR void edit_try(void) {
     cover_cave(0);
 }
 
+// The slot's other levels empty (time 0): what the editor saves is played
+// in all of them (load_own). An older disk has no files for them.
+static EDITOR void edit_levels_empty(void) {
+    static const uint16_t none = 0;
+    if (have_slot)
+        for (uint8_t lv = 1; lv < OWN_LEVELS; lv++)
+            disk_save(own_name(slot, lv), &none, sizeof none);
+}
+
 static EDITOR void edit_save(void) {
     const char *why = edit_check();
     if (why) {
@@ -2516,7 +2548,8 @@ static EDITOR void edit_save(void) {
         return;
     }
     busy("SAVING");
-    bool ok = have_slot && disk_save(own_name(slot), &file.own, sizeof file.own);
+    bool ok = have_slot && disk_save(own_name(slot, 0), &file.own, sizeof file.own);
+    edit_levels_empty();
     not_busy();
     if (ok) {
         dirty = false;
@@ -2529,7 +2562,8 @@ static EDITOR void edit_save(void) {
 static EDITOR void edit_empty(void) {
     memset(&file.own, 0, sizeof file.own);
     busy("SAVING");
-    bool ok = have_slot && disk_save(own_name(slot), &file.own, sizeof file.own);
+    bool ok = have_slot && disk_save(own_name(slot, 0), &file.own, sizeof file.own);
+    edit_levels_empty();
     not_busy();
     new_cave();
     dirty = false;
@@ -2868,7 +2902,7 @@ static void play_game(void) {
         static char tour_file[] = "TOUR00";
         tour_file[4] = '0' + (cave_no + 1) / 10;
         tour_file[5] = '0' + (cave_no + 1) % 10;
-        if (cave_no >= OWN_SLOTS || !load_own(cave_no) || !file.own.time ||
+        if (cave_no >= OWN_SLOTS || !load_own(cave_no, 0) || !file.own.time ||
             !disk_load(tour_file, 0, (uint16_t)demo_moves))
             demo_end();
         use_own_cave();
@@ -2995,7 +3029,7 @@ static void gd_check(void) {
     dma_fill(0, 0, GDCHECK_BANK, 0);
     dma_run();
     for (uint8_t n = 0; n < OWN_SLOTS; n++) {
-        if (!load_own(n) || !file.own.time)
+        if (!load_own(n, 0) || !file.own.time)
             continue;
         moves_file[5] = '0' + (n + 1) / 10;
         moves_file[6] = '0' + (n + 1) % 10;

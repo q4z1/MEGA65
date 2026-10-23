@@ -84,7 +84,7 @@ def main():
             continue
         for label, cave in ck.load_caves(path, {"cave": None, "level": 1, "as": {}}):
             if not isinstance(cave, ck.CaveError):
-                caves.append((f"{os.path.relpath(path)} {label.strip()}", cave, None))
+                caves.append((f"{os.path.relpath(path)} {label.strip()}", cave[0], None))
     build = run(["./build.sh"], env=dict(os.environ, SMARAGD_CFLAGS=f"-DGDCHECK -DGDCHECK_STEPS={steps}"))
     if build.returncode:
         sys.exit(build.stdout[-2000:] + build.stderr[-2000:])
@@ -103,7 +103,7 @@ def main():
         shutil.copyfile(os.path.join(ROOT, "build", "smaragd-dash.d81"), disk_path)
         disk = ck.Disk(disk_path)
         for i, name in enumerate(disk.slots()):
-            ck.write_slot(disk, name, chunk[i][1] if i < len(chunk) else None)
+            ck.write_slot(disk, name, [chunk[i][1]] if i < len(chunk) else None)
             moves = chunk[i][2] if i < len(chunk) else None
             size = len(disk.read(f"CHECK{i + 1:02d}"))
             if moves and len(moves) > size:

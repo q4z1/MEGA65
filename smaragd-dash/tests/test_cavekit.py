@@ -12,6 +12,7 @@ with GDash itself, on all of its caves.)
 """
 
 import os
+import re
 import sys
 import tempfile
 
@@ -132,6 +133,51 @@ if os.path.exists(game_disk):
     check("disks: 28 caves on two disks of 20 and 8",
           parts == ["objects-1.d81", "objects-2.d81"] and
           sum(1 for n in last.slots() if ck.read_slot(last, n)) == 8, parts)
+
+    # the levels of a slot: OWNnn-2 ... OWNnn-5 where they differ from the first
+    lv = ck.read_levels(d, "OWN01")
+    check("disks: all five levels of a cave, level 5 with its own numbers",
+          len(lv) == 5 and lv[0].v["time"] == 150 and (lv[4].v["time"], lv[4].v["diamonds_needed"]) == (110, 16) and
+          ck.own_levels(d, "OWN01")[-1] == 5, [c.v["time"] for c in lv])
+    same = [n for n in range(1, 5) if lv[n].tobytes() == lv[0].tobytes()]
+    check("a level like the first has no cave of its own (its file is empty)",
+          all(not ck.read_slot(d, ck.level_file("OWN01", n)) for n in same) and
+          all(ck.read_slot(d, ck.level_file("OWN01", n)) for n in range(1, 5) if n not in same), same)
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_import([os.path.join(out_dir, "objects.d81"), BD, "--level", "5", "--cave", "1"])
+    d = ck.Disk(os.path.join(out_dir, "objects.d81"))
+    check("import --level 5: that level alone, the others empty",
+          ck.read_slot(d, "OWN01").v["time"] == 110 and ck.own_levels(d, "OWN01") == [1],
+          ck.own_levels(d, "OWN01"))
+    ck.write_slot(d, "OWN02", None)
+    check("an empty slot: its levels empty too",
+          not ck.read_levels(d, "OWN02") and ck.own_levels(d, "OWN02") == [1] and
+          not any(ck.read_slot(d, ck.level_file("OWN02", n)) for n in range(1, 5)))
+    old = os.path.join(tmp, "old.d81")  # a disk of an older version: no files for the levels
+    old_disk = ck.Disk(game_disk)
+    t, s = ck.DIR_TRACK, 3
+    while t:  # the levels' files deleted from the directory
+        sec = old_disk.sector(t, s)
+        for e in range(0, 256, 32):
+            if sec[e + 2] and re.fullmatch(ck.SLOT + r"\d\d-\d", bytes(sec[e + 5:e + 21]).rstrip(b"\xa0").decode()):
+                sec[e + 2] = 0
+        t, s = sec[0], sec[1]
+    old_disk.path = old
+    old_disk.save()
+    od = ck.Disk(old)
+    ok = ck.write_slot(od, "OWN01", ck.read_levels(ck.Disk(os.path.join(out_dir, "objects-1.d81")), "OWN01"))
+    check("an older disk: the first level only, and it says so",
+          not ok and ck.read_slot(od, "OWN01").v["time"] == 150 and ck.own_levels(od, "OWN01") == [1])
+    back_bd = os.path.join(tmp, "back.bd")
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_export([os.path.join(out_dir, "objects-1.d81"), back_bd, "--slot", "1-4"])
+    exported = ck.read_levels(ck.Disk(os.path.join(out_dir, "objects-1.d81")), "OWN01")
+    _, back5 = ck.read_bd(back_bd, 4)
+    if all(c.cells == exported[0].cells for c in exported):
+        check("export: the levels' numbers in the .bd file",
+              back5[0][2].v["time"] == exported[4].v["time"], back5[0][2].v["time"])
+    else:
+        check("export: maps that differ by level: the first level", back5[0][2].v["time"] == exported[0].v["time"])
 
 print("all passed" if not failures else f"{failures} failed")
 sys.exit(1 if failures else 0)

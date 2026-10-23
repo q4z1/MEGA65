@@ -14,8 +14,16 @@ game's editor saves into and plays), or the caves of a file.
 
 import puts caves into the slots of the disk, from slot 1 on (or --slot N),
 over what is there. From a .bd file it takes all its caves (or --cave N or
-N-M, counted from 1) in level 1 (or --level L, 1-5). A cave that cannot be
-imported is named with the reason and left out; the others are written.
+N-M, counted from 1) in all five levels (or only in --level L, 1-5). A
+cave that cannot be imported is named with the reason and left out; the
+others are written.
+
+A slot has the cave's first level in OWNnn and every other level that
+differs from it in OWNnn-2 ... OWNnn-5 (empty otherwise: the game plays the
+first level then). The game plays the slots one after the other, and after
+the last one the next level, as GDash does. A cave from a .cave file, or
+with --level, has one level; so has one the editor saves. A disk of an
+older version has no files for the levels: only the first is written.
 
 disks makes disks to play a whole game from: copies of the disk (the
 game's), each with as many caves of the files as it has slots, the other
@@ -28,16 +36,19 @@ toolchain/tools/build-tools.sh), or the program $GDASH_ORACLE names, saves
 it as .bd first - as GDash itself does with File / Save as.
 
 export writes the own caves of the disk (or --slot N-M) as a .bd file for
-GDash. empty empties all slots of the disk (or --slot N-M).
+GDash, with their levels where only the values differ (a .bd file has one
+map for all levels; where the maps differ, only the first level). empty
+empties all slots of the disk (or --slot N-M), with their levels.
 
 convert turns a .bd file into .cave files (one per cave, into a
 directory, or a single one with --cave N), for building them into the
 game (caves/) - for caves with the elements of Boulder Dash 1 only -, or
 a .cave file into a .bd file.
 
-Options for import, list and convert:
+Options for import, disks, list and convert:
   --cave N[-M]      only these caves of the .bd file
-  --level L         the level to take (1-5), default 1
+  --level L         the level to take (1-5); import and disks take all
+                    five without it, list and convert level 1
   --as NAME=NAME2   put the element NAME2 in place of NAME (BDCFF names or
                     map characters), e.g. --as HEXPANDINGWALL=WALL
 
@@ -1789,19 +1800,64 @@ class Disk:
     def slots(self):
         return sorted(n for n in self.files() if re.fullmatch(SLOT + r"\d\d", n))
 
+    def has(self, name):
+        return name in self.files()
+
     def save(self):
         with open(self.path, "wb") as f:
             f.write(self.img)
+
+
+def level_file(slot, level):
+    """The file of a slot's level (from 0): OWN01, OWN01-2, ..."""
+    return slot if level == 0 else f"{slot}-{level + 1}"
 
 
 def read_slot(disk, name):
     return GdCave.frombytes(disk.read(name)[2:])
 
 
-def write_slot(disk, name, cave):
-    old = disk.read(name)
-    data = old[:2] + (cave.tobytes() if cave else bytes(GD_SIZE))
-    disk.rewrite(name, data)
+def read_levels(disk, name):
+    """A slot's cave in each level, as the game plays them (a level without
+    a cave of its own: the first); None for an empty slot"""
+    first = read_slot(disk, name)
+    if not first:
+        return None
+    out = [first]
+    for lv in range(1, LEVELS):
+        f = level_file(name, lv)
+        out.append((disk.has(f) and read_slot(disk, f)) or first)
+    return out
+
+
+def own_levels(disk, name):
+    """The levels (from 1) of a slot with a cave of their own"""
+    return [1] + [lv + 1 for lv in range(1, LEVELS) if disk.has(level_file(name, lv)) and
+                  read_slot(disk, level_file(name, lv))]
+
+
+def write_file(disk, name, cave):
+    disk.rewrite(name, disk.read(name)[:2] + (cave.tobytes() if cave else bytes(GD_SIZE)))
+
+
+def write_slot(disk, name, levels):
+    """A cave into a slot: levels, its GdCave in each level (one or more;
+    None empties the slot). The first goes into the slot's file, each other
+    one that differs from it into the level's file, which is empty
+    otherwise. False if the disk has no files for the levels (an older
+    version) but the cave's levels differ"""
+    first = levels[0] if levels else None
+    write_file(disk, name, first)
+    ok = True
+    for lv in range(1, LEVELS):
+        cave = levels[lv] if first and lv < len(levels) else None
+        if cave and cave.tobytes() == first.tobytes():
+            cave = None
+        if disk.has(level_file(name, lv)):
+            write_file(disk, level_file(name, lv), cave)
+        elif cave:
+            ok = False
+    return ok
 
 
 # ---------------------------------------------------------------- the commands
@@ -1825,7 +1881,7 @@ def element_code(name):
 
 
 def options(args):
-    opts = {"cave": None, "level": 1, "slot": None, "as": {}}
+    opts = {"cave": None, "level": None, "slot": None, "as": {}}
     rest = []
     while args:
         a = args.pop(0)
@@ -1860,32 +1916,55 @@ def gds_to_bd(path, out):
         raise CaveError(f"{path}: GDash cannot read it")
 
 
-def load_caves(path, opts):
-    """[(label, GdCave or CaveError)] of a .bd, .gds or .cave file"""
+def load_caves(path, opts, all_levels=False):
+    """[(label, levels or CaveError)] of a .bd, .gds or .cave file; levels:
+    the cave's GdCave in the level of --level (default 1), or with
+    all_levels and no --level in each of GDash's five (a .cave file has one)"""
     if path.lower().endswith(".gds"):
         with tempfile.TemporaryDirectory() as tmp:
             bd = os.path.join(tmp, "game.bd")
             gds_to_bd(path, bd)
-            return load_caves(bd, opts)
+            return load_caves(bd, opts, all_levels)
     if path.lower().endswith(".cave"):
         try:
-            return [(os.path.basename(path), gd_from_cave(read_cave_file(path)))]
+            return [(os.path.basename(path), [gd_from_cave(read_cave_file(path))])]
         except CaveError as e:
             return [(os.path.basename(path), e)]
     which = numbers(opts["cave"], 9999) if opts["cave"] else None
-    _, caves = read_bd(path, opts["level"] - 1, opts["as"], which)
-    return [(f"cave {n:2}", CaveError(f"{c.name()}: {cave}") if isinstance(cave, CaveError) else cave)
-            for n, c, cave in caves]
+    levels = range(LEVELS) if all_levels and not opts["level"] else [(opts["level"] or 1) - 1]
+    per_level = [read_bd(path, lv, opts["as"], which)[1] for lv in levels]
+    out = []
+    for k, (n, c, _) in enumerate(per_level[0]):
+        caves = [caves[k][2] for caves in per_level]
+        bad = [(lv, cave) for lv, cave in zip(levels, caves) if isinstance(cave, CaveError)]
+        if bad:
+            lv, e = bad[0]
+            out.append((f"cave {n:2}", CaveError(f"{c.name()}: {e}" if lv == levels[0] else
+                                                  f"{c.name()}: level {lv + 1}: {e}")))
+        else:
+            out.append((f"cave {n:2}", caves))
+    return out
 
 
-def show(label, cave):
+def level_text(opts):
+    return f"level {opts['level']}" if opts["level"] else "levels 1-5"
+
+
+def show(label, cave, levels=None):
+    """A line for a cave (its first level, or a list of its levels; levels:
+    the levels with a cave of their own)"""
     if isinstance(cave, CaveError):
         print(f"  {label}: not possible - {cave}")
         return False
+    if isinstance(cave, list):
+        if levels is None:
+            levels = [1] + [lv + 1 for lv in range(1, len(cave)) if cave[lv].tobytes() != cave[0].tobytes()]
+        cave = cave[0]
     v = cave.v
     need = v["diamonds_needed"] if v["diamonds_needed"] > 0 else "all" + \
         (f" but {-v['diamonds_needed']}" if v["diamonds_needed"] else "")
-    extra = f" ({'; '.join(cave.notes)})" if cave.notes else ""
+    notes = cave.notes + ([f"levels {' '.join(map(str, levels))}"] if levels and len(levels) > 1 else [])
+    extra = f" ({'; '.join(notes)})" if notes else ""
     print(f"  {label}: {cave.name}, {need} in {v['time']} s{extra}")
     return True
 
@@ -1898,13 +1977,13 @@ def cmd_list(args):
         for name in disk.slots():
             cave = read_slot(disk, name)
             if cave:
-                show(name, cave)
+                show(name, cave, own_levels(disk, name))
             else:
                 print(f"  {name}: (empty)")
         return
     caves = load_caves(path, opts)
     ok = sum(show(label, cave) for label, cave in caves)
-    print(f"{ok} of {len(caves)} caves can be played (level {opts['level']})")
+    print(f"{ok} of {len(caves)} caves can be played (level {opts['level'] or 1})")
 
 
 def cmd_import(args):
@@ -1918,7 +1997,7 @@ def cmd_import(args):
         raise CaveError(f"--slot: 1-{len(slots)}")
     todo = []
     for path in rest[1:]:
-        todo += load_caves(path, opts)
+        todo += load_caves(path, opts, True)
     good = [(label, cave) for label, cave in todo if not isinstance(cave, CaveError)]
     for label, cave in todo:
         if isinstance(cave, CaveError):
@@ -1926,11 +2005,14 @@ def cmd_import(args):
     room = len(slots) - first + 1
     if len(good) > room:
         raise CaveError(f"{len(good)} caves, but only {room} slots from {first} on (--cave or --slot)")
+    old = False
     for (label, cave), name in zip(good, slots[first - 1:]):
-        write_slot(disk, name, cave)
-        show(f"{name} <- {label}", cave)
+        old |= not write_slot(disk, name, cave)
+        show(f"{name} <- {label}", cave, own_levels(disk, name))
     disk.save()
-    print(f"{len(good)} of {len(todo)} caves written to {rest[0]}")
+    print(f"{len(good)} of {len(todo)} caves written to {rest[0]} ({level_text(opts)})")
+    if old:
+        print(f"{rest[0]} has no files for the levels (a disk of an older version): only the first level")
 
 
 def cmd_disks(args):
@@ -1950,7 +2032,7 @@ def cmd_disks(args):
         raise CaveError(f"{src}: no slots ({SLOT}01, ...) - not a disk of Smaragd Dash with the editor?")
     todo = []
     for path in files:
-        todo += load_caves(path, opts)
+        todo += load_caves(path, opts, True)
     good = []
     for label, cave in todo:
         if isinstance(cave, CaveError):
@@ -1967,12 +2049,15 @@ def cmd_disks(args):
         shutil.copyfile(src, path)
         disk = Disk(path)
         slots = disk.slots()
+        old = False
         for i, name in enumerate(slots):
-            write_slot(disk, name, part[i][1] if i < len(part) else None)
+            old |= not write_slot(disk, name, part[i][1] if i < len(part) else None)
         disk.save()
-        print(f"{path}: {len(part)} caves - {part[0][1].name} ... {part[-1][1].name}")
+        print(f"{path}: {len(part)} caves - {part[0][1][0].name} ... {part[-1][1][0].name}")
     print(f"{len(good)} of {len(todo)} caves on {len(parts)} disk{'s' if len(parts) > 1 else ''} "
-          f"(level {opts['level']})")
+          f"({level_text(opts)})")
+    if old:
+        print(f"{src} has no files for the levels (a disk of an older version): only the first level")
 
 
 def cmd_export(args):
@@ -1980,11 +2065,16 @@ def cmd_export(args):
     disk = Disk(rest[0])
     slots = disk.slots()
     which = numbers(opts["slot"], len(slots)) if opts["slot"] else set(range(1, len(slots) + 1))
-    caves = [c for i, n in enumerate(slots) if i + 1 in which and (c := read_slot(disk, n))]
-    if not caves:
+    slot_levels = [lv for i, n in enumerate(slots) if i + 1 in which and (lv := read_levels(disk, n))]
+    if not slot_levels:
         raise CaveError("no caves in these slots")
-    write_bd(rest[1], caves, "Smaragd Dash own caves")
-    print(f"{len(caves)} caves written to {rest[1]}")
+    # a .bd file has one map for a cave's levels: where they differ, the first level only
+    first_only = [lv[0].name for lv in slot_levels if any(c.cells != lv[0].cells for c in lv)]
+    levels = [[lv[0]] if lv[0].name in first_only else lv for lv in slot_levels]
+    write_bd(rest[1], [lv[0] for lv in slot_levels], "Smaragd Dash own caves", levels)
+    print(f"{len(slot_levels)} caves written to {rest[1]}")
+    if first_only:
+        print(f"only the first level (the maps of the levels differ): {', '.join(first_only)}")
 
 
 def cmd_empty(args):
@@ -2010,7 +2100,7 @@ def cmd_convert(args):
     caves = []
     for label, gd in load_caves(src, opts):
         try:
-            caves.append((label, gd if isinstance(gd, CaveError) else game_cave(gd)))
+            caves.append((label, gd if isinstance(gd, CaveError) else game_cave(gd[0])))
         except CaveError as e:
             caves.append((label, CaveError(f"{gd.name}: {e}")))
     if dst.lower().endswith(".cave"):
@@ -2019,7 +2109,7 @@ def cmd_convert(args):
             for label, c in caves:
                 print(f"  {label}: {c if isinstance(c, CaveError) else c.name}")
             raise CaveError("one cave to a .cave file: --cave N")
-        write_cave_file(dst, good[0][1], f"from {os.path.basename(src)}, level {opts['level']}")
+        write_cave_file(dst, good[0][1], f"from {os.path.basename(src)}, level {opts['level'] or 1}")
         print(f"{dst}: {good[0][1].name}")
         return
     os.makedirs(dst, exist_ok=True)
@@ -2031,7 +2121,7 @@ def cmd_convert(args):
         slug = re.sub(r"[^a-z0-9]+", "-", cave.name.lower()).strip("-") or "cave"
         n += 1
         path = os.path.join(dst, f"{n:02d}-{slug}.cave")
-        write_cave_file(path, cave, f"from {os.path.basename(src)}, {label}, level {opts['level']}")
+        write_cave_file(path, cave, f"from {os.path.basename(src)}, {label}, level {opts['level'] or 1}")
         print(f"  {label}: {path}")
     print(f"{n} caves written to {dst}")
 

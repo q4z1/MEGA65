@@ -237,7 +237,10 @@ to be tried or saved.
 ## Saving
 
 **S** writes the cave into its slot on the disk. The `*` goes and the status
-line says SAVED; if the disk cannot be written, COULD NOT SAVE.
+line says SAVED; if the disk cannot be written, COULD NOT SAVE. The cave is
+then the same in all five levels: levels of their own that a cave from
+GDash brought along (see [below](#caves-on-the-pc-gdash-and-cavekitpy)) are
+emptied, and so are they when **D** empties the slot.
 
 The disk is the D81 image the game runs from. On a real MEGA65 it has to be
 mounted from the SD card, as usual, and must not be write protected. In Xemu
@@ -251,9 +254,12 @@ disk and `import` into the new one (see
 ## Playing your caves
 
 On the title screen, left and right choose the cave to start with (1, 6,
-11, 16, 21). Right of cave 21 comes OWN CAVES. Fire starts them: all slots
-that are not empty, one after the other, with three lives; after the last
-one the first comes again. Each own cave has one level, and the own caves
+11, 16, 21). Right of cave 21 comes OWN CAVES; up and down choose the level
+to start with, 1 to 5. Fire starts them: all slots that are not empty, one
+after the other, with three lives; after the last one the first comes
+again, in the next level (after level 5: level 5 again), as in GDash. The
+status line shows slot and level, OWN 03/2. A cave saved in the editor is
+the same in every level; one from GDash plays its own levels. The own caves
 have no place in the high score table, which is for the game's caves.
 
 ![The title with the own caves chosen](screenshots/editor-title.png)
@@ -288,10 +294,16 @@ tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game o
 
 - **Sharing your caves:** `export` writes them as a BDCFF file (`.bd`), the
   format of GDash. Someone else imports it into their disk with `import`,
-  or opens it in GDash.
+  or opens it in GDash. A `.bd` file has one map for all levels of a cave:
+  levels that differ only in their values (time, diamonds, ...) go along,
+  where the maps differ (a random fill of its own) only the first level -
+  `export` names those caves.
 - **Caves from GDash:** GDash comes with thousands of caves of the C64 games
   and of fans. `import` takes `.bd` files; `--cave N` (or `N-M`) picks
-  caves, `--level L` (1-5) the level, `--slot N` the first slot. GDash's
+  caves, `--slot N` the first slot. A cave comes with all five of its
+  levels (the slot keeps those that differ from the first, see
+  [Playing your caves](#playing-your-caves)); `--level L` (1-5) takes that
+  level alone. GDash's
   `.gds` files (imported C64 games) go through GDash: open one there and
   save it (*File → Save as*), which writes a `.bd` file. In this repository
   `cavekit.py` does that by itself, with GDash's own code that
@@ -301,9 +313,11 @@ tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game o
 - **A whole game:** `disks` makes disks to play a game from GDash on. Each
   is a copy of the game's disk with as many of the game's caves as there are
   slots (20), the rest empty: `game.d81`, or `game-1.d81`, `game-2.d81`, ...
-  for a bigger game. Start one and choose OWN CAVES on the title. The
-  options of `import` work here too, e.g. `--level 3` for the game's third
-  level. The caves of the game itself stay on every disk.
+  for a bigger game. Start one and choose OWN CAVES on the title: after the
+  last cave the game goes on with the first in the next level, as the
+  original does. The options of `import` work here too, e.g. `--level 3`
+  for the game's third level alone. The caves of the game itself stay on
+  every disk.
 
   ```sh
   tools/cavekit.py disks build/smaragd-dash.d81 Boulder_Dash_1.bd --out disks/
