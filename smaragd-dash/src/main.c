@@ -47,6 +47,9 @@
 #ifndef DEMO_LAST
 #define DEMO_LAST DEMO_CAVES  // the caves it plays; -DDEMO_LAST=6: the first six
 #endif
+#ifndef DEMO_FIRST
+#define DEMO_FIRST 1          // -DDEMO_FIRST=9 -DDEMO_LAST=9: cave 9 alone
+#endif
 #endif
 
 #define LIVES       3
@@ -2500,6 +2503,8 @@ int main(void) {
     hiscore_load();
 #ifdef TOUR
     start_cave = CAVE_COUNT;  // the own caves: the demo caves
+#elif defined(SCREENCAST)
+    start_cave = DEMO_FIRST - 1;
 #endif
 #ifdef GDCHECK
     gd_check();

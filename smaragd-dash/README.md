@@ -302,7 +302,7 @@ loads the moves for each cave with it from the disk (`DEMO01`, `DEMO02`, ...,
 written by the solver as `build/caves/demoNN.bin`; only this build puts
 them on the disk), and stops the emulator after the last cave, which ends
 the recording. `-DDEMO_LAST=6` in `MEGA65_CFLAGS` makes it stop after the
-sixth.
+sixth, `-DDEMO_FIRST=9` start with the ninth.
 
 The moves come from `tools/solve.c`, which `build.sh` compiles and runs on
 the host at every build. It plays the caves with GDash's engine as the game
