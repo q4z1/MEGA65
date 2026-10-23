@@ -1,6 +1,7 @@
 // Smaragd Dash: sound effects on the first SID.
-//   voice 1: Rockford and diamonds   voice 2: boulders, dirt, explosions
-//   voice 3: amoeba, magic wall, clock, exit
+//   voice 1: Rockford, diamonds, clocks   voice 2: boulders, nuts, expanding
+//   walls, dirt, explosions   voice 3: amoeba, magic wall, slime, the time,
+//   the exit
 
 #ifndef SOUND_H
 #define SOUND_H
@@ -8,7 +9,7 @@
 #include <stdint.h>
 
 void sound_init(void);
-void sound_tick(uint8_t events);  // SND_* flags of a cave tick
+void sound_tick(uint16_t events);  // SND_* flags of a cave tick
 void sound_crackle(void);         // covering/uncovering the cave
 void sound_clock(void);           // last seconds
 void sound_bonus(void);           // time is counted into the score

@@ -68,7 +68,7 @@ typedef struct {
     uint8_t amoeba_state, amoeba_2_state, magic_wall_state;  // GD_AM_*, GD_MW_*
     int32_t ckdelay_current, ckdelay_extra_for_animation;
     uint8_t last_direction;
-    uint8_t sound;                // SND_* (engine.h) of the last step
+    uint16_t sound;               // SND_* (engine.h) of the last step
     uint8_t nevents;              // what else happened in it, for the drawing's
     Event events[MAX_EVENTS];     // little effects (engine.h's EV_*)
 } GdState;

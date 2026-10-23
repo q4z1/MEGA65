@@ -61,6 +61,10 @@ enum { MW_DORMANT, MW_ACTIVE, MW_EXPIRED };
 #define SND_EXPLODE   0x20
 #define SND_MAGIC     0x40  // magic wall is active
 #define SND_AMOEBA    0x80  // amoeba is alive
+#define SND_CLOCK     0x100  // a clock taken
+#define SND_NUT       0x200  // a nut cracked
+#define SND_SLIME     0x400  // something went through slime
+#define SND_GROW      0x800  // an expanding wall grew
 
 // What the status line shows of the cave
 typedef struct {
@@ -83,7 +87,7 @@ struct game {
     bool flash;               // exit just opened: flash the screen
     uint32_t score;
     uint8_t magic_state;      // MW_*
-    uint8_t sound;            // SND_* of the last step
+    uint16_t sound;           // SND_* of the last step
 };
 
 // GDash's engine's map (its O_* codes) and moves: on the MEGA65 they lie

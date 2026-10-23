@@ -667,6 +667,7 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
         gd.got_pneumatic_hammer = true;
         return O_SPACE;
     case O_CLOCK:
+        gd.sound |= SND_CLOCK;
         gd.time += (int32_t)gd.f->time_bonus * gd.timing_factor;
         if (gd.time > (int32_t)gd.f->max_time * gd.timing_factor)
             gd.time -= (int32_t)gd.f->max_time * gd.timing_factor;
@@ -855,6 +856,7 @@ static bool do_fall_try_crack_nut(int8_t x, int8_t y, uint8_t fall_dir, uint8_t 
     if (e == O_NUT || e == O_NUT_F) {
         store(x, y, bouncing);
         store_dir(x, y, fall_dir, gd.f->nut_turns_to_when_crushed);
+        gd.sound |= SND_NUT;
         return true;
     }
     return false;
@@ -1160,6 +1162,7 @@ static void slime(int8_t x, int8_t y) {
             return;
         store_dir(x, y, grav, to);
         store_dir(x, y, oppos, O_SPACE);
+        gd.sound |= SND_SLIME;
     } else if (is_like_space(x, y, oppos)) {
         uint16_t e = get_dir(x, y, grav);
         uint8_t to;
@@ -1173,6 +1176,7 @@ static void slime(int8_t x, int8_t y) {
             return;
         store_dir(x, y, grav, O_SPACE);
         store_dir(x, y, oppos, to);
+        gd.sound |= SND_SLIME;
     }
 }
 
@@ -1301,9 +1305,9 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
 static void expanding(int8_t x, int8_t y, uint8_t a, uint8_t b) {
     uint8_t e = get(x, y);
     if (is_like_space(x, y, a))
-        store_dir(x, y, a, e);
+        store_dir(x, y, a, e), gd.sound |= SND_GROW;
     else if (is_like_space(x, y, b))
-        store_dir(x, y, b, e);
+        store_dir(x, y, b, e), gd.sound |= SND_GROW;
 }
 
 static void conveyor(int8_t x, int8_t y) {
@@ -1748,13 +1752,13 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_EXPANDING_WALL:
     case O_EXPANDING_STEEL_WALL:
         if (is_like_space(x, y, MV_LEFT))
-            store_dir(x, y, MV_LEFT, e);
+            store_dir(x, y, MV_LEFT, e), gd.sound |= SND_GROW;
         if (is_like_space(x, y, MV_RIGHT))
-            store_dir(x, y, MV_RIGHT, e);
+            store_dir(x, y, MV_RIGHT, e), gd.sound |= SND_GROW;
         if (is_like_space(x, y, MV_UP))
-            store_dir(x, y, MV_UP, e);
+            store_dir(x, y, MV_UP, e), gd.sound |= SND_GROW;
         if (is_like_space(x, y, MV_DOWN))
-            store_dir(x, y, MV_DOWN, e);
+            store_dir(x, y, MV_DOWN, e), gd.sound |= SND_GROW;
         break;
     case O_SLIME:
         slime(x, y);
