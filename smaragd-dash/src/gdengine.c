@@ -927,6 +927,9 @@ static void creature_move(int8_t x, int8_t y, uint8_t base) {
     case O_STONEFLY_1:
         event(x, y, EV_STONEFLY);
         break;
+    case O_COW_1:
+        event(x, y, EV_COW);
+        break;
     }
 }
 

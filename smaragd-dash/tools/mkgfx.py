@@ -534,23 +534,20 @@ def draw_glitter(stage, colours=GLITTER_BLUE):
 
 
 def draw_mist(stage):
-    """Ghost: wisps of mist that drift up, thin out and fade - pale as the
-    ghost, dithered, so the dark shows through."""
+    """Ghost: a faint breath of mist that drifts up and is gone - a few
+    dim pixels, so the dark shows through."""
     t = new_tile()
-    cols = [hexc("c8d4e0"), hexc("8a96a8"), hexc("5a6478"), hexc("343c4c")]
+    cols = [hexc("6a7486"), hexc("4e5768"), hexc("3a4250"), hexc("2a303c")]
     r = random.Random(91)
-    puffs = [(r.uniform(4, 12), r.uniform(6, 11), r.uniform(4.0, 5.5)) for _ in range(3)]
-    for k, (px, py, pr) in enumerate(puffs):
-        cy = py - stage * 1.3
-        rad = pr - stage * 0.5
+    puffs = [(r.uniform(5, 11), r.uniform(7, 11), r.uniform(2.6, 3.4)) for _ in range(2)]
+    for k, (px, py, pr) in enumerate(puffs[:2 - stage // 2]):
+        cy = py - stage * 1.2
+        rad = pr - stage * 0.3
         for y in range(T):
             for x in range(T):
                 d = math.hypot(x + 0.5 - px, (y + 0.5 - cy) * 1.5)
-                if d >= rad:
-                    continue
-                dense = (x + y) % 2 == 0 if d < rad * 0.55 and stage < 2 else (x + 2 * y + k) % 4 == 0
-                if dense:
-                    t[y][x] = cols[min(stage + (1 if d > rad * 0.55 else 0), 3)]
+                if d < rad and (x + 2 * y + k + stage) % 4 == 0:
+                    t[y][x] = cols[stage]
     return t
 
 
