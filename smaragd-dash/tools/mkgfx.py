@@ -1370,16 +1370,18 @@ def draw_ghost(frame):
 
 
 def draw_hammer(active=False, frame=0):
+    """The pneumatic hammer; at work in four frames: up, halfway, the
+    strike (with sparks), halfway"""
     t = new_tile()
     head = [hexc("3c4456"), hexc("7c88a0"), hexc("c8d4e8")]
-    top = 2 + (3 * frame if active else 0)
+    top = 2 + ([0, 2, 4, 2][frame] if active else 0)
     for y in range(top, top + 4):
         for x in range(3, 13):
             t[y][x] = head[2] if y == top else head[1] if y < top + 3 else head[0]
     for y in range(top + 4, 15):
         t[y][7] = hexc("8a5a30")
         t[y][8] = hexc("4a2c16")
-    if active:
+    if active and frame == 2:
         plot(t, [(2, 15), (13, 15), (4, 14), (11, 14)], hexc("ffc840"))
     return t
 
@@ -1525,7 +1527,7 @@ def gd_tiles():
             ("BOULDER_FLYING", winged(draw_boulder())), ("DIAMOND_FLYING", winged(draw_emerald(0))),
             ("NITRO", draw_nitro())]
     out += [(f"GHOST{i}", draw_ghost(i)) for i in range(2)]
-    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(2)]
+    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(4)]
     out += [("ROCKET_LAUNCHER", draw_rocket_launcher())]
     out += [(f"ROCKET{i}", draw_rocket(i)) for i in range(4)]
     out += [("WALLED_DIAMOND", walled(draw_emerald(0)))]
@@ -1582,7 +1584,7 @@ GD_TILES = [
     (r"WALLED_KEY_(\d)", "WALLED_KEY"),
     (r"POT", "POT"),
     (r"PNEUMATIC_HAMMER", "HAMMER"),
-    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER_ACTIVE0", 2, 1),
+    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER_ACTIVE0", 4, 2),
     (r"TELEPORTER", "TELEPORTER0", 2, 2),
     (r"SKELETON", "SKELETON"),
     (r"WATER(_\d+)?", "WATER0", 4, 2),
