@@ -1,6 +1,6 @@
 # Rockford stands at the inbox. While he hatched, the bladder under the brick
 # wall slid off it and rose, the one beside the voodoo became a clock
-= @12,1=BLADDER* @13,2=SPACE @16,2=CLOCK
+= @12,1=BLADDER* @13,2=SPACE @16,2=CLOCK heard=SLIME
 R R R R           # pushed right: two steps, the bladder before him
 = @6,2=BLADDER* p=5,2
 R                 # dirt behind it: it goes down past the dirt

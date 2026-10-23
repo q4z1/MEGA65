@@ -1,5 +1,5 @@
 # Rockford stands at the inbox
 2R                # the clock: 5 seconds more, over the 12 of CaveMaxTime, so 12 off; dirt stays
-= @3,2=DIRT st=living
+= @3,2=DIRT st=living heard=CLOCK
 20.               # the 3 seconds left run out
 = st=timeout

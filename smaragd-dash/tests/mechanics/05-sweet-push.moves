@@ -5,7 +5,7 @@ R R R             # pushed every time
 R R R             # without the sweet it does not move
 = @4,5=MEGA_STONE p=3,5
 L L U U R         # the sweet
-= sweet=1
+= sweet=1 heard=PICKUP
 R R               # the boulder goes at once now
 = @5,3=STONE p=4,3
 3L D D R R R      # and the mega boulder too

@@ -346,6 +346,11 @@ uint32_t gd_scan_ckdelay;  // the C64's delay of the cells scan_cells passed
 
 // Something for the drawing's little effects at x, y (gd.events, EV_*);
 // the rules do not use them
+// A sound of the step (SND_*, engine.h): each is a bit of one byte of
+// gd.sound, which alone is changed
+#define SOUND(f) (((uint8_t *)&gd.sound)[(f) > 0xFFFF ? 2 : (f) > 0xFF ? 1 : 0] |= \
+                  (uint8_t)((f) >> ((f) > 0xFFFF ? 16 : (f) > 0xFF ? 8 : 0)))
+
 static void event(int8_t x, int8_t y, uint8_t what) {
     if (gd.nevents < MAX_EVENTS) {
         Event *ev = &gd.events[gd.nevents++];
@@ -444,7 +449,7 @@ static void cell_explode(int8_t x, int8_t y, uint8_t explode_to) {
 
 static void creature_explode(int8_t x, int8_t y, uint8_t explode_to) {
     gd.ckdelay_current += 1200;
-    gd.sound |= SND_EXPLODE;
+    SOUND(SND_EXPLODE);
     for (int8_t yy = y - 1; yy <= y + 1; yy++)
         for (int8_t xx = x - 1; xx <= x + 1; xx++)
             cell_explode(xx, yy, explode_to);
@@ -452,7 +457,7 @@ static void creature_explode(int8_t x, int8_t y, uint8_t explode_to) {
 
 static void nitro_explode(int8_t x, int8_t y) {
     gd.ckdelay_current += 1200;
-    gd.sound |= SND_EXPLODE;
+    SOUND(SND_EXPLODE);
     for (int8_t yy = y - 1; yy <= y + 1; yy++)
         for (int8_t xx = x - 1; xx <= x + 1; xx++)
             cell_explode(xx, yy, O_NITRO_EXPL_1);
@@ -463,7 +468,7 @@ static void voodoo_explode(int8_t x, int8_t y) {
     if (flag(GDF_VOODOO_ANY_HURT_KILLS_PLAYER))
         gd.voodoo_touched = true;
     gd.ckdelay_current += 1000;
-    gd.sound |= SND_EXPLODE;
+    SOUND(SND_EXPLODE);
     for (int8_t yy = y - 1; yy <= y + 1; yy++)
         for (int8_t xx = x - 1; xx <= x + 1; xx++)
             store(xx, yy, O_PRE_STEEL_1);
@@ -482,7 +487,7 @@ static void cell_explode_skip_voodoo(int8_t x, int8_t y, uint8_t expl) {
 
 static void ghost_explode(int8_t x, int8_t y) {
     gd.ckdelay_current += 650;
-    gd.sound |= SND_EXPLODE;
+    SOUND(SND_EXPLODE);
     cell_explode_skip_voodoo(x, y, O_GHOST_EXPL_1);
     cell_explode_skip_voodoo(x - 1, y - 1, O_GHOST_EXPL_1);
     cell_explode_skip_voodoo(x + 1, y + 1, O_GHOST_EXPL_1);
@@ -492,7 +497,7 @@ static void ghost_explode(int8_t x, int8_t y) {
 
 static void bomb_explode(int8_t x, int8_t y) {
     gd.ckdelay_current += 650;
-    gd.sound |= SND_EXPLODE;
+    SOUND(SND_EXPLODE);
     cell_explode_skip_voodoo(x, y, O_BOMB_EXPL_1);
     cell_explode_skip_voodoo(x - 1, y, O_BOMB_EXPL_1);
     cell_explode_skip_voodoo(x + 1, y, O_BOMB_EXPL_1);
@@ -587,53 +592,67 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
     y += gd_dy[dir];
     switch (element) {
     case O_DIAMOND_KEY:
+        SOUND(SND_PICKUP);
         gd.diamond_key_collected = true;
         return O_SPACE;
     case O_KEY_1:
+        SOUND(SND_PICKUP);
         gd.key1++;
         return O_SPACE;
     case O_KEY_2:
+        SOUND(SND_PICKUP);
         gd.key2++;
         return O_SPACE;
     case O_KEY_3:
+        SOUND(SND_PICKUP);
         gd.key3++;
         return O_SPACE;
     case O_DOOR_1:
         if (!gd.key1)
             return O_NONE;
+        SOUND(SND_DOOR);
         gd.key1--;
         return O_SPACE;
     case O_DOOR_2:
         if (!gd.key2)
             return O_NONE;
+        SOUND(SND_DOOR);
         gd.key2--;
         return O_SPACE;
     case O_DOOR_3:
         if (!gd.key3)
             return O_NONE;
+        SOUND(SND_DOOR);
         gd.key3--;
         return O_SPACE;
     case O_CREATURE_SWITCH:
+        SOUND(SND_SWITCH);
         gd.flags ^= GDF_CREATURES_BACKWARDS;
         return O_CREATURE_SWITCH;
     case O_EXPANDING_WALL_SWITCH:
+        SOUND(SND_SWITCH);
         gd.flags ^= GDF_EXPANDING_WALL_CHANGED;
         return O_EXPANDING_WALL_SWITCH;
     case O_BITER_SWITCH:
+        SOUND(SND_SWITCH);
         if (++gd.biter_delay_frame == 4)
             gd.biter_delay_frame = 0;
         return O_BITER_SWITCH;
     case O_REPLICATOR_SWITCH:
+        SOUND(SND_SWITCH);
         gd.flags ^= GDF_REPLICATORS_ACTIVE;
         return O_REPLICATOR_SWITCH;
     case O_CONVEYOR_SWITCH:
+        SOUND(SND_SWITCH);
         gd.flags ^= GDF_CONVEYOR_BELTS_ACTIVE;
         return O_CONVEYOR_SWITCH;
     case O_CONVEYOR_DIR_SWITCH:
+        SOUND(SND_SWITCH);
         gd.flags ^= GDF_CONVEYOR_BELTS_DIRECTION_CHANGED;
         return O_CONVEYOR_DIR_SWITCH;
     case O_GRAVITY_SWITCH:
         if (flag(GDF_GRAVITY_SWITCH_ACTIVE) && (dir == MV_LEFT || dir == MV_RIGHT || dir == MV_UP || dir == MV_DOWN)) {
+            SOUND(SND_SWITCH);
             gd.gravity_will_change = (int32_t)gd.f->gravity_change_time * gd.timing_factor;
             gd.gravity_next_direction = dir;
             gd.flags &= ~GDF_GRAVITY_SWITCH_ACTIVE;
@@ -650,7 +669,7 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
     case O_DIRT_LOOSE:
     case O_STEEL_EATABLE:
     case O_BRICK_EATABLE:
-        gd.sound |= SND_DIRT;
+        SOUND(SND_DIRT);
         if (sc_fire)  // crumbs where it was snapped, or where Rockford came from
             event(x, y, EV_DUG);
         else
@@ -658,16 +677,18 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
         return O_SPACE;
     case O_SPACE:
     case O_LAVA:
-        gd.sound |= SND_STEP;
+        SOUND(SND_STEP);
         return O_SPACE;
     case O_SWEET:
+        SOUND(SND_PICKUP);
         gd.sweet_eaten = true;
         return O_SPACE;
     case O_PNEUMATIC_HAMMER:
+        SOUND(SND_PICKUP);
         gd.got_pneumatic_hammer = true;
         return O_SPACE;
     case O_CLOCK:
-        gd.sound |= SND_CLOCK;
+        SOUND(SND_CLOCK);
         gd.time += (int32_t)gd.f->time_bonus * gd.timing_factor;
         if (gd.time > (int32_t)gd.f->max_time * gd.timing_factor)
             gd.time -= (int32_t)gd.f->max_time * gd.timing_factor;
@@ -676,7 +697,7 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
     case O_FLYING_DIAMOND:
         gd.score += gd.diamond_value;
         gd.diamonds_collected++;
-        gd.sound |= SND_COLLECT;
+        SOUND(SND_COLLECT);
         if (gd.diamonds_needed == gd.diamonds_collected) {
             gd.gate_open = true;
             gd.diamond_value = gd.f->extra_diamond_value;
@@ -684,6 +705,7 @@ static uint8_t player_eat_element(uint16_t element, int8_t x, int8_t y, uint8_t 
         }
         return O_SPACE;
     case O_SKELETON:
+        SOUND(SND_PICKUP);
         gd.skeletons_collected++;
         for (uint8_t i = 0; i < gd.f->skeletons_worth_diamonds; i++)
             player_eat_element(O_DIAMOND, x, y, MV_STILL);
@@ -710,6 +732,7 @@ static bool do_teleporter(int8_t px, int8_t py, uint8_t player_move) {
             store_dir(tx, ty, player_move, get(px, py));
             store(px, py, O_SPACE);
             teleported = true;
+            SOUND(SND_TELEPORT);
         }
     } while (!teleported && (tx != px || ty != py));
     return teleported;
@@ -750,7 +773,7 @@ static bool do_push(int8_t x, int8_t y, uint8_t player_move, bool player_fire) {
                 break;
             }
             if (is_like_space(x, y, twice[player_move]) && chance(prob)) {
-                gd.sound |= SND_BOULDER;
+                SOUND(SND_BOULDER);
                 store_dir(x, y, twice[player_move], what == O_STONE ? gd.f->stone_bouncing_effect : what);
                 slid(x + gd_dx[player_move], y + gd_dy[player_move], player_move);
                 result = true;
@@ -795,6 +818,7 @@ static bool do_push(int8_t x, int8_t y, uint8_t player_move, bool player_fire) {
         if (player_fire && (player_move == MV_LEFT || player_move == MV_RIGHT || player_move == MV_UP ||
                             player_move == MV_DOWN) && is_like_space(x, y, twice[player_move])) {
             store_dir(x, y, twice[player_move], O_BOX);
+            SOUND(SND_BOULDER);
             result = true;
         }
         break;
@@ -856,7 +880,7 @@ static bool do_fall_try_crack_nut(int8_t x, int8_t y, uint8_t fall_dir, uint8_t 
     if (e == O_NUT || e == O_NUT_F) {
         store(x, y, bouncing);
         store_dir(x, y, fall_dir, gd.f->nut_turns_to_when_crushed);
-        gd.sound |= SND_NUT;
+        SOUND(SND_NUT);
         return true;
     }
     return false;
@@ -864,7 +888,7 @@ static bool do_fall_try_crack_nut(int8_t x, int8_t y, uint8_t fall_dir, uint8_t 
 
 static bool do_fall_try_magic(int8_t x, int8_t y, uint8_t fall_dir, uint8_t magic) {
     if (get_dir(x, y, fall_dir) == O_MAGIC_WALL) {
-        gd.sound |= SND_DIAMOND;
+        SOUND(SND_DIAMOND);
         if (gd.magic_wall_state == GD_MW_DORMANT)
             gd.magic_wall_state = GD_MW_ACTIVE;
         if (gd.magic_wall_state == GD_MW_ACTIVE && is_like_space(x, y, twice[fall_dir]))
@@ -888,7 +912,10 @@ static bool do_fall_try_crush(int8_t x, int8_t y, uint8_t fall_dir) {
 static void landed(int8_t x, int8_t y) {
     uint16_t e = get(x, y);
     bool diamond = e == O_DIAMOND || e == O_DIAMOND_F || e == O_FLYING_DIAMOND_F;
-    gd.sound |= diamond ? SND_DIAMOND : SND_BOULDER;
+    if (diamond)
+        SOUND(SND_DIAMOND);
+    else
+        SOUND(SND_BOULDER);
     if (!diamond)
         event(x, y, EV_LANDED);
 }
@@ -1080,6 +1107,8 @@ static void biter(int8_t x, int8_t y) {
         store(x, y, O_BITER_1 + dirp);
     else if (biter_try[i] == O_STONE)
         store(x, y, O_STONE);
+    else if (biter_try[i] != O_SPACE)  // it ate
+        SOUND(SND_NUT);
 }
 
 static void bladder(int8_t x, int8_t y) {
@@ -1088,9 +1117,10 @@ static void bladder(int8_t x, int8_t y) {
     if (is_like_element(x, y, up, conv) || is_like_element(x, y, cw_fourth[gc], conv) ||
         is_like_element(x, y, ccw_fourth[gc], conv)) {
         store(x, y, O_PRE_CLOCK_1);
+        SOUND(SND_SLIME);
     } else if (is_like_space(x, y, up)) {
         if (get(x, y) == O_BLADDER_8)
-            move(x, y, up, O_BLADDER_1);
+            move(x, y, up, O_BLADDER_1), SOUND(SND_SLIME);
         else
             next(x, y);
     } else if (sloped_for_bladder(x, y, up) && sloped(x, y, up, up)) {
@@ -1162,7 +1192,7 @@ static void slime(int8_t x, int8_t y) {
             return;
         store_dir(x, y, grav, to);
         store_dir(x, y, oppos, O_SPACE);
-        gd.sound |= SND_SLIME;
+        SOUND(SND_SLIME);
     } else if (is_like_space(x, y, oppos)) {
         uint16_t e = get_dir(x, y, grav);
         uint8_t to;
@@ -1176,7 +1206,7 @@ static void slime(int8_t x, int8_t y) {
             return;
         store_dir(x, y, grav, O_SPACE);
         store_dir(x, y, oppos, to);
-        gd.sound |= SND_SLIME;
+        SOUND(SND_SLIME);
     }
 }
 
@@ -1198,12 +1228,14 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
             if (player_move == MV_LEFT && can_be_hammered(x, y, MV_DOWN_LEFT)) {
                 gd.pneumatic_hammer_active_delay = gd.f->pneumatic_hammer_frame;
                 store_dir(x, y, MV_LEFT, O_PNEUMATIC_ACTIVE_LEFT);
+                SOUND(SND_HAMMER);
                 store(x, y, O_PLAYER_PNEUMATIC_LEFT);
                 return;
             }
             if (player_move == MV_RIGHT && can_be_hammered(x, y, MV_DOWN_RIGHT)) {
                 gd.pneumatic_hammer_active_delay = gd.f->pneumatic_hammer_frame;
                 store_dir(x, y, MV_RIGHT, O_PNEUMATIC_ACTIVE_RIGHT);
+                SOUND(SND_HAMMER);
                 store(x, y, O_PLAYER_PNEUMATIC_RIGHT);
                 return;
             }
@@ -1220,6 +1252,7 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
             } else {
                 switch (what) {
                 case O_BOMB:
+                    SOUND(SND_PICKUP);
                     store_dir(x, y, player_move, O_SPACE);
                     if (player_fire)
                         store(x, y, O_PLAYER_BOMB);
@@ -1227,6 +1260,7 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
                         move(x, y, player_move, O_PLAYER_BOMB);
                     break;
                 case O_ROCKET_LAUNCHER:
+                    SOUND(SND_PICKUP);
                     store_dir(x, y, player_move, O_SPACE);
                     if (player_fire)
                         store(x, y, O_PLAYER_ROCKET_LAUNCHER);
@@ -1238,6 +1272,7 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
                         gd.skeletons_collected >= gd.f->skeletons_needed_for_pot) {
                         gd.skeletons_collected -= gd.f->skeletons_needed_for_pot;
                         move(x, y, player_move, O_PLAYER_STIRRING);
+                        SOUND(SND_SWITCH);
                         gd.gravity_disabled = true;
                     }
                     break;
@@ -1261,6 +1296,7 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
             if (player_fire) {
                 if (is_like_space(x, y, player_move) || is_like_dirt(x, y, player_move)) {
                     store_dir(x, y, player_move, O_BOMB_TICK_1);
+                    SOUND(SND_BOMB);
                     store(x, y, O_PLAYER);
                 }
                 break;
@@ -1305,9 +1341,9 @@ static void player(int8_t x, int8_t y, uint16_t e, uint8_t player_move, bool pla
 static void expanding(int8_t x, int8_t y, uint8_t a, uint8_t b) {
     uint8_t e = get(x, y);
     if (is_like_space(x, y, a))
-        store_dir(x, y, a, e), gd.sound |= SND_GROW;
+        store_dir(x, y, a, e), SOUND(SND_GROW);
     else if (is_like_space(x, y, b))
-        store_dir(x, y, b, e), gd.sound |= SND_GROW;
+        store_dir(x, y, b, e), SOUND(SND_GROW);
 }
 
 static void conveyor(int8_t x, int8_t y) {
@@ -1598,7 +1634,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         if (gd.replicators_wait_frame == 0 && flag(GDF_REPLICATORS_ACTIVE) && !gd.gravity_disabled) {
             if (is_like_space(x, y, gd.gravity) && !is_player_dir(x, y, opposite[gd.gravity]) &&
                 !is_scanned_dir(x, y, opposite[gd.gravity]))
-                store_dir(x, y, gd.gravity, get_dir(x, y, opposite[gd.gravity]));
+                store_dir(x, y, gd.gravity, get_dir(x, y, opposite[gd.gravity])), SOUND(SND_GROW);
         }
         break;
     case O_BITER_1:
@@ -1663,7 +1699,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         break;
     case O_AMOEBA:
         if (gd.hatched && gd.amoeba_state == GD_AM_AWAKE)
-            gd.sound |= SND_AMOEBA;
+            SOUND(SND_AMOEBA);
         if (gd.convert_amoeba_this_frame && sc_amoeba_found_enclosed) {
             store(x, y, f->amoeba_enclosed_effect);
             break;
@@ -1688,7 +1724,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         break;
     case O_AMOEBA_2:
         if (gd.hatched && gd.amoeba_2_state == GD_AM_AWAKE)
-            gd.sound |= SND_AMOEBA;
+            SOUND(SND_AMOEBA);
         sc_amoeba_2_count++;
         if (flag(GDF_AMOEBA_2_EXPLODES_BY_AMOEBA) &&
             (is_like_element(x, y, MV_DOWN, O_AMOEBA) || is_like_element(x, y, MV_UP, O_AMOEBA) ||
@@ -1715,6 +1751,7 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         break;
     case O_ACID:
         if (rand_below(1000000) <= f->acid_spread_ratio) {
+            SOUND(SND_HISS);
             store(x, y, f->acid_turns_to);
             if (is_like_element(x, y, MV_UP, f->acid_eats_this))
                 store_dir(x, y, MV_UP, O_ACID);
@@ -1728,13 +1765,13 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         break;
     case O_WATER:
         if (!flag(GDF_WATER_DOES_NOT_FLOW_DOWN) && is_like_space(x, y, MV_DOWN))
-            store_dir(x, y, MV_DOWN, O_WATER_1);
+            store_dir(x, y, MV_DOWN, O_WATER_1), SOUND(SND_HISS);
         if (is_like_space(x, y, MV_UP))
-            store_dir(x, y, MV_UP, O_WATER_1);
+            store_dir(x, y, MV_UP, O_WATER_1), SOUND(SND_HISS);
         if (is_like_space(x, y, MV_LEFT))
-            store_dir(x, y, MV_LEFT, O_WATER_1);
+            store_dir(x, y, MV_LEFT, O_WATER_1), SOUND(SND_HISS);
         if (is_like_space(x, y, MV_RIGHT))
-            store_dir(x, y, MV_RIGHT, O_WATER_1);
+            store_dir(x, y, MV_RIGHT, O_WATER_1), SOUND(SND_HISS);
         break;
     case O_WATER_16:
         store(x, y, O_WATER);
@@ -1752,13 +1789,13 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
     case O_EXPANDING_WALL:
     case O_EXPANDING_STEEL_WALL:
         if (is_like_space(x, y, MV_LEFT))
-            store_dir(x, y, MV_LEFT, e), gd.sound |= SND_GROW;
+            store_dir(x, y, MV_LEFT, e), SOUND(SND_GROW);
         if (is_like_space(x, y, MV_RIGHT))
-            store_dir(x, y, MV_RIGHT, e), gd.sound |= SND_GROW;
+            store_dir(x, y, MV_RIGHT, e), SOUND(SND_GROW);
         if (is_like_space(x, y, MV_UP))
-            store_dir(x, y, MV_UP, e), gd.sound |= SND_GROW;
+            store_dir(x, y, MV_UP, e), SOUND(SND_GROW);
         if (is_like_space(x, y, MV_DOWN))
-            store_dir(x, y, MV_DOWN, e), gd.sound |= SND_GROW;
+            store_dir(x, y, MV_DOWN, e), SOUND(SND_GROW);
         break;
     case O_SLIME:
         slime(x, y);
@@ -1931,13 +1968,14 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
         uint8_t up = opposite[grav_compat()];
         if (is_like_space(x, y, up)) {
             store_dir(x, y, up, O_BLADDER);
+            SOUND(SND_SLIME);
             store(x, y, O_PRE_STEEL_1);
         }
         break;
     }
     case O_MAGIC_WALL:
         if (gd.magic_wall_state == GD_MW_ACTIVE)
-            gd.sound |= SND_MAGIC;
+            SOUND(SND_MAGIC);
         break;
     }
     PROF_END
@@ -2176,7 +2214,7 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
             for (uint8_t x = 0; x < gd.w; x++) {
                 uint16_t i = (uint16_t)y * CAVE_W + x;
                 if (hammered[i] > 0 && --hammered[i] == 0)
-                    store(x, y, O_BRICK);
+                    store(x, y, O_BRICK), SOUND(SND_GROW);
             }
     gd.ckdelay_current = 0;
     sc_move = player_move;
@@ -2291,7 +2329,7 @@ void gd_iterate(uint8_t player_move, bool player_fire, bool suicide) {
     if (gd.gravity_will_change > 0) {
         gd.gravity_will_change = count_down(gd.gravity_will_change);
         if (gd.gravity_will_change == 0)
-            gd.gravity = gd.gravity_next_direction;
+            gd.gravity = gd.gravity_next_direction, SOUND(SND_SWITCH);
     }
     if (gd.creatures_direction_will_change > 0) {
         gd.creatures_direction_will_change = count_down(gd.creatures_direction_will_change);

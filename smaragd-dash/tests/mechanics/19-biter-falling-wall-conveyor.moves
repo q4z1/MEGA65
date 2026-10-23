@@ -2,6 +2,7 @@
 # space and into the boulder, leaving a boulder behind; the one boxed in
 # turned; the flying boulders rose to the belt and were carried left
 = @4,1=STONE @5,1=BITER* @1,3=BITER* @8,2=FLYING_STONE @10,2=FLYING_STONE @14,2=SPACE
+= heard=NUT
 R R               # under the falling wall: it drops
 .
 = @3,6=FALLING_WALL_F

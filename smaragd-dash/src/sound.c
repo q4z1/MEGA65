@@ -72,12 +72,14 @@ void sound_frame(void) {
         }
 }
 
-void sound_tick(uint16_t ev) {
+void sound_tick(uint32_t ev) {
     // voice 1
     if (ev & SND_COLLECT)
         play(0, 0x6800 + rnd() * 16, TRI, 0x09, 0x00);
     else if (ev & SND_CLOCK)  // a bell
         play(0, 0x3800, PULSE, 0x0A, 0x00);
+    else if (ev & SND_PICKUP)
+        play(0, 0x5400, PULSE, 0x08, 0x00);
     else if (ev & SND_DIAMOND)
         play(0, 0x3000 + rnd() * 64, TRI, 0x06, 0x00);
     // voice 2
@@ -88,6 +90,12 @@ void sound_tick(uint16_t ev) {
         ;  // the explosion is still loud
     else if (ev & SND_NUT)  // a crack
         play(1, 0x2800, NOISE, 0x05, 0x00);
+    else if (ev & SND_DOOR)  // a creak
+        play(1, 0x0B00, SAW, 0x07, 0x00);
+    else if (ev & SND_HAMMER)  // a rattle
+        play(1, 0x4000, NOISE, 0x02, 0x00);
+    else if (ev & SND_BOMB)  // a tick
+        play(1, 0x3000, PULSE, 0x02, 0x00);
     else if (ev & SND_BOULDER)
         play(1, 0x0700, NOISE, 0x07, 0x00);
     else if (ev & SND_GROW)  // a low knock
@@ -97,10 +105,16 @@ void sound_tick(uint16_t ev) {
     else if (ev & SND_STEP)
         play(1, 0xF000, NOISE, 0x01, 0x00);
     // voice 3
-    if (ev & SND_MAGIC)
+    if (ev & SND_TELEPORT)
+        play(2, 0x7000, SAW, 0x09, 0x00);
+    else if (ev & SND_SWITCH)  // a click
+        play(2, 0x4800, PULSE, 0x01, 0x00);
+    else if (ev & SND_MAGIC)
         play(2, 0x5000 + rnd() * 64, TRI, 0x04, 0x00);
     else if (ev & SND_SLIME)  // a blob
         play(2, 0x1800 + rnd() * 8, PULSE, 0x05, 0x00);
+    else if (ev & SND_HISS)
+        play(2, 0xD000, NOISE, 0x03, 0x00);
     else if (ev & SND_AMOEBA)
         play(2, 0x0300 + (rnd() & 0x3F) * 8, PULSE, 0x04, 0x00);
 }

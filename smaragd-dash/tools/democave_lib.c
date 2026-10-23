@@ -40,6 +40,11 @@ void dc_state(int *out) {
     out[14] = gd.speed;
 }
 
+// The sounds of the last step (SND_*, engine.h)
+unsigned long dc_sound(void) {
+    return gd.sound;
+}
+
 // The state after step t as a line, as the test oracle's "moves" prints it
 // (toolchain/tools/gdash-oracle/oracle.cpp)
 void dc_line(int t, char *out, int size) {

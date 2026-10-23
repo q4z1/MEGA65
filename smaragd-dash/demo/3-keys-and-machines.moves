@@ -1,13 +1,17 @@
 # Rockford stands at the inbox, upper left.
 12R               # keys and doors, the diamond key, the freed emeralds
+= heard=PICKUP heard=DOOR
 2R D 6.           # the conveyor switch
+= heard=SWITCH
 4R D 6.           # the direction switch
 4R D D 6R U U     # through the corridor, the expanding wall behind him
 R U               # the expanding wall switch
 R D D D R R R U U U   # down the shaft, along, up again
 R                 # into the teleporter: down to the lower path
+= heard=TELEPORT
 D L L L L         # the pneumatic hammer
 l 6. L D U        # hammer the walled emerald free, take it
+= heard=HAMMER
 L l 6. L D U      # the same with the walled key
 5L                # the skeletons
 L 8. l            # stir the pot, stop with fire

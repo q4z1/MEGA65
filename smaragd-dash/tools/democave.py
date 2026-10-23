@@ -60,6 +60,7 @@ def library(variant="", cflags=()):
             sys.exit(cc.stderr)
     lib = ctypes.CDLL(lib_path)
     lib.dc_cave.restype = ctypes.POINTER(ctypes.c_uint8 * (ck.W * ck.H))
+    lib.dc_sound.restype = ctypes.c_ulong
     return lib
 
 
@@ -94,7 +95,8 @@ def read_moves(path):
 # What a "=" line of the moves can ask for: a value of dc_line, by its name
 # there (st, dia: the emeralds collected, keys, ...) or one of these, an
 # element anywhere (has=NAME, no=NAME) or in a cell (@x,y=NAME; NAME* for
-# any whose name starts so)
+# any whose name starts so), or a sound heard since the last "=" line
+# (heard=PICKUP: src/engine.h's SND_PICKUP)
 EXPECT_STATES = {"born": 0, "living": 1, "timeout": 2, "dead": 3, "out": 4}
 EXPECT_VALUES = {
     "amoeba": ["sleeping", "awake", "toobig", "enclosed"], "amoeba2": ["sleeping", "awake", "toobig", "enclosed"],
@@ -102,6 +104,8 @@ EXPECT_VALUES = {
     "grav": {"still": "0", "up": "1", "right": "3", "down": "5", "left": "7"},
 }
 SWITCHES = ["backwards", "expwall", "replicators", "conveyors", "convdir", "gravswitch"]
+SOUNDS = {m[0]: int(m[1], 16) for m in re.findall(r"#define SND_(\w+) +0x([0-9A-Fa-f]+)",
+                                                   open(os.path.join(ROOT, "src", "engine.h")).read())}
 
 
 class Play:
@@ -115,6 +119,7 @@ class Play:
         self.lib.dc_start(self.raw, 0)
         self.inputs = []
         self.lines = []  # dc_line after each step, if the library has it
+        self.heard = 0   # the sounds since the last check (SND_*)
         self.state = (ctypes.c_int * 15)()
         self.buf = ctypes.create_string_buffer(256)
 
@@ -126,6 +131,7 @@ class Play:
         self.lib.dc_step(inp & 7, inp & IN_FIRE, inp & IN_SUICIDE)
         self.lib.dc_line(len(self.inputs), self.buf, len(self.buf))
         self.lines.append(self.buf.value.decode())
+        self.heard |= self.lib.dc_sound()
         self.inputs.append(inp)
 
     def values(self):
@@ -146,6 +152,9 @@ class Play:
             if name.startswith("@"):
                 x, y = (int(n) for n in name[1:].split(","))
                 got = ck.GD_EL[cells[y * ck.W + x]].name
+            elif name == "heard":
+                got = "yes" if self.heard & SOUNDS[want] else "no"
+                sound, want = want, "yes"
             elif name in ("has", "no"):
                 there = {ck.GD_EL[cells[y * ck.W + x]].name
                          for y in range(self.cave.v["h"]) for x in range(self.cave.v["w"])}
@@ -159,7 +168,10 @@ class Play:
             else:
                 got = v[name]
             if got != want and not (want.endswith("*") and got.startswith(want[:-1])):
-                bad.append(f"step {len(self.inputs)}: {name} {got}, not {want}")
+                bad.append(f"step {len(self.inputs)}: {name} {got}, not {want}" if name != "heard" else
+                           f"step {len(self.inputs)}: not heard: {sound}")
+        if expect:
+            self.heard = 0
         return bad
 
     def born(self):

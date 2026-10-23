@@ -1,10 +1,10 @@
 # Rockford stands at the inbox, the bomb right of him, the rocket launcher further on
 r                 # the bomb snapped up: he stays where he is
-= @3,6=SPACE @2,6=PLAYER_BOMB
+= @3,6=SPACE @2,6=PLAYER_BOMB heard=PICKUP
 u                 # put down above him, ticking
-= @2,5=BOMB_TICK* @2,6=PLAYER
+= @2,5=BOMB_TICK* @2,6=PLAYER heard=BOMB
 R R R             # away, onto the rocket launcher
-= @5,6=PLAYER_ROCKET_LAUNCHER
+= @5,6=PLAYER_ROCKET_LAUNCHER heard=PICKUP
 8.                # the bomb goes off
 u                 # a rocket up
 = has=ROCKET_2

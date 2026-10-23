@@ -4,5 +4,7 @@
 = backwards=0
 14.
 = backwards=1
-12R U             # the creature switch
+12R U             # beside the creature switch (turned back by the timer meanwhile)
 = backwards=0
+R                 # the switch
+= backwards=1 heard=SWITCH

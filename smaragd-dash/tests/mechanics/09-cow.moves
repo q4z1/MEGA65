@@ -1,4 +1,4 @@
 # Rockford stands at the inbox; the shut in cow has turned into a skeleton
 = @4,1=SKELETON has=COW*
 R R U R           # the skeleton: one skeleton, worth an emerald, the exit opens
-= skel=1 dia=1 gate=1
+= skel=1 dia=1 gate=1 heard=PICKUP
