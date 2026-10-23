@@ -107,7 +107,7 @@ Return or V go back to the cave. A cave from GDash keeps all its other
 properties; its speed, if it had the C64's timing, becomes milliseconds once
 it is changed.
 
-![The editor](screenshots/editor.png)
+![The editor](screenshots/editor-changed.png)
 
 The own caves are played from the title (right of cave 21): one after the
 other, empty slots left out, with three lives as usual; after the last one
@@ -318,7 +318,9 @@ one time in four) as the solver does, the same moves play the same in the
 game. So a changed cave or rule gives new
 moves with the next build.
 
-The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`,
+The pictures in `screenshots/` were taken with Xemu's `-headless -screenshot`
+(`tools/record-shots.sh`: the title, the first cave and an explosion, each
+at a set frame of a build with `-DSHOT_AT=n`, which then stops Xemu),
 the video `screenshots/first-six-caves.mp4` with
 
 ```sh

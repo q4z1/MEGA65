@@ -110,6 +110,24 @@ static uint8_t trail_next;
 static bool pal;
 static uint8_t frame;
 static uint8_t held, pressed;       // IN_* now, and newly pressed this frame
+#ifdef SHOT_AT
+// -DSHOT_AT=n (tools/record-shots.sh): after n frames the emulator is told
+// to stop (0, then $42 to $D6CF, with -testing), and Xemu's -screenshot
+// takes the picture of that moment
+static uint16_t shot_frames;
+
+static void shot_tick(void) {
+    if (++shot_frames == SHOT_AT) {
+        POKE(0xD6CF, 0);
+        POKE(0xD6CF, 0x42);
+        for (;;)
+            ;
+    }
+}
+#define SHOT_TICK() shot_tick()
+#else
+#define SHOT_TICK()
+#endif
 static uint16_t cam_x, cam_y;
 static bool scroll_x, scroll_y;
 static uint8_t idle;                // Rockford's idle animation
@@ -919,6 +937,7 @@ static void next_frame(void) {
     }
     video_render(tiles, cam_x, cam_y, sprites, nsprites);
     video_show();
+    SHOT_TICK();
     sound_frame();
     frame++;
     if (flash && !--flash)
@@ -1154,6 +1173,7 @@ static void text_cancel(void) {
 static void title_frame(void) {
     video_sync();
     video_show();
+    SHOT_TICK();
     music_frame();
     sound_frame();
     text_more(TEXT_STEP);
