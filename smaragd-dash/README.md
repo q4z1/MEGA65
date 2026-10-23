@@ -311,7 +311,7 @@ nearest few emeralds it picks one, walks there, round falling things and
 away from creatures, until the exit is open, and takes back any choice that
 gets Rockford killed or stuck. What it cannot find by itself - dropping
 boulders on purpose, pushing one aside - a cave gives it as opening moves
-(the `demo` key of its `.cave` file); the search goes on from there. If it
+(its `.moves` file); the search goes on from there. If it
 finds no way through a cave, the screencast ends before that cave. As the
 screencast build starts the engine's random numbers (pushing a boulder works
 one time in four) as the solver does, the same moves play the same in the
@@ -354,12 +354,12 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
 | `tools/mkcave.py` | converts the cave files for the disk (and into C for `solve.c`), makes the empty slots |
-| `tools/cavekit.py` | own caves: GDash's files onto the disk and back, `.cave` files |
+| `tools/cavekit.py` | own caves: GDash's files onto the disk and back, the older `.cave` files |
 | `tools/record-editor.sh`, `tools/editor-demo/` | the editor's video and its caves |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `demo/`, `tools/democave.py`, `tools/record-tour.sh` | the demo caves, their moves, and their video |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
-| `caves/*.cave` | the caves, as text |
+| `caves/*.bd`, `caves/*.moves` | the caves (GDash's files) and the solver's opening moves |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
 | `memmap` | `src/mem.h` and the disk's files again, for `mega65-mem` |
 | `link.ld`, `gdengine.ld`, `shared.ld` | the program, GDash's engine, and what they share at $C000 |
@@ -502,9 +502,14 @@ their own that the title screen cycles for the shine.
 
 ## Cave files
 
-See `tools/mkcave.py` for the format; the map characters are the ones of
-BDCFF, so `tools/cavekit.py convert` turns them into GDash's files and
-back. A cave is 40x22 cells with a steel frame. The first six follow the first caves of Boulder Dash 1 in idea, not
+The caves are GDash's files (`caves/NN-name.bd`, one cave each): GDash
+opens, plays and edits them as they are, with the values of each level
+written out (`CaveTime=150 135 120 105 105`, ...; the game has four levels,
+BDCFF five). Opening moves for the solver, where a cave needs them, are in
+`caves/NN-name.moves` beside it. See `tools/mkcave.py`, which makes the
+disk's files of them; `tests/test_gdengine.sh` checks that GDash starts and
+plays all of them, in all four levels, as the game does. A cave is 40x22
+cells with a steel frame. The first six follow the first caves of Boulder Dash 1 in idea, not
 in layout; the others bring one idea each, getting a little harder from cave
 to cave - more boulders and creatures, a little less time to spare - but
 always with time to look around: each limit is at least three and a half
@@ -516,13 +521,14 @@ creatures drawn over it.
 
 From cave 7 on, a few elements of GDash that stay close to Boulder Dash 1
 come in, one at a time, each first in a cave that shows it, then together
-with the others: the **clock** (more time; `clock` seconds, 10 unless the
-cave says), the **nut** (a boulder falling onto it cracks it, and an
-emerald comes out), the **expanding wall** (grows sideways, `x`, up and
-down, `v`, or every way, `e`, into what is dug out beside it), **slime**
-(lets boulders, emeralds and nuts fall through now and then: `slime`, as
-the C64 games have it) and the **hidden exit** (`H`, which looks like steel;
-it sits in a brick wall, where a steel block stands out). The rest of
+with the others: the **clock** (more time: `BonusTime` seconds), the
+**nut** (a boulder falling onto it cracks it, and an emerald comes out),
+the **expanding wall** (grows sideways, up and down, or every way into what
+is dug out beside it; it looks like brick, as in GDash), **slime** (lets
+boulders, emeralds and nuts fall through now and then:
+`SlimePermeabilityC64`, as the C64 games have it) and the **hidden exit**
+(which looks like steel; it sits in a brick wall, where a steel block
+stands out). The rest of
 GDash's elements - keys, doors, bombs, teleporters, ... - stay for the own
 caves.
 
@@ -555,17 +561,18 @@ caves.
 | 25 | GRAND FINALE | 40 in 150 s | a bit of everything: maze, magic floor, fireflies, the amoeba, nuts, slime, expanding walls, clocks, the hidden exit |
 
 The table shows level 1. As in Boulder Dash 1, every cave comes in four
-levels, which `mkcave.py` makes from the one map: each level gives a tenth
-less time (in steps of 5 s), asks for a tenth more emeralds and steps 5 ms
-faster than the one before, and its random fill is different. The original
-fills each level of a cave from its own seed; here the dirt, boulders and
-emeralds of the fill swap places with others close by (up to three cells
-to the side, one up or down), so every part of the cave keeps its mix and
-its idea. What is next to walls, creatures, the exit, the inbox or the way
-of the opening moves (`demo`) stays as drawn. A cave can give its own
-values per level, keep its map (`shuffle = no`) or name other seeds; the
-maze, the amoeba cave and the grand finale give their own times or emerald
-counts, four caves other seeds. At every build the solver plays all 100
+levels: as a rule each level gives a tenth less time (in steps of 5 s),
+asks for a tenth more emeralds and steps 5 ms faster than the one before
+(the maze, the amoeba cave, the magic factory and the grand finale have
+other times or emerald counts), and its random fill is different. The
+original fills each level of a cave from its own seed; here `mkcave.py`
+lets the dirt, boulders and emeralds of the fill swap places with others
+close by (up to three cells to the side, one up or down), so every part of
+the cave keeps its mix and its idea. What is next to walls, creatures, the
+exit, the inbox or the way of the opening moves stays as drawn. The
+shuffle comes from the cave's name, or from its `RandSeed` (four caves); a
+level with level 1's seed keeps the map. GDash plays every level with the
+map as drawn. At every build the solver plays all 100
 and names any it finds no way through; at present it solves all of them,
 with at least 1.6 times the time it needs (the maze in level 4) - without
 the clocks, which it takes only when they lie on its way.

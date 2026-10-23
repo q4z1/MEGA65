@@ -1,0 +1,59 @@
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Butterflies flutter in the hall below the boulders. Dig under a boulder
+;above one: a butterfly hit by a falling boulder leaves nine emeralds.
+[BDCFF]
+Version=0.5
+[game]
+Name=BUTTERFLIES
+Caves=1
+Levels=1
+
+[cave]
+Name=BUTTERFLIES
+Size=40 22 0 0 39 21
+DiamondsRequired=36 40 43 47 47
+CaveTime=150 135 120 105 105
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 20
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W.........r.rrrr....d....r...........rdW
+W.P..rr.. ...r.r....rr r......... .....W
+W.....rr..dr..r...rrr...r.r.rrr.rr. ...W
+W.d.rrr.d...rr..r..........rrr......r.rW
+Wr...r..r........r..rdr.r.r..r..r.r..r.W
+W. .r..r.drr...rr....d.....rr.......r..W
+W..r.r.rd..r..dr..r.r.r.r.r..rr... ...rW
+W...rr...rrr...rrrr.r.rr....rr....rr..rW
+W......................................W
+Wd                                    .W
+W.                                    .W
+W.   c     c     c     c     c     c  rW
+W.                                    .W
+W......................................W
+W.....r....d.d.......r .............r..W
+W...r...d....dr...d...........r..dr....W
+W...............d...d..r..r.....r......W
+W....r...r.r..........rr...r......r.dd.W
+W....d.r. .............................X
+W.........r.rr.r..........r.rrr........W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

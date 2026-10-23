@@ -134,7 +134,17 @@ CAVE_KEYS = ("name", "time", "diamonds", "value", "extra", "speed", "amoeba", "m
 
 
 def parse_cave_text(path):
-    """A .cave file: its keys (strings, as written) and its map rows"""
+    """A .cave file - the game's older text format for a cave, before its
+    caves were GDash's files - : its keys (strings, as written) and its map
+    rows. "key = value" lines (# comments), then "map:" and 22 lines of 40
+    characters (CAVE_CHARS: BDCFF's, n a nut, k a clock). The keys: name,
+    time (seconds), diamonds (needed), value and extra (points per emerald
+    before and after the exit opens), speed (ms per step), amoeba and magic
+    (seconds), clock (seconds a clock gives, 10), slime (the C64 games' mask
+    of how seldom it lets something through, 7), demo (opening moves for
+    the solver); time, diamonds, speed, amoeba and magic one value or one
+    per level (tools/mkcave.py scales one: time -10 %, diamonds +10 %, speed
+    -5 ms a level), shuffle ("no", or a seed per higher level)."""
     keys, rows, in_map = {}, [], False
     for line in open(path, encoding="utf-8").read().splitlines():
         if in_map:
@@ -1561,10 +1571,13 @@ def bd_value(p, x, cells):
     return str(x)
 
 
-def write_bd(path, caves, title):
+def write_bd(path, caves, title, levels=None, extra=None, head=""):
     """GdCaves as a BDCFF file for GDash: every property that is not GDash's
     default, the maps with BDCFF's characters (and map codes for elements
-    that have none)"""
+    that have none). levels: for each cave, the GdCaves of its levels (up to
+    five, the last one goes on), whose values of the properties per level
+    are written, one each; extra: for each cave, more lines (a dict of
+    attribute and value); head: comments before it all"""
     chars = {e.code: e.char for e in GD_EL if e.char}
     codes, free = {}, (chr(i) for i in range(33, 127) if chr(i) not in "<>&[]/=\\" and chr(i) not in GD_CHAR)
     for cave in caves:
@@ -1575,13 +1588,19 @@ def write_bd(path, caves, title):
     if codes:
         out += ["[mapcodes]", "Length=1"] + [f"{c}={GD_EL[e].file}" for e, c in codes.items()] + ["[/mapcodes]"]
     out.append("")
+    if head:
+        out = [";" + line if line else ";" for line in head.splitlines()] + out
     level_of = {v: k for k, v in GD_LEVEL.items()}
-    for cave in caves:
+    for i, cave in enumerate(caves):
         v = cave.v
+        lvs = (levels[i] + [levels[i][-1]] * LEVELS)[:LEVELS] if levels and levels[i] else None
         vals = {}
         for p in GD_PROPS:
             n = level_of.get(p.member, p.member)
-            vals[p.member] = [v[n]] * p.count if p.member in level_of else ([v[n]] if n in v else None)
+            if p.member in level_of and lvs:
+                vals[p.member] = [c.v[n] for c in lvs][:p.count]
+            else:
+                vals[p.member] = [v[n]] * p.count if p.member in level_of else ([v[n]] if n in v else None)
         vals["level_slime_seed_c64"] = [v["c64_seed_1"] * 256 + v["c64_seed_2"]] * 5
         lines = [f"Name={cave.name}", f"Size={v['w']} {v['h']} {v['x1']} {v['y1']} {v['x2']} {v['y2']}"]
         # what says how the slime takes its random numbers, and the timing:
@@ -1601,8 +1620,12 @@ def write_bd(path, caves, title):
             ratio = v["w"] * v["h"]
             if p.type == GD_EFFECT:
                 lines.append(f"Effect={p.ident} {GD_EL[vals[p.member][0]].file}")
+            elif lvs and all(q.count == LEVELS and q.member in level_of for q in group) and \
+                    any(len(set(vals[q.member])) > 1 for q in group):
+                lines.append(f"{p.ident}=" + " ".join(bd_value(q, x, ratio) for q in group for x in vals[q.member]))
             else:
                 lines.append(f"{p.ident}=" + " ".join(bd_value(q, vals[q.member][0], ratio) for q in group))
+        lines += [f"{a}={b}" for a, b in (extra[i] if extra else {}).items()]
         out += ["[cave]"] + lines + ["", "[map]"]
         out += ["".join(chars.get(e) or codes[e] for e in row) for row in cave.rows()]
         out += ["[/map]", "[/cave]", ""]

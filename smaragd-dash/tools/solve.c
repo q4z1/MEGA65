@@ -8,7 +8,7 @@
 //   writes <gendir>/demo.h and a file per cave, <diskdir>/demoNN.bin, which
 //   build.sh puts on the disk as DEMONN for the screencast build to load
 //
-// A cave can bring opening moves (the demo key of its .cave file) for what
+// A cave can bring opening moves (the .moves file beside its .bd) for what
 // the search cannot do: dropping boulders on purpose, pushing. They are
 // played first, then the search goes on from there.
 //

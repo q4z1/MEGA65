@@ -281,8 +281,9 @@ tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game o
   keep such disks for yourself, do not pass them on.
 - **Text files:** `convert` turns a `.bd` file into `.cave` text files, one
   per cave, with the map as 22 lines of 40 characters (described in
-  `tools/mkcave.py`), and back; `import` takes `.cave` files as well. So a
-  cave can also be drawn in a text editor.
+  `tools/cavekit.py`'s `parse_cave_text`), and back; `import` takes `.cave`
+  files as well. So a cave can also be drawn in a text editor - or in
+  GDash's own editor, as a `.bd` file, as the game's caves are.
 
 More about this, and how exactly the caves follow GDash, is in the README,
 [Own caves and GDash](README.md#own-caves-and-gdash).

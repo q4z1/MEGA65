@@ -1,14 +1,35 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Emeralds and boulders stacked in shafts; dig below and they pour out.
-# Two shafts end in slime instead: they trickle out by themselves.
-name     = WATERFALL
-time     = 100
-diamonds = 28
-value    = 12
-extra    = 25
-speed    = 160
-slime    = 15
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Emeralds and boulders stacked in shafts; dig below and they pour out.
+;Two shafts end in slime instead: they trickle out by themselves.
+[BDCFF]
+Version=0.5
+[game]
+Name=WATERFALL
+Caves=1
+Levels=1
+
+[cave]
+Name=WATERFALL
+Size=40 22 0 0 39 21
+DiamondsRequired=28 31 34 36 36
+CaveTime=100 90 80 70 70
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=12 25
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=15
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.......r.............dr....d.......r dW
 W. ..wdw......wdwr.....wdw......wdw...rW
@@ -31,3 +52,8 @@ W.P...........d...r..r.......d.........X
 W....dr....d.r..dr...r.....r.....r.....W
 W....r. ........r.r..r...........r.... W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

@@ -1,12 +1,34 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# A maze of brick walls; emeralds lie in its dead ends.
-name     = MAZE
-time     = 120 140 150 160
-diamonds = 22 24 26 28
-value    = 10
-extra    = 20
-speed    = 160
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;A maze of brick walls; emeralds lie in its dead ends.
+[BDCFF]
+Version=0.5
+[game]
+Name=MAZE
+Caves=1
+Levels=1
+
+[cave]
+Name=MAZE
+Size=40 22 0 0 39 21
+DiamondsRequired=22 24 26 28 28
+CaveTime=120 140 150 160 160
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 20
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 WP....w. d.....dw...   Qw.   ..d....wdwW
 Wwwww.w.w.w.www.w.wdw.www.wwwwwww.w.w.wW
@@ -29,3 +51,8 @@ W w.wwwwwwwwwww.www.www.www.www.w.w.w.wW
 W..... ...   Qw................d..w....X
 WwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

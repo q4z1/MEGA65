@@ -2,7 +2,7 @@
 # Records the video of the cave editor, build/cave-editor.mp4 (copied to
 # screenshots/cave-editor.mp4 by hand): the game built with -DEDITDEMO
 # plays the editor's script in src/main.c (test_script) on a disk whose
-# slots 1-3 hold the caves of tools/editor-demo and caves/04-butterflies.cave
+# slots 1-3 hold the caves of tools/editor-demo and caves/04-butterflies.bd
 # - loading slots, the help page, putting and drawing elements, values and
 # name, trying the changed cave to its exit, saving it and loading it
 # again - and tells the emulator to stop at its end. With --shots it takes
@@ -24,7 +24,7 @@ prepare() {
         { tail build/editor-demo.log; exit 1; }
     cp build/smaragd-dash.d81 $DISK
     python3 tools/cavekit.py empty $DISK >/dev/null
-    python3 tools/cavekit.py import $DISK tools/editor-demo/1-old-shaft.cave caves/04-butterflies.cave \
+    python3 tools/cavekit.py import $DISK tools/editor-demo/1-old-shaft.cave caves/04-butterflies.bd \
         tools/editor-demo/3-gdash-elements.bd >/dev/null
 }
 

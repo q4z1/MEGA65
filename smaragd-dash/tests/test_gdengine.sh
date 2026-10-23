@@ -6,7 +6,10 @@
 # GDash's own code has them (toolchain/tools/bin/gdash-oracle, built by
 # toolchain/tools/build-tools.sh, with the caves in toolchain/tools/src/gdash).
 #
-#   tests/test_gdengine.sh           a few of them, level 1, 300 steps
+#   tests/test_gdengine.sh           a few of them, level 1, 300 steps, and
+#                                    the game's own caves (caves/*.bd), all
+#                                    four levels (as drawn: the game
+#                                    shuffles the higher ones, GDash cannot)
 #   tests/test_gdengine.sh --all     all 200 files, all five levels (an hour)
 #   tests/test_gdengine.sh --gds     the ~1850 C64 games (.gds) GDash imports,
 #                                    as GDash saves them as .bd, level 1,
@@ -23,7 +26,7 @@ ORACLE=../toolchain/tools/bin/gdash-oracle
 CAVES=../toolchain/tools/src/gdash/caves
 [ -x $ORACLE ] || { echo "no $ORACLE: toolchain/tools/build-tools.sh" >&2; exit 1; }
 mkdir -p build/gen build/caves
-python3 tools/mkcave.py build/caves build/gen caves/*.cave >/dev/null
+python3 tools/mkcave.py build/caves build/gen caves/*.bd >/dev/null
 cc -O2 -Wall -Wno-array-bounds -DGD_EXACT -Isrc -Ibuild/gen -o build/gdplay \
     tests/gdplay.c src/gdengine.c build/gen/gdcave.c
 if [ "$1" = --all ]; then
@@ -36,4 +39,5 @@ else
         $CAVES/Thomas_Mauritz/Emerald_Dash_1.bd $CAVES/Marek_Roth/Crazy_Dream/Crazy_Dream_8.bd \
         $CAVES/Marek_Roth/Crazy_Dream/Crazy_Dream_9.bd $CAVES/Sendy/Crli_Caves.bd \
         $CAVES/Dustin/Rock_Fort_3_-_Rockford_s_Dream.bd tests/cavekit/objects.bd
+    python3 tests/gdcompare.py $ORACLE build/gdplay 1,2,3,4 300 caves/*.bd
 fi

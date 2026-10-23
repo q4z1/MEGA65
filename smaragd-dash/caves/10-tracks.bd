@@ -1,14 +1,36 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Fireflies run up and down their brick tracks; cross at the ends. New:
-# the expanding wall - take the dirt left or right of one, and it grows
-# into the gap, and on along the tunnel.
-name     = TRACKS
-time     = 120
-diamonds = 22
-value    = 10
-extra    = 15
-speed    = 160
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Fireflies run up and down their brick tracks; cross at the ends. New:
+;the expanding wall - take the dirt left or right of one, and it grows
+;into the gap, and on along the tunnel.
+[BDCFF]
+Version=0.5
+[game]
+Name=TRACKS
+Caves=1
+Levels=1
+
+[cave]
+Name=TRACKS
+Size=40 22 0 0 39 21
+DiamondsRequired=22 24 26 29 29
+CaveTime=120 110 95 85 85
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 15
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.......r..r..d......................ddW
 W.P...d.......r....r..d..d.ddd.....rr..W
@@ -31,3 +53,8 @@ W...wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww.rdW
 W.......x.....r....dr..x.....r..r....d.W
 W........d......r..r...... .. ....r... X
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

@@ -1,15 +1,35 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Boulders that fall through the magic wall come out as emeralds - but
-# only for a while once the first one went through.
-name     = ENCHANTED WALL
-time     = 150
-diamonds = 30
-value    = 10
-extra    = 20
-speed    = 160
-magic    = 20
-demo     = 9D 35R
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Boulders that fall through the magic wall come out as emeralds - but
+;only for a while once the first one went through.
+[BDCFF]
+Version=0.5
+[game]
+Name=ENCHANTED WALL
+Caves=1
+Levels=1
+
+[cave]
+Name=ENCHANTED WALL
+Size=40 22 0 0 39 21
+DiamondsRequired=30 33 36 39 39
+CaveTime=150 135 120 105 105
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 20
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=20
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W....d...r...rrrrr.r.........rrrr....r.W
 W.P.......r..dr.....d....d ..r.r.rrr...W
@@ -32,3 +52,8 @@ W. ..r.d..........r.....r..............W
 W...rd........r...............r.......dX
 W..............r.............rd........W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

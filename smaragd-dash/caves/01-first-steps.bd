@@ -1,11 +1,33 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-name     = FIRST STEPS
-time     = 150
-diamonds = 12
-value    = 10
-extra    = 15
-speed    = 160
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+[BDCFF]
+Version=0.5
+[game]
+Name=FIRST STEPS
+Caves=1
+Levels=1
+
+[cave]
+Name=FIRST STEPS
+Size=40 22 0 0 39 21
+DiamondsRequired=12 13 14 16 16
+CaveTime=150 135 120 105 105
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 15
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.........r....  ................ ....dW
 W..P...d.. ....r ..r.......... r  r...dW
@@ -28,3 +50,8 @@ W.w  d  wr.d.....rr...r.... .....r.....X
 W.www.www.........r.... r..............W
 W. ..... d......r.r...dr....d.....r.r..W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

@@ -1,14 +1,36 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Brick stairs run down the cave; what lies on them rolls. New: the
-# expanding wall that grows up and down - take the dirt above or below
-# one, and it grows into the gap, and on along the shaft.
-name     = STAIRWAY
-time     = 120
-diamonds = 24
-value    = 10
-extra    = 20
-speed    = 160
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Brick stairs run down the cave; what lies on them rolls. New: the
+;expanding wall that grows up and down - take the dirt above or below
+;one, and it grows into the gap, and on along the shaft.
+[BDCFF]
+Version=0.5
+[game]
+Name=STAIRWAY
+Caves=1
+Levels=1
+
+[cave]
+Name=STAIRWAY
+Size=40 22 0 0 39 21
+DiamondsRequired=24 26 29 31 31
+CaveTime=120 110 95 85 85
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 20
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W......d..........d....r.......r.......W
 W.dwd.. ...d..dr....r...dw..........P..W
@@ -31,3 +53,8 @@ W..r.r.......w..r.........wr.....r.....W
 X.d.d.......dr..... .. d...w.. . ..r...W
 W.................rr.d....rr..........rW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

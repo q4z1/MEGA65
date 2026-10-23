@@ -1,0 +1,64 @@
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Four fireflies circle in their dens. Leave them be, or open a den and
+;keep your distance. New: the clock - take it for more time; one lies in
+;the open, one in a den.
+[BDCFF]
+Version=0.5
+[game]
+Name=FIREFLY DENS
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+!=CLOCK
+[/mapcodes]
+
+[cave]
+Name=FIREFLY DENS
+Size=40 22 0 0 39 21
+DiamondsRequired=18 20 22 23 23
+CaveTime=120 110 95 85 85
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 15
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+W......d............d.r .d.............W
+W..........................r...........W
+W.......     !.dr...dr...........d.r.r.W
+Wd......  Q   .d....r.....      ......rW
+W.......      .d.dr.......  Q   .d.drd.W
+W.r.d.............. ......      .r.....W
+W..d....r...d....d..r..r ..........r...W
+W......r......d............r..d.....rr.W
+W.....................dr.r...r..r...d..W
+W.P.......ddd.r.d..........dr....r.r...X
+W..............  .... ...r..drr.d.....rW
+Wd.!..............d.r........d... ....rW
+W.................d.r..................W
+W..rr.      .......rr.r.........rr.d...W
+W...r.  Q   ..r..........      ........W
+W.....      ....d........  Q   .r......W
+W............rrd..rr. ...      ........W
+W..r....r......r....d........... ..r...W
+W....r.............r....d...........!..W
+W..r.r.......................rr........W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

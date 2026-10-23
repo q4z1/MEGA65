@@ -1,12 +1,33 @@
 #!/usr/bin/env python3
-"""Smaragd Dash caves: turns the .cave text files into the files the game
-loads from the disk, and into C for the tools on the host.
+"""Smaragd Dash caves: turns the caves of the game - GDash's files (.bd,
+BDCFF), one cave each - into the files the game loads from the disk, and
+into C for the tools on the host.
 
-Usage: mkcave.py <outdir> <gendir> <file.cave>...   (in the order they are played)
+Usage: mkcave.py <outdir> <gendir> <file.bd>...   (in the order they are played)
 
-Every cave comes in LEVELS levels, as in Boulder Dash 1: level 1 is the cave
-as drawn, the higher ones give less time, ask for more emeralds, tick a
-little faster and shuffle the cave's fill (see shuffle()).
+Every cave comes in LEVELS levels, as in Boulder Dash 1. Its .bd file gives
+the values of each level as GDash has them (CaveTime=150 135 120 105 105,
+DiamondsRequired, FrameTime: milliseconds per step, ...; a fifth level,
+which the game does not have, repeats the fourth), so GDash plays and edits
+them as the game does. Level 1 is the map as drawn; the higher ones shuffle
+the cave's fill (shuffle()) - what GDash cannot, it plays every level with
+the map as drawn. Without RandSeed in the file each level is shuffled from
+the cave's name; with it, from its value of that level, and a level with
+level 1's value keeps the map (RandSeed=0 0 0 0 0: no shuffling at all).
+GDash takes RandSeed for a random fill, which these caves do not have.
+
+The moves the screencast and the solver (tools/solve.c) start every level
+of a cave with - for what the solver cannot find by itself: dropping
+boulders on purpose, pushing - are in a .moves file beside its .bd (as
+tools/democave.py has them: U R D L walk, u r d l snap, . wait one tick, a
+number repeats what follows, # a comment).
+
+The caves of the game have Boulder Dash 1's elements and a few of GDash's
+close to them: the clock (BonusTime: its seconds), the nut, expanding
+walls, slime (SlimePermeabilityC64: how seldom it lets something through)
+and the hidden exit; their rules are Boulder Dash 1's, in milliseconds.
+mkcave.py also still reads the game's older text files (.cave, see
+tools/cavekit.py's parse_cave_text), which tools/cavekit.py converts to .bd.
 
 Writes <outdir>/caveNN-L.bin for each cave and level (NN from 01, in the
 given order, L from 1), which build.sh puts on the disk as CAVENN-L,
@@ -18,62 +39,17 @@ and <gendir>/gdcave.h, gdcave.c and gdnew.h for GDash's engine
 (src/gdengine.c) and the editor. A cave file is a PRG: two bytes of
 load address (not used, the game gives its own), then the cave as GDash's
 engine plays it - the own caves' layout (GdCaveFile, tools/cavekit.py's
-GD_FIELDS) with the rules of Boulder Dash 1, in milliseconds
-(tools/cavekit.py's gd_from_cave): the same as a .cave file the editor
-gets from cavekit.py.
+GD_FIELDS).
 
 The game loads cave after cave until there is no next file; then it goes on
 with the first cave of the next level (and stays in the last level).
-
-A .cave file has "key = value" lines, then "map:" and 22 lines of 40
-characters. Lines starting with # are comments.
-
-  name      shown in the status line (A-Z, 0-9, space, a few signs)
-  time      seconds
-  diamonds  diamonds needed to open the exit
-  value     points per diamond until then
-  extra     points per diamond after that
-  speed     length of a cave tick in milliseconds (original: about 140)
-  amoeba    seconds of slow amoeba growth (default 0)
-  magic     seconds the magic wall stays active (default 0)
-  clock     seconds a clock gives (default 10)
-  slime     how seldom the slime lets something through, as the C64 games
-            have it: 0 every time, 1 one time in two, 3 one in four, 7 one
-            in eight (the default), 15 one in sixteen, ...
-  demo      moves the screencast starts the cave with, for what
-            tools/solve.c cannot find by itself (dropping boulders on
-            purpose, pushing): U R D L walk, u r d l snap, . wait one
-            tick, a number repeats what follows; spaces are ignored.
-            The solver starts every level of the cave with them.
-  shuffle   "no": the higher levels keep the map as drawn (where the
-            fill is the idea); or a seed per higher level (default:
-            from the name), to try another shuffle
-
-time, diamonds, speed, amoeba and magic take one value, or one per level.
-With one value the higher levels get, from level 1 on:
-  time      100 90 80 70 %   (in steps of 5 seconds)
-  diamonds  100 110 120 130 %
-  speed     -0 -5 -10 -15 ms
-amoeba and magic stay the same.
-
-Map characters, the ones of BDCFF (GDash's files; tools/cavekit.py
-converts between the two) where it has them:
-  W steel wall    w brick wall    . dirt      (space) empty
-  r boulder       d diamond       P inbox     X outbox (in a wall)
-  a amoeba        M magic wall
-  fireflies starting to the left Q, up o, right O, down q
-  butterflies starting to the left C, up b, right B, down c
-  x expanding wall, growing sideways   v growing up and down
-  e growing every way                  H hidden outbox (looks like steel)
-  s slime: lets boulders, emeralds and nuts fall through, now and then
-  n nut: a boulder falling onto it cracks it, and an emerald comes out
-  k clock: more time when Rockford takes it
 """
 
 import re
 import sys
 import zlib
 
+import cavekit as ck
 from cavekit import GD_SIZE, Cave, CaveError, check_map, gd_from_cave, parse_cave_text, write_c
 
 W, H = 40, 22
@@ -211,11 +187,75 @@ def gd_cave(keys, flat):
     return data
 
 
+def read_moves(path):
+    """The opening moves of a .moves file (its comments, # to the end of a
+    line, and lines that start with = left out), or none"""
+    try:
+        text = open(path).read()
+    except FileNotFoundError:
+        return ""
+    lines = [line.split("#")[0].strip() for line in text.splitlines()]
+    moves = " ".join(line for line in lines if line and not line.startswith("="))
+    if re.search(r"[^0-9URDLurdl. ]", moves):
+        fail(path, "only U R D L u r d l . digits and spaces")
+    return moves
+
+
+def load_bd(path):
+    """A cave of the game as GDash's file (.bd): its name, its opening moves
+    (the .moves file beside it) and its file in each level. The values of
+    each level are the file's; the map is the one drawn, and in the higher
+    levels its fill is shuffled (shuffle()) as RandSeed says: without it
+    from the name, with it each level from its own value, unless that is
+    level 1's (then the map stays)."""
+    try:
+        bd = ck.BdcffFile(path)
+    except (CaveError, OSError) as e:
+        fail(path, str(e))
+    if len(bd.caves) != 1:
+        fail(path, "one cave to a file")
+    cave = bd.caves[0]
+    demo = read_moves(path[:-3] + ".moves")
+    try:
+        gds = [ck.gd_cave(bd, cave, lv) for lv in range(LEVELS)]
+    except CaveError as e:
+        fail(path, str(e))
+    name = gds[0].name
+    if not name or len(name) > NAME_LEN:
+        fail(path, f"a name of 1 to {NAME_LEN} characters is needed")
+    if (gds[0].v["w"], gds[0].v["h"]) != (W, H):
+        fail(path, f"the cave must be {W}x{H} cells")
+    seeds = cave.stored.v["level_rand"]
+    to_char = {ck.GD_CHAR[c]: c for c in ck.CAVE_CHARS} | {ck.O[n]: c for c, n in ck.CAVE_OWN_CHARS.items()}
+    to_code = {c: e for e, c in to_char.items()}
+    files = []
+    for lv, gd in enumerate(gds):
+        if lv:
+            if cave.prop("RandSeed") is None:
+                seed = zlib.crc32(f"{name}/{lv}".encode())
+            else:
+                seed = None if seeds[lv] == seeds[0] else seeds[lv]
+            if seed is not None:
+                flat = "".join(to_char.get(e, chr(0x100 + e)) for e in gd.cells)
+                gd.cells = [to_code.get(c, ord(c) - 0x100) for c in shuffle(flat, seed, demo)]
+        data = gd.tobytes()
+        assert len(data) == GD_SIZE
+        files.append(data)
+    return name, demo, files
+
+
+def load_any(path):
+    """A cave of the game, .bd or .cave: (name, opening moves, file per level)"""
+    if path.lower().endswith(".bd"):
+        return load_bd(path)
+    keys, flat = load(path)
+    return keys["name"], keys["demo"], [gd_cave(k, f) for k, f in variants(keys, flat)]
+
+
 def main():
-    outdir, gendir, files = sys.argv[1], sys.argv[2], sys.argv[3:]
-    caves = [load(p) for p in files]
-    levels = [variants(k, flat) for k, flat in caves]  # [cave][level]
-    files = [[gd_cave(k, flat) for k, flat in cave] for cave in levels]
+    outdir, gendir, paths = sys.argv[1], sys.argv[2], sys.argv[3:]
+    caves = [load_any(p) for p in paths]
+    files = [data for _, _, data in caves]  # [cave][level]
     for i, cave in enumerate(files):
         for lv, data in enumerate(cave):
             with open(f"{outdir}/cave{i + 1:02d}-{lv + 1}.bin", "wb") as f:
@@ -247,8 +287,8 @@ def main():
         for lv in range(LEVELS):
             f.write("    {" + ", ".join(f"(const GdCaveFile *)file{i}_{lv}" for i in range(len(files))) + "},\n")
         f.write("};\n\nconst char *const cave_demo[CAVE_COUNT] = {\n")
-        for k, _ in caves:
-            f.write(f'    "{k["demo"]}",\n')
+        for _, demo, _ in caves:
+            f.write(f'    "{demo}",\n')
         f.write("};\n")
     print(f"mkcave: {len(caves)} cave(s) in {LEVELS} levels")
 

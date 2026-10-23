@@ -102,7 +102,7 @@ again = ck.GdCave.frombytes(raw)
 check("the disk's file layout, and back", len(raw) == ck.GD_SIZE and again.v == c1.v and again.cells == c1.cells
       and again.name == c1.name, len(raw))
 check("time 0: an empty slot", ck.GdCave.frombytes(bytes(ck.GD_SIZE)) is None)
-cave = ck.read_cave_file(os.path.join(HERE, "..", "caves", "04-butterflies.cave"))
+cave = ck.read_cave_file(os.path.join(HERE, "cavekit", "butterflies.cave"))
 out_cave = os.path.join(tmp, "out.cave")
 ck.write_cave_file(out_cave, cave)
 check(".cave written and read again: the same", vars(ck.read_cave_file(out_cave)) == vars(cave))

@@ -1,17 +1,37 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Three wells with a magic floor: let the boulders above them drop in.
-# Over the right one lies slime: its boulders seep through by
-# themselves, slowly - while the magic floor is awake, they come out
-# as emeralds.
-name     = MAGIC WELLS
-time     = 130
-diamonds = 26
-value    = 10
-extra    = 20
-speed    = 160
-magic    = 15
-slime    = 31
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Three wells with a magic floor: let the boulders above them drop in.
+;Over the right one lies slime: its boulders seep through by
+;themselves, slowly - while the magic floor is awake, they come out
+;as emeralds.
+[BDCFF]
+Version=0.5
+[game]
+Name=MAGIC WELLS
+Caves=1
+Levels=1
+
+[cave]
+Name=MAGIC WELLS
+Size=40 22 0 0 39 21
+DiamondsRequired=26 29 31 34 34
+CaveTime=130 115 105 90 90
+CaveScheduling=ms
+PALTiming=false
+FrameTime=160 155 150 145 145
+CaveDelay=12
+TimeValue=1
+DiamondValue=10 20
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=0
+MagicWallTime=15
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=31
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W.r...d...r...d...d................rrd.W
 W. .r.rr..rd...r.rrrrr.r.r.r..r.r.r..r.W
@@ -34,3 +54,8 @@ W.d.....d....rrrr...r...dr.............W
 W...... .......................dr.....dW
 W...d.r...r..dr..........d..d......d.rrW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]

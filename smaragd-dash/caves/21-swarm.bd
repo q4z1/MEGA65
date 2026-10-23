@@ -1,16 +1,37 @@
-# Smaragd Dash cave: see tools/mkcave.py for the format.
-# Butterflies wait round the amoeba's nest. When it reaches them, they
-# blow up into emeralds. Expanding walls stand in the dirt between: a
-# channel dug beside one for the amoeba soon has a wall in it.
-name     = SWARM
-time     = 110
-diamonds = 26
-value    = 15
-extra    = 25
-speed    = 155
-amoeba   = 25
-shuffle  = 4 5 6
-map:
+;Smaragd Dash: a cave of the game (tools/mkcave.py)
+;Butterflies wait round the amoeba's nest. When it reaches them, they
+;blow up into emeralds. Expanding walls stand in the dirt between: a
+;channel dug beside one for the amoeba soon has a wall in it.
+[BDCFF]
+Version=0.5
+[game]
+Name=SWARM
+Caves=1
+Levels=1
+
+[cave]
+Name=SWARM
+Size=40 22 0 0 39 21
+DiamondsRequired=26 29 31 34 34
+CaveTime=110 100 90 75 75
+CaveScheduling=ms
+PALTiming=false
+FrameTime=155 150 145 140 140
+CaveDelay=12
+TimeValue=1
+DiamondValue=15 25
+ActiveGuyIsFirst=false
+BonusTime=10
+AmoebaTime=25
+MagicWallTime=0
+MagicWallProperties.convertamoeba=false
+MagicWallProperties.breakscan=true
+SlimePermeabilityC64=7
+SlimePredictableC64.seed=30
+BorderProperties.lineshift=true
+RandSeed=0 4 5 6 6
+
+[map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W...............r.......d...... ....rd.W
 W.P.....r.........................r....W
@@ -33,3 +54,8 @@ W..................   . ..d.d. ........W
 W..r. .dr..d.................r... .....X
 W..d......dr...r..................d..rrW
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+
+[/game]
+[/BDCFF]
