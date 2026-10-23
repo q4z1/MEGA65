@@ -1,0 +1,10 @@
+# Rockford stands at the inbox, upper left. Open the cases from above, walking right.
+2R d 4R d 3R d 4R d 3R d 4R d
+R R R R r L 10.   # take the bomb, lay it next to the explodable steel, step back
+3R R R R R d 10.  # through; take the rocket launcher, fire down the shaft
+8D                # down to the lower path
+3L 24. u 40.      # open the ghost's pen and wait for it
+L L L* 8.         # push the nitro pack into the pit
+L D D L L L R R R U U   # the vault's emeralds
+4L L* 3.          # push the boulder into the lava
+5L 13L            # past the acid and the water, out

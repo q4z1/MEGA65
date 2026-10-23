@@ -1,0 +1,89 @@
+; Smaragd Dash demo cave 3: keys and machines (tools/democave.py plays it, with
+; 3-keys-and-machines.moves; tools/record-tour.sh films it).
+;
+; The upper path, left to right: three keys and their doors; the diamond key,
+; which turns the trapped emeralds behind it into emeralds. A case with
+; boulders and an emerald on a conveyor belt, which its switch below starts
+; and the direction switch turns. An expanding wall follows Rockford through a
+; corridor; the expanding wall switch turns the walls from growing sideways
+; to growing up and down: the expanding steel wall above the path follows him
+; down a shaft, an expanding wall that grows every way along the corridor
+; below. A teleporter takes him down to the lower path.
+; The lower path, right to left: the pneumatic hammer, and with it a walled
+; emerald and a walled key below the path freed; two skeletons, enough to
+; stir the pot; that makes the gravity switch (behind the key's door) work: gravity turns upwards, and a boulder
+; rises onto the voodoo, which leaves steel walls and a time penalty that
+; turns into a gravestone. Out through the hidden outbox.
+[BDCFF]
+Version=0.5
+[game]
+Name=Keys and machines
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+1=KEY1
+2=KEY2
+3=KEY3
+4=DOOR1
+5=DOOR2
+6=DOOR3
+K=DIAMONDRELEASEKEY
+T=TRAPPEDDIAMOND
+>=CONVEYORRIGHT
+C=CONVEYORSWITCH
+D=CONVEYORDIRECTIONSWITCH
+H=HEXPANDINGWALL
+E=EXPANDINGWALL
+h=HEXPANDINGSTEELWALL
+S=EXPANDINGWALLSWITCH
+t=TELEPORTER
+m=PNEUMATIC_HAMMER
+k=SKELETON
+p=POT
+Q=WALLED_DIAMOND
+J=WALLED_KEY1
+g=GRAVITY_SWITCH
+V=DUMMY
+O=HIDDENOUTBOX
+[/mapcodes]
+[cave]
+Name=Keys and machines
+Size=40 22 0 0 39 21
+CaveTime=300
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+DiamondValue=10 15
+ConveyorBeltActive=false
+SkeletonsForPot=2
+GravitationChangeDelay=1
+DummyProperties.penalty=true
+DummyProperties.destructable=false
+PenaltyTime=20
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWW        WWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWW r d r  WWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWW >>>>>> WWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWShWWWWWWWW
+WP.142536.KTTT.....................tWWWW
+WWWWWWWWWWWWWWWCWWWDWWW.WWWWW.W.WW.WWWWW
+WWWWWWWWWWWWWWW  V  WWH.......W.WW.WWWWW
+WWWWWWWWWWWWWWW     WWWWWWWWWWW....WWWWW
+WWWWWWWWWWWWWWW     WWWWWWWWWWWWEWWWWWWW
+WWWWWWWWWWWWWWWd r dWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWgWWWWWWWWWWWWWWt WW
+WO....d....d.........4..p..k.k     m  WW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWJWQWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

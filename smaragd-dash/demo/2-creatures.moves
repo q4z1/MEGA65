@@ -1,0 +1,8 @@
+# Rockford stands at the inbox, left. The creature switch turns the creatures round.
+1R U 20.          # watch them turn
+13R D             # the biter switch
+10R D 3. r U 6.   # into the pocket, drop the boulder onto the butterfly, back up
+D R D R L U U     # its emeralds
+7R D 8. r U 6.    # the same with the firefly
+2R U 24.          # the replicator switch: the voodoo collects the copies
+3R                # out

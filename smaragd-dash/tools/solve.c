@@ -35,7 +35,7 @@
 #define MAX_TICKS  4000
 #define CHOICES    3    // emeralds tried at each step
 #define MAX_NODES  5000  // solved caves need up to about 1600
-#define DEMO_MAX   384  // the game's buffer for one cave's moves
+#define DEMO_MAX   1024  // the game's buffer for one cave's moves (the demo caves' too)
 
 static const int16_t dir_off[4] = {-CAVE_W, 1, CAVE_W, -1};  // DIR_*
 

@@ -19,6 +19,8 @@
 // tools/solve.c found for them (DEMO01, DEMO02, ... on the disk, loaded with
 // each cave), and after the last one the emulator is told to stop, which
 // ends the recording.
+// With -DTOUR as well (tools/record-tour.sh) it plays the demo caves in
+// the slots instead, with their moves (TOUR01, ...).
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -971,7 +973,11 @@ static bool next_own(void) {
 // ---------------------------------------------------------------- screencast
 
 #ifdef SCREENCAST
+#ifdef TOUR
+#define DEMO_TITLE_FRAMES 150  // the demo caves' video: a moment of the title
+#else
 #define DEMO_TITLE_FRAMES 768  // the title with all its lines once
+#endif
 
 static const uint8_t *demo_p;
 static uint8_t demo_left, demo_in;
@@ -2176,6 +2182,17 @@ static void play_game(void) {
     level = start_level;
     bool have_cave = true;
     while (lives) {
+#ifdef TOUR
+        // the demo caves in the slots, each with its moves (TOURnn, from
+        // tools/democave.py), up to the first slot without
+        static char tour_file[] = "TOUR00";
+        tour_file[4] = '0' + (cave_no + 1) / 10;
+        tour_file[5] = '0' + (cave_no + 1) % 10;
+        if (cave_no >= OWN_SLOTS || !load_own(cave_no) || !file.own.time ||
+            !disk_load(tour_file, 0, (uint16_t)demo_moves))
+            demo_end();
+        use_own_cave();
+#else
 #ifdef SCREENCAST
         // after the last cave with moves
         if (cave_no >= DEMO_LAST || cave_no >= DEMO_CAVES)
@@ -2183,6 +2200,7 @@ static void play_game(void) {
 #endif
         if (!(have_cave = play_mode == PLAY_OWN ? next_own() : next_cave()))
             break;
+#endif
 #ifdef SCREENCAST
         demo_p = demo_moves;
         demo_left = 0;
@@ -2308,6 +2326,9 @@ int main(void) {
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);
     hiscore_load();
+#ifdef TOUR
+    start_cave = CAVE_COUNT;  // the own caves: the demo caves
+#endif
 #ifdef GDCHECK
     gd_check();
 #endif

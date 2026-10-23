@@ -1,0 +1,78 @@
+; Smaragd Dash demo cave 2: creatures (tools/democave.py plays it, with
+; 2-creatures.moves; tools/record-tour.sh films it).
+;
+; Above the path, left to right: a firefly, an alternative firefly, a
+; butterfly, an alternative butterfly and a stonefly each fly round a pillar;
+; Rockford turns them all with the creature switch at the start. Then a
+; dragonfly, a cow and a ghost in their rooms, and an emerald on a replicator:
+; the replicator switch starts it, and the voodoo below collects the copies.
+; Below the path: boulders and an emerald sink through slime; a biter eats
+; dirt (its switch changes its speed); a bladder spender sends bladders up.
+; Then a boulder dropped onto a butterfly (emeralds) and one onto a firefly;
+; below them an amoeba and an amoeba 2, growing at GDash's own speed: the
+; amoeba 2 grows too big and turns into boulders, the amoeba into emeralds.
+[BDCFF]
+Version=0.5
+[game]
+Name=Creatures
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+Q=FIREFLYl
+a=A_FIREFLYl
+C=BUTTERFLYl
+c=A_BUTTERFLYl
+t=STONEFLYl
+y=DRAGONFLYl
+o=COWl
+h=GHOST
+z=BITERr
+Z=BITERSWITCH
+S=FIREFLYBUTTERFLYSWITCH
+R=REPLICATOR
+O=REPLICATORSWITCH
+v=BLADDERSPENDER
+A=AMOEBA
+B=AMOEBA2
+s=SLIME
+V=DUMMY
+[/mapcodes]
+[cave]
+Name=Creatures
+Size=40 22 0 0 39 21
+CaveTime=300
+DiamondsRequired=5
+CaveScheduling=ms
+FrameTime=150
+DiamondValue=10 15
+ReplicatorActive=false
+Amoeba2Threshold=0.007
+SlimePermeability=0.03
+DummyProperties.diamondcollector=true
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWy   Wo  Wh   WdWWW
+WWQ  Wa  WC  Wc  Wt  W    W   W    WRWWW
+WW W W W W W W W W W W    W   W    W WWW
+WW   W   W   W   W   W    W   W    W WWW
+WWSWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWOVWWW
+WP........................r.......r...XW
+WWWWWWWWWWWrrWWZWWWW WWWW..WWWWWW..WWWWW
+WWWWWWWWWWWrdWz....W WWWWW   C  WW  Q WW
+WWWWWWWWWWWssW.....W WWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWW  W.....W WWWWWWAA  WBB   WWW
+WWWWWWWWWWW  WWWWWWWvWWWWWWA   WB    WWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

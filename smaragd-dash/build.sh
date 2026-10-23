@@ -59,12 +59,19 @@ OBJCOPY=${MEGA65_OBJCOPY:-../toolchain/llvm-mos/bin/llvm-objcopy}
 "$CC" -Os -g -Wall -DGD_FAR $SMARAGD_CFLAGS -Isrc -Ibuild/gen -nostartfiles -T gdengine.ld \
     -Wl,-Map=build/gdengine.map -o build/gdengine.bin src/gdengine.c src/gdjump.s src/gdscan.s src/gdcell.s build/gen/gdcave.c
 { printf '\000\000'; cat build/gdengine.bin; } > build/gen/gd.prg
-# The caves; the moves only for the screencast build, which loads them
+# The caves; the moves only for the screencast build, which loads them, and
+# those of the demo caves for its -DTOUR build (tools/record-tour.sh)
 case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
     *" -DSCREENCAST "*) DEMOS=yes ;;
     *) DEMOS=no ;;
 esac
 set --
+case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
+    *" -DTOUR "*)
+        for f in build/tour/tour*.bin; do
+            [ -f "$f" ] && set -- "$@" "$f=$(basename "$f" .bin)"
+        done ;;
+esac
 KEEP="--keep SMARAGD.SCORES"
 for f in build/caves/*.bin; do
     case "$f" in

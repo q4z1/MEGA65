@@ -241,6 +241,31 @@ threshold bigger than the cave (as these games have it) as a part above 1,
 but refuses that when it loads the file again; `cavekit.py` takes it (and
 so does the test oracle, which has this one fix).
 
+### Demo caves
+
+`demo/` holds four caves (GDash's `.bd` files) that show every element of
+GDash's engine at work, each with the moves that solve it:
+
+| Cave | |
+| --- | --- |
+| `1-rocks-and-earth` | boulders and emeralds sliding off sloped walls, glued and loose things, nut, magic wall, mega boulder and sweet, box, flying boulder and emerald, waiting and chasing boulder, falling wall, clock, eatable walls |
+| `2-creatures` | fireflies, butterflies (both kinds), stonefly, dragonfly, cow, ghost, creature switch, replicator and voodoo, slime, biter, bladders, amoeba and amoeba 2 |
+| `3-keys-and-machines` | keys and doors, diamond key and trapped emeralds, conveyor belts, expanding (steel) walls and their switch, teleporter, pneumatic hammer with walled emerald and key, skeletons and pot, gravity switch, time penalty and gravestone, hidden outbox |
+| `4-water-fire-and-explosives` | down-sloped walls with flying things, bomb, explodable steel, rocket launcher, ghost explosion, nitro pack, lava, acid, water, cow turned skeleton, amoeba 2 exploding by the amoeba |
+
+`cavekit.py import` brings them onto the disk like any GDash file.
+`tools/democave.py play demo/NAME.bd demo/NAME.moves` plays one on the host
+with the game's engine (started with the screencast's random numbers) and
+tells how it ends; `!` in the moves shows the map there. The moves are
+`U R D L` (`u r d l` with fire), `.` to wait, a number in front repeats,
+`L*` repeats until Rockford gets there (a push that works only now and
+then).
+
+`tools/record-tour.sh` films them being solved: the caves go into the slots
+of a disk of the game built with `-DSCREENCAST -DTOUR`, their moves onto it
+as `TOUR01`, `TOUR02`, ...; the game plays one after the other and the
+recording ends after the last (`build/tour.mp4`).
+
 ### Screencast
 
 *Terminal → Run Task… → MEGA65: Record screencast (active program)* (or
@@ -308,6 +333,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `tools/cavekit.py` | own caves: GDash's files onto the disk and back, `.cave` files |
 | `tools/record-editor.sh`, `tools/editor-demo/` | the editor's video and its caves |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
+| `demo/`, `tools/democave.py`, `tools/record-tour.sh` | the demo caves, their moves, and their video |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.cave` | the caves, as text |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |

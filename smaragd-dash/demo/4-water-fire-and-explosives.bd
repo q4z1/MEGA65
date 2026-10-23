@@ -1,0 +1,81 @@
+; Smaragd Dash demo cave 4: water, fire and explosives (tools/democave.py
+; plays it, with 4-water-fire-and-explosives.moves; tools/record-tour.sh
+; films it). Acid and amoebas grow at GDash's own speed.
+;
+; The upper path, left to right: Rockford opens six cases below the path
+; (a snap downwards); flying boulders and emeralds rise out and slide off the
+; down-sloped brick, steel and dirt above the path into pockets. A bomb, laid
+; next to explodable steel (here a bomb's explosion leaves space, not brick);
+; meanwhile an amoeba and an amoeba 2 above meet: the amoeba 2 explodes, and
+; both turn into emeralds. A rocket launcher: a rocket down a shaft blasts
+; the brick at its bottom.
+; The lower path, right to left: a ghost, let out next to Rockford, explodes
+; into random things (its explosion misses the cells beside it); a nitro pack
+; pushed into a pit explodes and opens a vault of explodable steel; a boulder
+; pushed over lava is gone. Acid has eaten its way through dirt, water has
+; flowed after it, and the cow shut in by the water has turned into a
+; skeleton. Glued dirt under the path.
+[BDCFF]
+Version=0.5
+[game]
+Name=Water, fire and explosives
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+1=WALLSLOPEDDOWNRIGHT
+2=WALLSLOPEDDOWNLEFT
+3=STEELWALLSLOPEDDOWNRIGHT
+4=STEELWALLSLOPEDDOWNLEFT
+5=DIRTSLOPEDDOWNRIGHT
+6=DIRTSLOPEDDOWNLEFT
+f=FLYINGBOULDER
+F=FLYINGDIAMOND
+b=BOMB
+E=STEELWALLDESTRUCTABLE
+L=ROCKET_LAUNCHER
+h=GHOST
+N=NITRO
+l=LAVA
+a=ACID
+~=WATER
+A=AMOEBA
+B=AMOEBA2
+c=COWl
+g=GLUEDDIRT
+[/mapcodes]
+[cave]
+Name=Water, fire and explosives
+Size=40 22 0 0 39 21
+CaveTime=300
+DiamondsRequired=4
+CaveScheduling=ms
+FrameTime=150
+DiamondValue=10 15
+Effect=BOMBEXPLOSIONeffect SPACE
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWA  BWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWW    WWWWWWWWWWWWW
+WWWW W WWWW W WWWW W WWWWWWWWWWWWWWWWWWW
+WWW1 W 2WW3 W 4WW5 W 6WWWWWWWWWWWWWWWWWW
+WP.....................b...E.L..WWWWWWWW
+WWW.WWW.WW.WWW.WW.WWW.WWWWWWWWW WWWWWWWW
+WWWfWWWFWWfWWWFWWfWWWFWWWWWWWWW WWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW WWWWWWWW
+WWWWWWWWWWWW.....WWWWWWWWWWWWWW WWWWWWWW
+WWWWWWWWWWWW...c WWWWWWWWWWh  W WWWWWWWW
+WWWWWWWWWWW~a....WWWWWWWWWW   W WWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWW.WWwWWWWWWWW
+WX.d.d............ r.... N......WWWWWWWW
+WWWWWgggggWWWWWWlllWWWWW WWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWddE WWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]

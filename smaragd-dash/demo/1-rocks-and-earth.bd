@@ -1,0 +1,86 @@
+; Smaragd Dash demo cave 1: rocks and earth (tools/democave.py plays it, with
+; 1-rocks-and-earth.moves; tools/record-tour.sh films it).
+;
+; Top row, left to right, display cases that Rockford opens from below as he
+; walks by (a snap upwards): boulders and emeralds pour out; boulders slide
+; off sloped brick, steel and dirt, to the right and to the left; a boulder
+; rolls off brick but stays on smooth brick; glued boulders and emeralds
+; stay; loose dirt and a dirt ball fall.
+; Middle row, right to left: a falling wall drops when Rockford is below
+; it; a boulder cracks a nut into an emerald; dirt2, eatable brick and steel,
+; a clock (more time); a boulder pushed over a gap falls through the magic
+; wall and comes out as an emerald; after the sweet the mega boulder can be
+; pushed (into a pit); a box is pushed with fire, to the left and down into
+; its pocket; a flying boulder pushed under a shaft rises; a flying emerald
+; hangs at the ceiling.
+; Bottom row: emeralds, and a waiting boulder that turns into a chasing one.
+[BDCFF]
+Version=0.5
+[game]
+Name=Rocks and earth
+Caves=1
+Levels=1
+[mapcodes]
+Length=1
+1=WALLSLOPEDUPRIGHT
+2=WALLSLOPEDUPLEFT
+3=STEELWALLSLOPEDUPRIGHT
+4=STEELWALLSLOPEDUPLEFT
+5=DIRTSLOPEDUPRIGHT
+6=DIRTSLOPEDUPLEFT
+n=WALLNONSLOPED
+g=GLUEDBOULDER
+G=GLUEDDIAMOND
+l=DIRTLOOSE
+b=DIRTBALL
+u=FALLINGWALL
+N=NUT
+7=DIRT2
+8=GLUEDDIRT
+e=WALLEATABLE
+E=STEELWALLEATABLE
+c=CLOCK
+M=MAGICWALL
+s=SWEET
+m=MEGABOULDER
+x=SOKOBANBOX
+f=FLYINGBOULDER
+F=FLYINGDIAMOND
+k=WAITINGBOULDER
+[/mapcodes]
+[cave]
+Name=Rocks and earth
+Size=40 22 0 0 39 21
+CaveTime=300
+DiamondsRequired=7
+CaveScheduling=ms
+FrameTime=150
+DiamondValue=10 15
+PushingMegaStonesAfterSweet=true
+MagicWallTime=20
+[map]
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+WrrrrWdddWrWWrWrWWrWrWWrWWWWWWgWGWWWWWWW
+Wrr rWdddWrWWrWrWWrWrWWrWWWWWWgWGWWWWWWW
+Wr  rWdddWrWWrWrWWrWrWWrWWWWWWgWGWWWWWWW
+W   rW   Wr  rWr  rWr  rWr r WgWGWlWbWWW
+WWW.WWW.WW1..2W3..4W5..6Ww.n.W.W.W.W.WWW
+WP.....................................W
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.W
+WWWWWW WWWWWWWWWWWWWWWWWWWWWWWWWWWWWuW.W
+WWWWWW WWWWWWWWWWWWWWWWWWWWWWWWWWWWW W.W
+WWWWWW WWWWWWWWWWWWWWWWWWWWWWWWWWrWW W.W
+WWWWWW WWWWWWWWWWWWWWWWWWWWWWWWWWNWW W.W
+WWWFWW WW      WWWWWWWWWWWWWWWWWW.WW W.W
+W..... f.   x  .  m s    r..cEe7.......W
+W.WWWWWWWWW WWWW WWWWW   WWWWWWWWWWWWWWW
+W.WWWWWWWWWWWWWW WWWWWMMMWWWWWWWWWWWWWWW
+W.WWWWWWWWWWWWWW WWWWW   WWWWWWWWWWWWWWW
+W.WWWWWWWWWWWWWW WWWWW   WWWWWWWWWWWWWWW
+W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWkWWWW
+W.WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW.WWWW
+W....d....d....d....d....d....d.......XW
+WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+[/map]
+[/cave]
+[/game]
