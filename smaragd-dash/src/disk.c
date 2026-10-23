@@ -1,7 +1,9 @@
 // Smaragd Dash: loading files from the disk (see disk.h).
 //
 // The loader talks to the F011 floppy controller directly: it asks for a
-// sector, waits until the controller is no longer busy, and copies the
+// sector, waits until the controller is no longer busy (two seconds at
+// most, then it asks again, three times in all: a controller that does not
+// answer makes the load fail instead of hanging the game), and copies the
 // sector with DMA from the controller's buffer at $FFD6C00. So it needs
 // neither the ROM nor interrupts, and between two sectors disk_busy can
 // show that something is happening. It reads the disk image mounted in
@@ -41,15 +43,50 @@
 #define DIR_TRACK  40
 #define DIR_SECTOR 3
 
+#define FRAME_COUNT 0xD7FA  // the VIC-IV's frame counter
+#define WAIT_FRAMES 100     // how long the controller may stay busy: 2 s (PAL)
+#define TRIES       3       // reading a sector, at most
+
 void (*disk_busy)(void);
 
 static uint8_t blk[256];               // the logical sector last read
 static uint8_t in_buf_track = 0xFF;    // physical sector in the controller's buffer
 static uint8_t in_buf_sector, in_buf_side;
 
-static void wait_ready(void) {
+// Until the controller is no longer busy; false if it still is after
+// WAIT_FRAMES frames
+static bool wait_ready(void) {
+    uint8_t start = PEEK(FRAME_COUNT);
     while (PEEK(FDC_STATUS) & 0x80)
-        ;
+        if ((uint8_t)(PEEK(FRAME_COUNT) - start) > WAIT_FRAMES)
+            return false;
+    return true;
+}
+
+// The physical sector into the controller's buffer, once. Built with
+// -DDISK_FLAKY (tests/run-all.sh) every third try fails, as if the
+// controller had not answered.
+static bool read_physical(uint8_t track, uint8_t sector, uint8_t side) {
+#ifdef DISK_FLAKY
+    static uint8_t try_no;
+    if (++try_no == 3) {
+        try_no = 0;
+        return false;
+    }
+#endif
+    if (!wait_ready())
+        return false;
+    POKE(FDC_CONTROL, 0x60 | side << 3);  // drive 0, motor and LED on
+    if (!wait_ready())
+        return false;
+    POKE(FDC_TRACK, track);
+    POKE(FDC_SECTOR, sector);
+    POKE(FDC_SIDE, side);
+    POKE(FDC_COMMAND, 0x01);  // buffer pointers to the start
+    if (!wait_ready())
+        return false;
+    POKE(FDC_COMMAND, 0x40);  // read the sector
+    return wait_ready() && !(PEEK(FDC_STATUS) & 0x18);
 }
 
 // Logical sector s of track t into blk[]
@@ -60,20 +97,12 @@ static bool read_sector(uint8_t t, uint8_t s) {
     uint8_t track = t - 1;
     uint8_t sector = (s - side * 20) / 2 + 1;
     if (track != in_buf_track || sector != in_buf_sector || side != in_buf_side) {
-        wait_ready();
-        POKE(FDC_CONTROL, 0x60 | side << 3);  // drive 0, motor and LED on
-        wait_ready();
-        POKE(FDC_TRACK, track);
-        POKE(FDC_SECTOR, sector);
-        POKE(FDC_SIDE, side);
-        POKE(FDC_COMMAND, 0x01);  // buffer pointers to the start
-        wait_ready();
-        POKE(FDC_COMMAND, 0x40);  // read the sector
-        wait_ready();
-        if (PEEK(FDC_STATUS) & 0x18) {
-            in_buf_track = 0xFF;
-            return false;
-        }
+        uint8_t tries = 0;
+        while (!read_physical(track, sector, side))
+            if (++tries == TRIES) {
+                in_buf_track = 0xFF;
+                return false;
+            }
         in_buf_track = track;
         in_buf_sector = sector;
         in_buf_side = side;
@@ -93,15 +122,19 @@ static bool write_sector(uint8_t s) {
     dma_begin(0, BUF_MB);
     dma_copy((uint16_t)blk, 0, BUF_OFF + ((uint16_t)(s & 1) << 8), BUF_BANK, 256);
     dma_run();
-    wait_ready();
-    POKE(FDC_TRACK, in_buf_track);
-    POKE(FDC_SECTOR, in_buf_sector);
-    POKE(FDC_SIDE, in_buf_side);
-    POKE(FDC_COMMAND, 0x01);  // buffer pointers to the start
-    wait_ready();
-    POKE(FDC_COMMAND, 0x80);  // write the sector
-    wait_ready();
-    if (PEEK(FDC_STATUS) & 0x18) {
+    bool ok = wait_ready();
+    if (ok) {
+        POKE(FDC_TRACK, in_buf_track);
+        POKE(FDC_SECTOR, in_buf_sector);
+        POKE(FDC_SIDE, in_buf_side);
+        POKE(FDC_COMMAND, 0x01);  // buffer pointers to the start
+        ok = wait_ready();
+    }
+    if (ok) {
+        POKE(FDC_COMMAND, 0x80);  // write the sector
+        ok = wait_ready();
+    }
+    if (!ok || (PEEK(FDC_STATUS) & 0x18)) {
         in_buf_track = 0xFF;
         return false;
     }

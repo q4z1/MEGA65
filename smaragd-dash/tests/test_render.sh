@@ -8,13 +8,16 @@
 # normal build is made again afterwards.
 #
 #   tests/test_render.sh [caves]      (default: the first 6)
+#
+# $RENDER_CFLAGS goes into the build as well (tests/run-all.sh: -DDISK_FLAKY,
+# the loader with a controller that fails every third try).
 
 set -e
 cd "$(dirname "$0")/.."
 OUT=build/test
 mkdir -p $OUT
 CAVES=${1:-6}
-SMARAGD_CFLAGS="-DSCREENCAST -DRENDER_CHECK -DDEMO_LAST=$CAVES" ./build.sh >$OUT/build.log 2>&1 ||
+SMARAGD_CFLAGS="-DSCREENCAST -DRENDER_CHECK -DDEMO_LAST=$CAVES $RENDER_CFLAGS" ./build.sh >$OUT/build.log 2>&1 ||
     { tail $OUT/build.log; exit 1; }
 rm -f $OUT/render.mem
 SDL_AUDIODRIVER=dummy timeout 1200 ../toolchain/tools/bin/xmega65 -headless -sleepless -testing -besure \

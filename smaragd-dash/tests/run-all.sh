@@ -12,7 +12,9 @@
 # as the MEGA65 runs it against the host (tests/test_gdmega65.py, with the
 # mechanics' scenarios), the DMA jobs of render.s against the C loop over
 # all 25 caves of level 1 (tests/test_render.sh, which also has the
-# screencast build solve them), the editor (tests/test_editor.sh).
+# screencast build solve them), the same for 6 caves with a floppy
+# controller that fails every third try (-DDISK_FLAKY: the loader must ask
+# again), the editor (tests/test_editor.sh).
 # They all build into build/, so they run one by one; the normal build is
 # made again at the end.
 
@@ -43,6 +45,7 @@ run mechanics python3 tests/test_mechanics.py
 if [ "$1" != --host ]; then
     run gdmega65 python3 tests/test_gdmega65.py
     run render tests/test_render.sh 25
+    run flakydisk env RENDER_CFLAGS=-DDISK_FLAKY tests/test_render.sh 6
     run editor tests/test_editor.sh
 fi
 ./build.sh >$OUT/build.log 2>&1
