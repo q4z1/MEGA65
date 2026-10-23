@@ -159,7 +159,7 @@ static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/sol
 #if defined(EDITDEMO) && !defined(EDITTEST)
 #define EDITTEST 255  // the editor's video: its script to the end
 #endif
-#ifdef EDITTEST
+#if defined(EDITTEST) || defined(FLOWTEST)
 // The editor's test (tests/test_editor.sh builds with -DEDITTEST=n): keys
 // and joystick come from this script, a step per line: so many frames with
 // these IN_* held, the key typed in the first of them. A step of 0 frames
@@ -167,6 +167,11 @@ static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/sol
 // its screenshot. Built with -DEDITDEMO, the script is the one of the
 // editor's video (tools/record-editor.sh): it plays to its end, or with
 // -DEDITTEST=n to its n-th stop, a picture for EDITOR.md (SHOT).
+//
+// The game's flow (tests/test_flow.py builds with -DFLOWTEST) has a script
+// of its own: a stop is a checkpoint (flow_check), a step of 0 frames with a
+// W_* as its key waits, its IN_* held, until that happens (FLOW_WAIT frames
+// at most), and FLOW_END tells Xemu to stop.
 #ifndef TRY_WAIT
 #define TRY_WAIT 200  // frames from T until Rockford can walk
 #endif
@@ -174,8 +179,37 @@ static uint8_t demo_moves[DEMO_MAX];  // the cave's moves (DEMOnn, see tools/sol
 #define MOVE(in)   {2, 0, in}, {10, 0, 0}   // the cursor one cell on
 #define PUT        {3, 0, IN_BUTTON}, {16, 0, 0}
 #define SHOT       {0, 0, 0}
+#ifdef FLOWTEST
+enum { SCR_NONE, SCR_TITLE, SCR_CAVE, SCR_NAME };  // where the game is
+enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
+#define FLOW_WAIT 3000
+#define WAIT(w, in) {0, w, in}
+#define CAVE_OUT    WAIT(W_ALIVE, 0), SHOT, {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0)
+#define GIVE_UP     {2, 0, IN_RESTART}, WAIT(W_DEAD, 0), {80, 0, 0}, {2, 0, IN_BUTTON}
+#endif
 static const uint8_t test_script[][3] = {
-#ifdef EDITDEMO
+#ifdef FLOWTEST
+    WAIT(W_TITLE, 0), SHOT,                               // 1: the title
+    {100, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
+    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
+    SHOT,                                                 // 2: cave 21 picked
+    {2, 0, IN_BUTTON},
+    CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,     // 3-7: caves 21-25
+    WAIT(W_ALIVE, 0), SHOT,                               // 8: level 2, cave 1
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 9, 10: paused
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 11: on again
+    WAIT(W_TIMEOUT, 0), SHOT,                             // 12: out of time
+    {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 13: a life less
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 14: Run/Stop
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: again
+    GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 16: game over, a high score
+    {1, 'Z', 0}, {10, 0, 0}, {1, 'Q', 0}, {10, 0, 0}, {1, 'X', 0}, {10, 0, 0},
+    WAIT(W_TITLE, 0), SHOT,                               // 17: the table first
+    {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
+    {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
+    SHOT,                                                 // 18: a minute later
+    SHOT, WAIT(FLOW_END, 0),                              // 19: the end
+#elif defined(EDITDEMO)
     {150, 0, 0}, {1, 'E', 0}, {120, 0, 0},                // the title, E: the editor on slot 1
     SHOT,                                                 // 1: editor-cave
     {1, '+', 0}, {120, 0, 0}, {1, '+', 0}, {150, 0, 0},   // loading slots 2 and 3
@@ -246,20 +280,76 @@ static const uint8_t test_script[][3] = {
     {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0},
 #endif
 };
-static uint8_t test_pos, test_left, test_in, test_key, test_stops;
+static uint8_t test_pos, test_left, test_in, test_key;
+#ifndef FLOWTEST
+static uint8_t test_stops;
+#endif
+
+#ifdef FLOWTEST
+static uint8_t flow_screen;   // SCR_*
+static uint8_t flow_wait;     // the W_* waited for
+static uint16_t flow_waited;  // frames so far
+static void flow_check(bool timed_out);
+
+static bool flow_happened(uint8_t w) {
+    switch (w) {
+    case W_TITLE:
+        return flow_screen == SCR_TITLE;
+    case W_ALIVE:  // and born: he stands in his cell, he can walk
+        return flow_screen == SCR_CAVE && game.state == PS_ALIVE && cave[game.player] == O_PLAYER;
+    case W_EXITED:
+        return game.state == PS_EXITED;
+    case W_DEAD:
+        return game.state == PS_DEAD;
+    case W_TIMEOUT:
+        return game.state == PS_TIMEOUT;
+    case W_NAME:
+        return flow_screen == SCR_NAME;
+    }
+    return false;
+}
+#define FLOW_SCREEN(scr) (flow_screen = (scr))
+#endif
 
 static uint8_t test_input(void) {
+#ifdef FLOWTEST
+    if (flow_wait) {
+        if (flow_happened(flow_wait)) {
+            flow_wait = 0;
+        } else if (++flow_waited > FLOW_WAIT) {
+            flow_wait = 0;
+            flow_check(true);
+        } else {
+            return test_in;
+        }
+    }
+#endif
     while (!test_left) {
         const uint8_t *step = test_script[test_pos];
         if (test_pos < sizeof test_script / 3 - 1)
             test_pos++;
         if (!step[0]) {
+#ifdef FLOWTEST
+            if (step[1] == FLOW_END) {
+                POKE(0xD6CF, 0);
+                POKE(0xD6CF, 0x42);
+                for (;;)
+                    ;
+            }
+            if (step[1]) {
+                flow_wait = step[1];
+                flow_waited = 0;
+                return test_in = step[2];
+            }
+            flow_check(false);
+#else
             if (++test_stops >= EDITTEST) {
                 POKE(0xD6CF, 0);
                 POKE(0xD6CF, 0x42);
                 for (;;)
                     ;
             }
+#endif
             continue;
         }
         test_left = step[0];
@@ -270,6 +360,9 @@ static uint8_t test_input(void) {
     return test_in;
 }
 #define input_read test_input
+#endif
+#ifndef FLOWTEST
+#define FLOW_SCREEN(scr)  // where the game is, for the flow test
 #endif
 
 // ---------------------------------------------------------------- drawing
@@ -1127,6 +1220,41 @@ static uint8_t hs_new = HS_COUNT;  // the entry of the last game, shining
 
 static const char places[] = "1ST2ND3RD4TH5TH6TH7TH8TH";
 
+#ifdef FLOWTEST
+// A checkpoint of the flow test: what the game knows now, 16 bytes, into
+// free memory after the status line (mem.h) that tests/test_flow.py reads
+// from Xemu's dump - the number of checkpoints at $4FA00, then one after
+// the other from $4FA10. A wait that timed out writes one with number 0.
+#define FLOW_AT 0xFA00  // in bank 4
+static void flow_check(bool timed_out) {
+    static uint8_t n, stops, r[16];
+    static uint32_t total;
+    r[0] = timed_out ? 0 : ++stops;
+    r[1] = timed_out;
+    r[2] = flow_screen;
+    r[3] = lives;
+    r[4] = cave_no;
+    r[5] = level;
+    r[6] = game.state;
+    r[7] = hs_new;
+    r[8] = start_cave;
+    r[9] = start_level;
+    r[10] = (uint8_t)game.time;
+    r[11] = game.time >> 8;
+    total = score + (flow_screen == SCR_CAVE ? game.score : 0);  // after a cave, score has it
+    memcpy(r + 12, &total, 4);
+    if (n == 94)  // as many as there is room for
+        return;
+    dma_begin(0, 0);
+    dma_copy((uint16_t)r, 0, FLOW_AT + 16 + n * 16, 4, 16);
+    dma_run();
+    n++;
+    dma_begin(0, 0);
+    dma_copy((uint16_t)&n, 0, FLOW_AT, 4, 1);
+    dma_run();
+}
+#endif
+
 static const uint8_t *place_colours(uint8_t rank) {
     return rank_row + (rank < 3 ? rank : 3) * 16;
 }
@@ -1202,6 +1330,8 @@ static uint8_t letter_index(char ch) {
 // Three letters for the entry at `rank`, arcade style: up and down change
 // the letter, fire or right take it, left goes back. The keyboard works
 // too: a letter or digit is taken at once, Del goes back.
+static uint8_t get_key(void);
+
 static void enter_name(HiScore *e, uint8_t rank) {
     static char line[] = "000000 POINTS - 1ST PLACE";
     const uint8_t fps = pal ? 50 : 60;
@@ -1218,6 +1348,7 @@ static void enter_name(HiScore *e, uint8_t rank) {
         big_letter(i, e->name[i]);
     status_clear();
     status_print(2, "ENTER YOUR NAME");
+    FLOW_SCREEN(SCR_NAME);
     status_put(30, ICON(ICON_CLOCK));
     while (PEEK(0xD610))  // forget the keys typed so far
         POKE(0xD610, 0);
@@ -1253,11 +1384,8 @@ static void enter_name(HiScore *e, uint8_t rank) {
             big_letter(pos, letters[i]);
             sound_crackle();
         }
-        uint8_t key = PEEK(0xD610);
+        uint8_t key = get_key();
         if (key) {
-            POKE(0xD610, 0);
-            if (key >= 'a' && key <= 'z')
-                key -= 'a' - 'A';
             if (key == 0x14 && pos) {  // Del
                 pos--;
                 sound_crackle();
@@ -1362,7 +1490,7 @@ static void logo_frame(uint16_t pf) {
 
 // A key typed (ASCII, letters in upper case), or 0
 static uint8_t get_key(void) {
-#ifdef EDITTEST
+#if defined(EDITTEST) || defined(FLOWTEST)
     uint8_t key = test_key;
     test_key = 0;
 #else
@@ -1380,6 +1508,7 @@ static uint8_t get_key(void) {
 // waiting for a player; after a game the table comes first. True if E was
 // pressed for the editor, false for a game.
 static bool title_screen(bool scores) {
+    FLOW_SCREEN(SCR_TITLE);
     if (scores)
         scores_page();
     else
@@ -1518,6 +1647,7 @@ static uint8_t play_cave(void) {
     uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
 
     rules_start();
+    FLOW_SCREEN(SCR_CAVE);
     tick_len = gd_step_ms() * 3;
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;

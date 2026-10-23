@@ -182,7 +182,14 @@ collection and the mechanics' scenarios (or the files given) with GDash's
 engine as the MEGA65 runs it (built with `-DGDCHECK`: a digest of every
 step, `src/gddigest.h`, into bank 4; a scenario's moves in the slot's file
 `CHECKnn`) and compares each step with `tests/gdplay.c` on the host; if
-Xemu hangs, it names the cave. `tests/test_render.sh` lets the screencast
+Xemu hangs, it names the cave. `python3 tests/test_flow.py` plays the
+game's flow in Xemu from a script (built with `-DFLOWTEST`) that waits for
+what happens rather than for frames: a cave picked on the title, five caves
+one after the other with an extra life at 500 points, on into the next
+level, pause, the time running out, Run/Stop, game over, the name typed
+into the high score table, the table on the disk and on the title, which
+then runs for a minute; the disk has small caves of its own for that.
+`tests/test_render.sh` lets the screencast
 build make each frame's DMA jobs with `src/render.s` and with the C loop
 (`-DRENDER_CHECK`), counts the frames where they differ, and checks that
 it got through all the caves. Built with `-DGDPROF`, the game measures how
