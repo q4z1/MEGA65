@@ -4,10 +4,14 @@
 
 #include "hw.h"
 
+// Joystick 1 pulls the matrix rows at $DC01 low as keys do: what it holds
+// is left out of the keys (down read as Return, P and I: fire and pause)
+static uint8_t joy1;
+
 // Keyboard matrix through CIA 1: write a column to $DC00, read rows at $DC01
 static uint8_t column(uint8_t sel) {
     POKE(0xDC00, sel);
-    return ~PEEK(0xDC01);
+    return ~PEEK(0xDC01) & ~joy1;
 }
 
 uint8_t input_read(void) {
@@ -20,7 +24,8 @@ uint8_t input_read(void) {
     POKE(0xDC03, 0x00);
     POKE(0xDC00, 0xFF);
     // Both joysticks: port 2 on $DC00, port 1 on $DC01 (bits as IN_*)
-    uint8_t in = (~PEEK(0xDC00) | ~PEEK(0xDC01)) & 0x1F;
+    joy1 = ~PEEK(0xDC01) & 0x1F;
+    uint8_t in = (~PEEK(0xDC00) & 0x1F) | joy1;
 
     // Cursor keys: on the MEGA65, left and up are shift + right / down in
     // the matrix; $D60F tells them apart.
