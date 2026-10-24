@@ -705,7 +705,7 @@ static void update_tiles(void) {
         x1 = CAVE_W - 1;
     if (y1 >= CAVE_H)
         y1 = CAVE_H - 1;
-    uint8_t cover = T_COVER0 + ((f >> 1) & 1);
+    uint8_t cover = T_COVER0 + ((f >> 1) & 7);  // the steel wall moving up
     uint8_t sparkle = f >> 2;
     nsprites = 0;
     for (uint8_t y = y0; y <= y1; y++) {
@@ -1092,17 +1092,22 @@ static uint8_t joy_dir(uint8_t in) {
     return DIR_NONE;
 }
 
-// Uncover (on = 0) or cover (on = 1) the cave: a few random cells per row
-// each frame, then the rest.
+// Uncover (on = 0) or cover (on = 1) the cave as the C64 does (GDash's
+// gamecontrol.cpp): every 40 ms (two frames) a random cell of each row,
+// 70 times, while it is uncovered; eight cells of each row, 8 times, while
+// it is covered - and in the editor, as GDash tests a cave, also while it
+// is uncovered; then the rest
 static void cover_cave(uint8_t on) {
     any_covered = true;
     sound_still();
-    for (uint8_t f = 0; f < 60; f++) {
+    bool quick = on || play_mode == PLAY_TEST;
+    uint8_t steps = quick ? 8 : 70, per_row = quick ? 8 : 1;
+    for (uint8_t n = 0; n < steps; n++) {
         for (uint8_t y = 0; y < CAVE_H; y++)
-            for (uint8_t k = 0; k < 3; k++)
+            for (uint8_t k = 0; k < per_row; k++)
                 covered[y * CAVE_W + ((rnd() * CAVE_W) >> 8)] = on;
-        if (f & 1)
-            sound_crackle();
+        sound_crackle();
+        next_frame();
         next_frame();
     }
     memset(covered, on, sizeof covered);

@@ -47,6 +47,6 @@ import democave as dc
 p, _, _ = dc.play('caves/01-first-steps.bd', 'tools/shots/explosion.moves', quiet=True)
 open('build/tour/tour01.bin', 'wb').write(dc.pack(p.inputs))
 "
-shot explosion 486 "-DSCREENCAST -DTOUR" caves/01-first-steps.bd
+shot explosion 566 "-DSCREENCAST -DTOUR" caves/01-first-steps.bd
 rm -rf build/tour
 ./build.sh >$OUT/build.log 2>&1

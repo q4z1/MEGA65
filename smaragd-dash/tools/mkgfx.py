@@ -717,13 +717,10 @@ def draw_magic(frame):
 
 
 def draw_cover(frame):
-    t = new_tile()
-    r = random.Random(70 + frame)
-    stops = [hexc("10141c"), hexc("283040"), hexc("485468"), hexc("7888a0")]
-    for y in range(T):
-        for x in range(T):
-            t[y][x] = steps(stops, r.random() * 0.8 + (0.2 if (x + y + frame) % 4 == 0 else 0), 4)
-    return t
+    """A covered cell, as the C64 shows it: the steel wall, moved up by
+    two pixel rows in each of the eight frames"""
+    steel = draw_steel()
+    return [steel[(y + 2 * frame) % T][:] for y in range(T)]
 
 
 def draw_space():
@@ -1673,7 +1670,7 @@ def build_tiles():
               ("OUTBOX0", draw_door(False, False)), ("OUTBOX1", draw_door(True, False))]
     tiles += [(f"AMOEBA{i}", draw_amoeba(i)) for i in range(4)]
     tiles += [(f"MAGIC{i}", draw_magic(i)) for i in range(4)]
-    tiles += [(f"COVER{i}", draw_cover(i)) for i in range(2)]
+    tiles += [(f"COVER{i}", draw_cover(i)) for i in range(8)]
     tiles += [(f"EMBERS{i}", draw_embers(i)) for i in range(4)]
     tiles += [(f"GLITTER{i}", draw_glitter(i)) for i in range(4)]
     tiles += [(f"EMBERS_ALT{i}", draw_embers(i, EMBERS_BLUE)) for i in range(4)]
