@@ -10,7 +10,7 @@ Each subfolder is a self-contained program.
 | --- | --- |
 | [main/](main/) | Hello world: C with one routine in assembly. A template, and a check that everything works together. |
 | [wedge-turbo/](wedge-turbo/README.md) | Wedge Turbo: a racing game in the style of the Amiga's, with the race on the whole screen. Work in progress. |
-| [smaragd-dash/](smaragd-dash/README.md) | Smaragd Dash: a Boulder Dash style game in 256 colours with smooth scrolling, title logo and stereo music, on a D81. 25 caves in four levels each (100), loaded from the disk. |
+| [smaragd-dash/](smaragd-dash/README.md) | Smaragd Dash: a Boulder Dash style game in 256 colours with smooth scrolling, title logo and stereo music, on a D81. 25 caves in four levels each (100), loaded from the disk; a cave editor, and GDash's engine for caves of its own and from GDash ([EDITOR.md](smaragd-dash/EDITOR.md)). |
 
 ## How this was made
 

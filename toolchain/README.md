@@ -98,6 +98,10 @@ on a branch of its own, for a pull request upstream):
 - a raster interrupt's flag stays set until it is acknowledged, as on the
   real VIC, also when the line went by while a DMA job held the CPU
   (`audio-sync`)
+- letting go of cursor left (which Xemu emulates as shift + cursor right)
+  no longer releases cursor right while that key is still held, nor up
+  down (`audio-sync`; `shifted-key-release` for upstream): a game no longer
+  sees no key when the player turns without a gap
 
 ### Gamepads
 

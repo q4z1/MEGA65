@@ -4,7 +4,7 @@ Smaragd Dash has a cave editor built in. With it you draw your own caves on
 the MEGA65, try them out at once and keep them on the game's disk, in twenty
 slots. From the title screen you play them like the game's own caves.
 
-**[Video: the editor in 1¼ minutes](screenshots/cave-editor.mp4)**: it shows
+**[Video: the editor in 1½ minutes](screenshots/cave-editor.mp4)**: it shows
 everything this guide describes, from loading a cave to playing the changed
 one.
 

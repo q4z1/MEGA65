@@ -56,7 +56,7 @@ before building.
 ![In the first cave](screenshots/cave.png) ![A boulder fell on Rockford](screenshots/explosion.png)
 
 **[Video: the game plays the first six caves](screenshots/first-six-caves.mp4)**
-(4½ minutes, with music and sound; recorded as described under
+(5 minutes, with music and sound; recorded as described under
 [Screencast](#screencast)).
 
 ## Controls
@@ -77,7 +77,7 @@ before building.
 ## Cave editor
 
 **[The editor's guide: EDITOR.md](EDITOR.md)**, step by step, with pictures.
-**[Video: the editor](screenshots/cave-editor.mp4)** (1¼ minutes: loading
+**[Video: the editor](screenshots/cave-editor.mp4)** (1½ minutes: loading
 slots, putting and drawing elements, values and name, trying the changed
 cave to its exit, saving it and loading it again)
 
@@ -203,7 +203,9 @@ what happens rather than for frames: a cave picked on the title, five caves
 one after the other with an extra life at 500 points, on into the next
 level, pause, the time running out, Run/Stop, game over, the name typed
 into the high score table, the table on the disk and on the title, which
-then runs for a minute; the disk has small caves of its own for that.
+then runs for a minute, and at last the own caves from level 3 on (a level
+of its own) into level 4 (the first level's); the disk has small caves of
+its own for that.
 `tests/test_render.sh` lets the screencast
 build make each frame's DMA jobs with `src/render.s` and with the C loop
 (`-DRENDER_CHECK`), counts the frames where they differ, and checks that
@@ -215,9 +217,9 @@ read from a memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
 view's steps in pixels per frame, how long the game's work and the drawing
 took in each frame and the most a step of the engine took.
 
-The slots for the own caves (`OWN01` ... `OWN20`, see `tools/mkcave.py`)
-go onto the disk empty; like the high scores, a new build keeps them from
-the old disk.
+The slots for the own caves (`OWN01` ... `OWN20` and their levels
+`OWN01-2` ... `OWN20-5`, see `tools/mkcave.py`) go onto the disk empty;
+like the high scores, a new build keeps them from the old disk.
 
 ## Own caves and GDash
 
@@ -372,7 +374,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/render.s` | the DMA jobs of a frame's playfield in assembler |
 | `src/input.c` | joysticks and keyboard |
-| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title) |
+| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title); each starts with a hard restart (gate closed with the test bit, opened in the next frame), so that a real SID surely starts the envelope again |
 | `src/music.c` | music player on the second and fourth SID |
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |
