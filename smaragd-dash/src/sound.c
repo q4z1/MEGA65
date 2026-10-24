@@ -34,28 +34,37 @@ static uint8_t left[VOICES];  // frames until the voice is switched off
 #define TOP 255
 static uint8_t rank[VOICES], hold[VOICES];
 
+// A sound starts in two parts: play() closes the gate and sets the test bit
+// (the oscillator and the noise generator start afresh), sound_frame()
+// opens the gate with the waveform. A SID clocked at 1 MHz, as the real
+// MEGA65's, may not see a gate closed and opened again a microsecond later,
+// as Xemu does: the envelope would not start again, and with sustain 0 the
+// sound stays silent.
+#define TEST 0x08
+static uint8_t start[VOICES];  // the waveform to open the gate with, 0: none
+
 static uint16_t voice_reg(uint8_t v) {
     return v < 3 ? SID + v * 7 : SID2 + (v - 3) * 7;
 }
 
 // Start a sound on voice v (0-5) of rank r: frequency, waveform and
-// attack/decay. The gate is closed first so the envelope starts again.
+// attack/decay. The gate opens in the next sound_frame (see start).
 static void play(uint8_t v, uint8_t r, uint16_t freq, uint8_t wave, uint8_t ad) {
     if (hold[v] && r < rank[v])
         return;
     rank[v] = r;
     left[v] = decay_frames[ad & 15];
     hold[v] = left[v] / 3;
+    start[v] = wave;
     uint16_t reg = voice_reg(v);
     for (uint8_t side = 0; side < 2; side++, reg += RIGHT) {
-        POKE(reg + 4, wave);
+        POKE(reg + 4, TEST);
         POKE(reg + 0, (uint8_t)freq);
         POKE(reg + 1, freq >> 8);
         POKE(reg + 2, 0x00);
         POKE(reg + 3, 0x08);  // pulse width 50 %
         POKE(reg + 5, ad);
         POKE(reg + 6, 0x00);
-        POKE(reg + 4, wave | 1);
     }
 }
 
@@ -77,12 +86,19 @@ void sound_off(void) {
         uint16_t reg = voice_reg(v) + 4;
         POKE(reg, 0);
         POKE(reg + RIGHT, 0);
-        left[v] = hold[v] = 0;
+        left[v] = hold[v] = start[v] = 0;
     }
 }
 
 void sound_frame(void) {
     for (uint8_t v = 0; v < VOICES; v++) {
+        if (start[v]) {  // the frames of the sound count from here
+            uint16_t reg = voice_reg(v) + 4;
+            POKE(reg, start[v] | 1);
+            POKE(reg + RIGHT, start[v] | 1);
+            start[v] = 0;
+            continue;
+        }
         if (hold[v])
             hold[v]--;
         if (left[v] && !--left[v]) {
@@ -110,6 +126,7 @@ static const struct {
     {SND_NUT, 1, 0x2800, 0, NOISE, 0x05},  // a crack
     {SND_BOULDER, 1, 0x0700, 0, NOISE, 0x07},
     // voice 3: diamonds landing (and the exit, the last seconds, a life)
+    {SND_CRACK, 2, 0x2000, 0, NOISE, 0x0A},  // Rockford hatches: as the exit opens
     {SND_DIAMOND, 2, 0x3000, 64, TRI, 0x06},
     // voice 4: explosions and machines
     {SND_EXPLODE, 3, 0x1400, 0, NOISE, 0x0B},

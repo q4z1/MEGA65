@@ -2485,6 +2485,7 @@ __attribute__((noinline)) void gd_step_end(void) {
         }
         if (gd.player_state == GD_PL_NOT_YET)
             gd.player_state = GD_PL_LIVING;
+        SOUND(SND_CRACK);
     }
     if (gd.biters_wait_frame == 0)
         gd.biters_wait_frame = gd.biter_delay_frame;

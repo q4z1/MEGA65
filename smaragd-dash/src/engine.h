@@ -72,6 +72,7 @@ enum { MW_DORMANT, MW_ACTIVE, MW_EXPIRED };
 #define SND_BOMB      0x10000ul  // a bomb put down
 #define SND_HAMMER    0x20000ul  // the pneumatic hammer at work
 #define SND_HISS      0x40000ul  // water or acid spreading
+#define SND_CRACK     0x80000ul  // Rockford hatches (GDash's crack, the exit's sound)
 
 // What the status line shows of the cave
 typedef struct {
