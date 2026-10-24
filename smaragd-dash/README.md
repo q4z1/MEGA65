@@ -118,7 +118,8 @@ it is changed.
 
 ![The editor](screenshots/editor-changed.png)
 
-The own caves are played from the title (right of cave 21): one after the
+The own caves are played from the title (right of cave 21: own cave 1 to
+20, left and right pick the one to start with): one after the
 other, empty slots left out, with three lives as usual; after the last one
 the first comes again, in the next level - as GDash does, in its five levels
 (up and down pick the one to start with). A cave from GDash brings its

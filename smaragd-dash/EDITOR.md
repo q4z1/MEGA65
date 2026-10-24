@@ -76,7 +76,7 @@ the status line says SAVED and the `*` is gone.
 **7. Play it.** Run/Stop leaves the editor. The cave stays as you left it,
 saved or not: E brings you back to it until the game is left (Run/Stop
 twice on the title: BASIC). On the title screen move right
-past the last start cave until the status line says OWN CAVES, then press
+past the last start cave until the status line says OWN 1, then press
 fire (see [Playing your caves](#playing-your-caves)).
 
 ## The editor's screen
@@ -94,7 +94,7 @@ Below it is the cave, as it is at its start, with all its elements standing
 still. The view follows the cursor. For a few seconds the status line may
 show a message instead (see [Messages](#messages)).
 
-**H** shows the help page with all keys and the twelve elements with their
+**H** or **Help** shows the help page with all keys and the twelve elements with their
 keys. Any key (or fire) goes back.
 
 ![The help page](screenshots/editor-help.png)
@@ -254,9 +254,10 @@ disk and `import` into the new one (see
 ## Playing your caves
 
 On the title screen, left and right choose the cave to start with (1, 6,
-11, 16, 21). Right of cave 21 comes OWN CAVES; up and down choose the level
-to start with, 1 to 5. Fire starts them: all slots that are not empty, one
-after the other, with three lives; after the last one the first comes
+11, 16, 21). Right of cave 21 come the own caves, OWN 1 to 20: left
+and right choose the slot to start with, up and down the level, 1 to 5.
+Fire starts them: from the slot chosen on, all slots that are not empty,
+one after the other, with three lives; after the last one the first comes
 again, in the next level (after level 5: level 5 again), as in GDash. The
 status line shows slot and level, OWN 03/2. A cave saved in the editor is
 the same in every level; one from GDash plays its own levels. The own caves
@@ -366,5 +367,5 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | R | the next direction of what walks |
 | C (twice) | a new cave |
 | D (twice) | empty the slot |
-| H | help page |
+| H or Help | help page |
 | Run/Stop | back to the title; the cave stays as it is for the next time |

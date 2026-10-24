@@ -144,6 +144,7 @@ static uint8_t flash;               // frames left of the exit flash
 static uint8_t lives;
 static uint8_t cave_no, level;      // from 0
 static uint8_t start_cave, start_level;  // picked on the title; CAVE_COUNT: the own caves
+static uint8_t start_own;                // ... from this slot
 enum { PLAY_CAVES, PLAY_OWN, PLAY_TEST };  // the game's caves, the own ones, one in the editor
 static uint8_t play_mode;
 static bool show_cursor;            // the editor's, at cur_x, cur_y
@@ -1344,29 +1345,39 @@ static void title_line(const char *text) {
 // The status line on the title: what the game starts with, and the hi-score
 static void title_status(void) {
     status_begin();
-    status_print(2, "LEVEL");
-    put_num(8, start_level + 1, 1);
-    if (start_cave == CAVE_COUNT) {
-        status_print(11, "OWN CAVES");
+    if (start_cave == CAVE_COUNT) {  // "OWN 12", as in the cave
+        status_print(2, "OWN");
+        put_num(6, start_own + 1, start_own >= 9 ? 2 : 1);
     } else {
-        status_print(11, "CAVE");
-        put_num(start_cave >= 9 ? 16 : 17, start_cave + 1, start_cave >= 9 ? 2 : 1);
+        status_print(2, "CAVE");
+        put_num(7, start_cave + 1, start_cave >= 9 ? 2 : 1);
     }
+    status_print(11, "LEVEL");
+    put_num(17, start_level + 1, 1);
     status_print(22, "HI-SCORE");
     put_num(31, hs_table[0].score, 6);
     status_end();
 }
 
 // Up and down pick the level, left and right the cave to start with; right
-// of the last one come the own caves, with GDash's levels
+// of the last one come the own caves, one by one, with GDash's levels (an
+// empty slot starts with the next own cave)
 #define LAST_START ((CAVE_COUNT - 1) / START_STEP * START_STEP)
 
 static void title_pick(void) {
-    uint8_t l = start_level, c = start_cave;
-    if ((pressed & IN_RIGHT) && c < CAVE_COUNT)
-        c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
-    if ((pressed & IN_LEFT) && c)
-        c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
+    uint8_t l = start_level, c = start_cave, o = start_own;
+    if (pressed & IN_RIGHT) {
+        if (c < CAVE_COUNT)
+            c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
+        else if (o < OWN_SLOTS - 1)
+            o++;
+    }
+    if (pressed & IN_LEFT) {
+        if (c == CAVE_COUNT && o)
+            o--;
+        else if (c)
+            c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
+    }
     uint8_t top = (c == CAVE_COUNT ? OWN_LEVELS : LEVELS) - 1;
     if ((pressed & IN_UP) && l < top)
         l++;
@@ -1374,9 +1385,10 @@ static void title_pick(void) {
         l--;
     if (l > top)
         l = top;
-    if (l != start_level || c != start_cave) {
+    if (l != start_level || c != start_cave || o != start_own) {
         start_level = l;
         start_cave = c;
+        start_own = o;
         title_status();
         sound_crackle();
     }
@@ -1812,6 +1824,17 @@ __attribute__((noreturn)) static void to_basic(void) {
         POKE(0xD000 + vic_reg[i], vic_was[i]);
     POKE(0xD070, 0x00);
     POKE(0xD030, rom_saved ? d030_was : d030_was & ~0x04);  // else the ROM's colours
+    // The KERNAL's reset opens the monitor while Run/Stop is held (and goes
+    // to C64 mode with the C= key): both let go, and a few frames for the
+    // key to settle
+    POKE(0xDC02, 0xFF);
+    POKE(0xDC00, 0x7F);  // the matrix column of both
+    for (uint8_t f = 0; f < 3;) {
+        uint8_t now = PEEK(0xD7FA);
+        while (PEEK(0xD7FA) == now)
+            ;
+        f = (PEEK(0xDC01) & 0xA0) == 0xA0 ? f + 1 : 0;
+    }
     while (PEEK(0xD610))  // no keys for BASIC
         POKE(0xD610, 0);
     // The KERNAL at $E000 (C65 ROM bank 3), the stack as at a reset
@@ -2177,7 +2200,7 @@ static uint8_t play_cave(void) {
 
 // The editor changes an own cave in file.own - GDash's elements, played by
 // GDash's engine - and shows it from cave[], both alike; a try plays it
-// from file.own. Its keys (also on its help page, H):
+// from file.own. Its keys (also on its help page, H or Help):
 //   cursor keys, joystick   move the cursor
 //   fire, Space, Return     put the element chosen; held, it draws
 //   1-9, 0, I, X            choose the element; again: a firefly or a
@@ -2841,6 +2864,7 @@ static EDITOR void editor(void) {
             edit_shown = false;
             break;
         case 'H':
+        case KEY_HELP:
             edit_help();
             armed = false;
             break;
@@ -2895,7 +2919,7 @@ static void play_game(void) {
     score = 0;
     next_life = LIFE_POINTS;
     play_mode = start_cave == CAVE_COUNT ? PLAY_OWN : PLAY_CAVES;
-    cave_no = play_mode == PLAY_OWN ? 0 : start_cave;
+    cave_no = play_mode == PLAY_OWN ? start_own : start_cave;
     level = start_level;
     bool have_cave = true;
     while (lives) {
