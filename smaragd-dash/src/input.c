@@ -2,17 +2,28 @@
 
 #include "input.h"
 
+#include <stdbool.h>
+
 #include "hw.h"
 
 // Joystick 1 pulls the matrix rows at $DC01 low as keys do: what it holds
-// is left out of the keys (down read as Return, P and I: fire and pause)
+// is left out of the keys (down read as Return, P and I: fire and pause).
+// It is read again after each column: a stick moved (or a contact
+// bouncing) between two reads is not taken for a key.
 static uint8_t joy1;
 
 // Keyboard matrix through CIA 1: write a column to $DC00, read rows at $DC01
 static uint8_t column(uint8_t sel) {
     POKE(0xDC00, sel);
-    return ~PEEK(0xDC01) & ~joy1;
+    uint8_t rows = ~PEEK(0xDC01);
+    POKE(0xDC00, 0xFF);
+    joy1 |= ~PEEK(0xDC01) & 0x1F;
+    return rows & ~joy1;
 }
+
+// P counts once it was seen in two reads in a row (a frame apart): a
+// joystick in port 1 can still look like it for a moment
+static bool p_was;
 
 uint8_t input_read(void) {
     // The C65's extra column (Tab, Help, Esc, F9-F13) not selected: the ROM
@@ -46,8 +57,10 @@ uint8_t input_read(void) {
         in |= IN_BUTTON;
     if (c7 & 0x80)  // Run/Stop
         in |= IN_RESTART;
-    if (column(0xDF) & 0x02)  // P
+    bool p = column(0xDF) & 0x02;  // P
+    if (p && p_was)
         in |= IN_PAUSE;
+    p_was = p;
     if (column(0xEF) & 0x02)  // I
         in |= IN_ITEMS;
     POKE(0xDC00, 0xFF);
