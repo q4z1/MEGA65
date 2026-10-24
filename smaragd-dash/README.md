@@ -385,7 +385,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/render.s` | the DMA jobs of a frame's playfield in assembler |
 | `src/input.c` | joysticks and keyboard |
-| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title); each starts with a hard restart (gate closed with the test bit, opened in the next frame), so that a real SID surely starts the envelope again |
+| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title); each starts with a hard restart (gate closed with the test bit, opened in the next frame), so that a real SID surely starts the envelope again; the amoeba and the magic wall sound as long as they are alive, as GDash's looped C64 sounds: a triangle with a new random frequency every frame |
 | `src/music.c` | music player on the second and fourth SID |
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |

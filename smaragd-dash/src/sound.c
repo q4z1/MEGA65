@@ -43,6 +43,19 @@ static uint8_t rank[VOICES], hold[VOICES];
 #define TEST 0x08
 static uint8_t start[VOICES];  // the waveform to open the gate with, 0: none
 
+// The amoeba and the magic wall sound as long as they are alive, as in
+// GDash, whose looped sounds come from the C64: a triangle on voice 6 that
+// takes a random frequency (its high byte) every frame - the amoeba's
+// 120-490 Hz each frame, the magic wall's 2020-2380 Hz every second one,
+// both alive: the frames take turns. A sound of voice 6 interrupts it; it
+// comes back when that one has died away.
+#define HUM_VOICE 5
+#define HUM_AMOEBA 1
+#define HUM_MAGIC  2
+static uint8_t hum;      // HUM_* the last tick wanted; 0: quiet
+static uint8_t humming;  // the hum has the voice, its gate is open
+static uint8_t hum_odd;  // the frames take turns
+
 static uint16_t voice_reg(uint8_t v) {
     return v < 3 ? SID + v * 7 : SID2 + (v - 3) * 7;
 }
@@ -53,6 +66,8 @@ static void play(uint8_t v, uint8_t r, uint16_t freq, uint8_t wave, uint8_t ad) 
     if (hold[v] && r < rank[v])
         return;
     rank[v] = r;
+    if (v == HUM_VOICE)
+        humming = 0;
     left[v] = decay_frames[ad & 15];
     hold[v] = left[v] / 3;
     start[v] = wave;
@@ -88,6 +103,47 @@ void sound_off(void) {
         POKE(reg + RIGHT, 0);
         left[v] = hold[v] = start[v] = 0;
     }
+    hum = humming = 0;
+}
+
+void sound_still(void) {
+    hum = 0;
+}
+
+// Voice 6 in a frame without a sound of its own: the hum starts, goes on
+// with a new frequency or ends (its waveform goes off with left, as a
+// sound's does)
+static void hum_frame(void) {
+    uint16_t reg = voice_reg(HUM_VOICE);
+    if (!hum) {
+        if (humming) {
+            humming = 0;
+            left[HUM_VOICE] = 3;
+            for (uint8_t side = 0; side < 2; side++, reg += RIGHT)
+                POKE(reg + 4, TRI);  // gate closed: release 0
+        }
+        return;
+    }
+    hum_odd ^= 1;
+    uint8_t hi;
+    if (hum & HUM_MAGIC && (hum_odd || !(hum & HUM_AMOEBA)))
+        hi = 0x86;  // the magic wall
+    else
+        hi = 0x08;  // the amoeba
+    if (hi == 0x86 && !hum_odd && humming)
+        return;  // the magic wall alone keeps its frequency for two frames
+    hi += (rnd() * 25) >> 8;
+    for (uint8_t side = 0; side < 2; side++, reg += RIGHT) {
+        POKE(reg + 0, 0);
+        POKE(reg + 1, hi);
+        if (!humming) {
+            POKE(reg + 5, 0x20);  // attack 2: no click
+            POKE(reg + 6, 0x70);  // sustain 7, release 0
+            POKE(reg + 4, TRI | 1);
+        }
+    }
+    humming = 1;
+    rank[HUM_VOICE] = hold[HUM_VOICE] = 0;
 }
 
 void sound_frame(void) {
@@ -105,7 +161,10 @@ void sound_frame(void) {
             uint16_t reg = voice_reg(v) + 4;
             POKE(reg, 0);
             POKE(reg + RIGHT, 0);
+            continue;  // the gate stays closed for a frame
         }
+        if (v == HUM_VOICE && !left[v])
+            hum_frame();
     }
 }
 
@@ -126,7 +185,7 @@ static const struct {
     {SND_NUT, 1, 0x2800, 0, NOISE, 0x05},  // a crack
     {SND_BOULDER, 1, 0x0700, 0, NOISE, 0x07},
     // voice 3: diamonds landing (and the exit, the last seconds, a life)
-    {SND_CRACK, 2, 0x2000, 0, NOISE, 0x0A},  // Rockford hatches: as the exit opens
+    {SND_CRACK, 2, 0x2000, 0, NOISE, 0x08},  // Rockford hatches: as the exit opens
     {SND_DIAMOND, 2, 0x3000, 64, TRI, 0x06},
     // voice 4: explosions and machines
     {SND_EXPLODE, 3, 0x1400, 0, NOISE, 0x0B},
@@ -140,14 +199,13 @@ static const struct {
     // voice 6: what goes on in the cave
     {SND_TELEPORT, 5, 0x7000, 0, SAW, 0x09},
     {SND_SWITCH, 5, 0x4800, 0, PULSE, 0x01},  // a click
-    {SND_MAGIC, 5, 0x5000, 64, TRI, 0x04},
     {SND_SLIME, 5, 0x1800, 8, PULSE, 0x05},  // a blob
     {SND_HISS, 5, 0xD000, 0, NOISE, 0x03},
-    {SND_AMOEBA, 5, 0x0300, 2, PULSE, 0x04},
 };
 #define TICK_FX (sizeof tick_fx / sizeof *tick_fx)
 
 void sound_tick(uint32_t ev) {
+    hum = ev & SND_MAGIC ? HUM_MAGIC : ev & SND_AMOEBA ? HUM_AMOEBA : 0;
     uint8_t done = 0;  // a bit for each voice that has had its sound
     for (uint8_t i = 0; i < TICK_FX; i++) {
         uint8_t v = tick_fx[i].voice;
@@ -174,7 +232,7 @@ void sound_bonus(void) {
 }
 
 void sound_exit(void) {
-    play(2, TOP, 0x2000, NOISE, 0x0A);
+    play(2, TOP, 0x2000, NOISE, 0x08);
 }
 
 void sound_life(void) {

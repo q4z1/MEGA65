@@ -1095,6 +1095,7 @@ static uint8_t joy_dir(uint8_t in) {
 // each frame, then the rest.
 static void cover_cave(uint8_t on) {
     any_covered = true;
+    sound_still();
     for (uint8_t f = 0; f < 60; f++) {
         for (uint8_t y = 0; y < CAVE_H; y++)
             for (uint8_t k = 0; k < 3; k++)
@@ -2057,6 +2058,8 @@ static uint8_t play_cave(void) {
             frames = 3;
         tick_acc += frame_len * frames;
         bool ticks = game.state != PS_TIMEOUT && game.state != PS_EXITED;
+        if (!ticks)
+            sound_still();
         // The next step is begun as many frames before its tick as the
         // last ones took (at least one), and takes the input until the
         // player has taken it
