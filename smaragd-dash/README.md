@@ -306,13 +306,24 @@ with the game's engine (started with the screencast's random numbers) and
 tells how it ends; `!` in the moves shows the map there. The moves are
 `U R D L` (`u r d l` with fire), `.` to wait, `X` to give up, a number in
 front repeats, `L*` repeats until Rockford gets there (a push that works
-only now and then); a line that starts with `=` says what must be so at
-that point (`= key1=1 @12,5=DIAMOND st=out`, see `tools/democave.py`).
+only now and then), `@12,5` walks to that cell the shortest way through
+space, dirt and emeralds; a line that starts with `=` says what must be so
+at that point (`= key1=1 @12,5=DIAMOND st=out`, see `tools/democave.py`).
 
 `tools/record-tour.sh` films them being solved: the caves go into the slots
 of a disk of the game built with `-DSCREENCAST -DTOUR`, their moves onto it
 as `TOUR01`, `TOUR02`, ...; the game plays one after the other and the
 recording ends after the last (`build/tour.mp4`).
+
+`tools/record-solutions.sh <disk.d81> [<moves dir>]` films the own caves
+of any disk being solved, in their first level, the same way
+(`build/<disk>-solutions.mp4`). The ways through come from `tools/solve.c`
+(`tools/democave.py solve`): its search, and where that is not enough,
+opening moves in `<moves dir>/NN.moves` for slot NN, from whose end it
+goes on (a line `% beam=6000 cell=8` there gives the search more room).
+A slot without a way through is left out. `solutions/Boulder_Dash_1/` has
+those for GDash's Boulder Dash 1 (the disk from `cavekit.py disks`, see
+`EDITOR.md`): 15 of its 20 caves are solved so far.
 
 ### Screencast
 
@@ -384,6 +395,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `tools/record-editor.sh`, `tools/editor-demo/` | the editor's video and its caves |
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `demo/`, `tools/democave.py`, `tools/record-tour.sh` | the demo caves, their moves, and their video |
+| `tools/record-solutions.sh`, `solutions/` | the video of a disk's own caves being solved, and opening moves for it |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.bd`, `caves/*.moves` | the caves (GDash's files) and the solver's opening moves |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |

@@ -1,0 +1,3 @@
+# J: Tracks - the search finds the way by itself; with one state per cell
+# less its moves fit into the game's buffer for them
+% beam=2500 cell=2

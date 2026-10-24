@@ -4,20 +4,30 @@
 (src/gdengine.c with the game's random numbers, started as the screencast
 build starts it: seed 0), step by step as on the MEGA65.
 
-  democave.py play <cave.bd> <moves> [--every N]
+  democave.py play <cave.bd | disk.d81> <moves> [--every N] [--cave N]
       plays the moves and tells how it ends; the map wherever the moves say
-      "!" (and every N steps)
+      "!" (and every N steps); the cave as for solve
   democave.py pack <cave.bd> <moves> <out.bin>
       the moves as the screencast build loads them (tools/record-tour.sh)
+  democave.py solve <cave.bd | disk.d81> <out.bin> [--cave N] [--moves FILE]
+      a way through the cave (of a .bd file: its N-th, of a disk: slot N,
+      level 1) found by tools/solve.c (build/solve, made by build.sh),
+      from where the moves of FILE end (if given): what the search cannot
+      find by itself - dropping boulders on purpose, say - FILE shows it
+      the way (tools/record-solutions.sh)
 
 The moves: U R D L walk, u r d l the same with fire (snap; place a bomb,
 fire a rocket, use the hammer), . wait a step, X give up (Run/Stop:
 GDash's suicide), a number repeats what
 follows, a * after a move repeats it until Rockford gets there (pushing
-works only now and then); # starts a comment, ! shows the map there. They
+works only now and then), @x,y walks to that cell the shortest way through
+space, dirt and emeralds (waiting while there is none); # starts a comment,
+! shows the map there. They
 start when Rockford stands in the cave; the steps before (hatching, being
 born out of the inbox) are added. A line that starts with = says what must
 be so at that point (Play.check), e.g. "= key1=1 @12,5=DIAMOND st=out".
+A line that starts with % gives tools/solve.c's search (solve) its
+settings, e.g. "% beam=6000 cell=8" (its SOLVE_BEAM, SOLVE_CELL, ...).
 
 A demo file holds the input of every step from the start of the cave, as
 tools/solve.c writes them: two bytes of load address (not used), then
@@ -70,10 +80,16 @@ def read_moves(path):
     out, show, expect = [], False, []
     for line in open(path).read().splitlines():
         line = line.split("#")[0].strip()
+        if line.startswith("%"):
+            continue
         if line.startswith("="):
             expect += [tuple(w.split("=", 1)) for w in line[1:].split()]
             continue
-        for n, c, until in re.findall(r"(\d*)([URDLurdl.!X])(\*?)", line):
+        for gx, gy, n, c, until in re.findall(r"@(\d+),(\d+)|(\d*)([URDLurdl.!X])(\*?)", line):
+            if gx:
+                out.append((("goto", int(gx), int(gy)), show, False, expect))
+                show, expect = False, []
+                continue
             if c == "!":
                 show = True
                 continue
@@ -108,12 +124,23 @@ SOUNDS = {m[0]: int(m[1], 16) for m in re.findall(r"#define SND_(\w+) +0x([0-9A-
                                                    open(os.path.join(ROOT, "src", "engine.h")).read())}
 
 
+def read_cave(path, cave=1):
+    """The cave of a .bd file (the N-th) or a disk (slot N, level 1)"""
+    if path.lower().endswith(".d81"):
+        found = ck.read_slot(ck.Disk(path), f"{ck.SLOT}{cave:02d}")
+        if not found:
+            sys.exit(f"{path}: slot {cave} is empty")
+        return found
+    _, caves = ck.read_bd(path, 0)
+    if len(caves) < cave or isinstance(caves[cave - 1][2], ck.CaveError):
+        sys.exit(f"{path}: {caves[cave - 1][2] if len(caves) >= cave else 'no cave ' + str(cave)}")
+    return caves[cave - 1][2]
+
+
 class Play:
     def __init__(self, bd_path, lib=None, cave=1):
-        _, caves = ck.read_bd(bd_path, 0)
-        if len(caves) < cave or isinstance(caves[cave - 1][2], ck.CaveError):
-            sys.exit(f"{bd_path}: {caves[cave - 1][2] if len(caves) >= cave else 'no cave ' + str(cave)}")
-        self.cave = caves[cave - 1][2]
+        """bd_path: a .bd file or a disk (read_cave), or a GdCave"""
+        self.cave = bd_path if isinstance(bd_path, ck.GdCave) else read_cave(bd_path, cave)
         self.raw = ctypes.create_string_buffer(self.cave.tobytes())
         self.lib = lib or library()
         self.lib.dc_start(self.raw, 0)
@@ -185,6 +212,41 @@ class Play:
                 sys.exit("Rockford is not born")
             self.step(DIR_NONE)
 
+    def walk(self, x, y):
+        """Steps to cell x, y (@x,y in the moves): each one the first of a
+        shortest way through space, dirt and emeralds; what went wrong"""
+        through = {ck.O["SPACE"], ck.O["DIRT"], ck.O["DIAMOND"]}
+        waited = 0
+        for _ in range(400):
+            s = self.st()
+            if s[0] != 1 or (s[1], s[2]) == (x, y):
+                break
+            cells = self.lib.dc_cave().contents
+            # breadth first from the target, so that every cell knows its way
+            dist = {(x, y): 0}
+            todo = [(x, y)]
+            for cx, cy in todo:
+                for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
+                    nx, ny = cx + dx, cy + dy
+                    if (nx, ny) not in dist and 0 <= nx < ck.W and 0 <= ny < ck.H and \
+                            cells[ny * ck.W + nx] in through:
+                        dist[(nx, ny)] = dist[(cx, cy)] + 1
+                        todo.append((nx, ny))
+            best = None
+            for d, (dx, dy) in enumerate(((0, -1), (1, 0), (0, 1), (-1, 0))):
+                k = dist.get((s[1] + dx, s[2] + dy))
+                if k is not None and (best is None or k < best[0]):
+                    best = (k, d)
+            if best is None:
+                waited += 1
+                if waited > 50:
+                    return [f"step {len(self.inputs)}: no way to {x},{y}"]
+                self.step(DIR_NONE)
+            else:
+                self.step(best[1])
+        s = self.st()
+        return [] if (s[1], s[2]) == (x, y) or s[0] == 4 else [f"step {len(self.inputs)}: not at {x},{y}"]
+
     def show(self, note=""):
         s = self.st()
         cells = list(self.lib.dc_cave().contents)
@@ -215,8 +277,9 @@ class Play:
               f"{s[6]} s; keys {s[8]} {s[9]} {s[10]}, sweet {s[11]}, hammer {s[12]}")
 
 
-def play(bd_path, moves_path, every=0, lib=None, cave=1, quiet=False):
-    """The moves played; (Play, out, what was not as the moves say)"""
+def play(bd_path, moves_path, every=0, lib=None, cave=1, quiet=False, after=10):
+    """The moves played; (Play, out, what was not as the moves say);
+    after: the steps that are waited for what happens next"""
     p = Play(bd_path, lib, cave)
     p.born()
     bad = []
@@ -226,6 +289,9 @@ def play(bd_path, moves_path, every=0, lib=None, cave=1, quiet=False):
         bad += p.check(expect)
         if inp is None:
             break
+        if isinstance(inp, tuple):
+            bad += p.walk(inp[1], inp[2])
+            continue
         at = p.st()[1:3]
         for _ in range(100 if until else 1):
             if until and p.st()[0] != 1:  # the cave goes on after Rockford, as in GDash
@@ -235,7 +301,7 @@ def play(bd_path, moves_path, every=0, lib=None, cave=1, quiet=False):
                 p.show()
             if p.st()[1:3] != at:
                 break
-    for _ in range(10):  # what happens next
+    for _ in range(after):  # what happens next
         if p.st()[0] != 1:
             break
         p.step(DIR_NONE)
@@ -262,11 +328,39 @@ def pack(inputs):
     return bytes(out)
 
 
+def solve(path, out_path, cave=1, moves_path=None):
+    """tools/solve.c's way through the cave, from where the moves end"""
+    solver = os.path.join(ROOT, "build", "solve")
+    if not os.path.exists(solver):
+        sys.exit("democave: no build/solve - ./build.sh makes it")
+    first = []
+    if moves_path:
+        p, _, bad = play(path, moves_path, cave=cave, quiet=True, after=0)
+        if bad or p.st()[0] not in (1, 4):
+            sys.exit(f"democave: {moves_path}: " + ("; ".join(bad) or "Rockford does not survive the moves"))
+        first = p.inputs
+    gen = os.path.join(GEN, "solve", os.path.basename(out_path))  # one each: several run at once
+    os.makedirs(gen, exist_ok=True)
+    with open(os.path.join(gen, "cave.bin"), "wb") as f:
+        f.write(read_cave(path, cave).tobytes())
+    with open(os.path.join(gen, "opening.bin"), "wb") as f:
+        f.write(bytes(first))
+    env = dict(os.environ)
+    for line in open(moves_path).read().splitlines() if moves_path else []:
+        if line.startswith("%"):
+            env.update(("SOLVE_" + k.upper(), v) for k, v in (w.split("=") for w in line[1:].split()))
+    run = subprocess.run([solver, "--own", os.path.join(gen, "cave.bin"), os.path.join(gen, "opening.bin"),
+                          out_path], capture_output=True, text=True, env=env)
+    print(run.stdout.strip())
+    return run.returncode == 0
+
+
 def main():
     args = sys.argv[1:]
     if len(args) >= 3 and args[0] == "play":
         every = int(args[args.index("--every") + 1]) if "--every" in args else 0
-        _, ok, bad = play(args[1], args[2], every)
+        cave = int(args[args.index("--cave") + 1]) if "--cave" in args else 1
+        _, ok, bad = play(args[1], args[2], every, cave=cave)
         return 0 if ok and not bad else 1
     if len(args) == 4 and args[0] == "pack":
         p, ok, bad = play(args[1], args[2])
@@ -276,6 +370,10 @@ def main():
             f.write(pack(p.inputs))
         print(f"{args[3]}: {len(p.inputs)} steps")
         return 0
+    if len(args) >= 3 and args[0] == "solve":
+        cave = int(args[args.index("--cave") + 1]) if "--cave" in args else 1
+        moves = args[args.index("--moves") + 1] if "--moves" in args else None
+        return 0 if solve(args[1], args[2], cave, moves) else 1
     sys.exit(__doc__)
 
 

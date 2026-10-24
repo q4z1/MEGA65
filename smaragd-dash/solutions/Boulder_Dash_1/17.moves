@@ -1,0 +1,2 @@
+# N: Zigzag - the search finds the way by itself, with a wider beam
+% beam=6000 cell=8

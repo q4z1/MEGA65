@@ -2897,14 +2897,18 @@ static void play_game(void) {
     bool have_cave = true;
     while (lives) {
 #ifdef TOUR
-        // the demo caves in the slots, each with its moves (TOURnn, from
-        // tools/democave.py), up to the first slot without
+        // the caves in the slots, each with its moves (TOURnn, from
+        // tools/democave.py), up to the first empty slot; a slot without
+        // moves is left out
         static char tour_file[] = "TOUR00";
-        tour_file[4] = '0' + (cave_no + 1) / 10;
-        tour_file[5] = '0' + (cave_no + 1) % 10;
-        if (cave_no >= OWN_SLOTS || !load_own(cave_no, 0) || !file.own.time ||
-            !disk_load(tour_file, 0, (uint16_t)demo_moves))
-            demo_end();
+        for (;; cave_no++) {
+            tour_file[4] = '0' + (cave_no + 1) / 10;
+            tour_file[5] = '0' + (cave_no + 1) % 10;
+            if (cave_no >= OWN_SLOTS || !load_own(cave_no, 0) || !file.own.time)
+                demo_end();
+            if (disk_load(tour_file, 0, (uint16_t)demo_moves))
+                break;
+        }
         use_own_cave();
 #else
 #ifdef SCREENCAST

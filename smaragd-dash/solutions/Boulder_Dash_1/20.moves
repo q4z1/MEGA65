@@ -1,0 +1,8 @@
+# Intermission 4: the three boulders of the diagonal are pushed onto the
+# lower magic wall (a boulder that lies on it does not go through), then
+# the boulders at the top are let down: they come through the upper wall as
+# emeralds and stay on the pushed ones.
+6D 5R R R* R* R*            # the first boulder to the right end
+2L U U L U L L D D D R R* R* R*   # the second, which fell in its place
+2L U l 3. U L L D D R* R* R*      # the third, dropped first
+4U r 8. R r 4. R r 8. R r 8.      # the boulders at the top, a column at a time
