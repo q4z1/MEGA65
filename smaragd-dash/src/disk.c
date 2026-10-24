@@ -48,6 +48,7 @@
 #define TRIES       3       // reading a sector, at most
 
 void (*disk_busy)(void);
+uint8_t disk_err_track, disk_err_sector, disk_err_status;
 
 static uint8_t blk[256];               // the logical sector last read
 static uint8_t in_buf_track = 0xFF;    // physical sector in the controller's buffer
@@ -89,10 +90,18 @@ static bool read_physical(uint8_t track, uint8_t sector, uint8_t side) {
     return wait_ready() && !(PEEK(FDC_STATUS) & 0x18);
 }
 
+// The sector that failed, for disk_err_*
+static bool failed(uint8_t t, uint8_t s) {
+    disk_err_track = t;
+    disk_err_sector = s;
+    disk_err_status = PEEK(FDC_STATUS);
+    return false;
+}
+
 // Logical sector s of track t into blk[]
 static bool read_sector(uint8_t t, uint8_t s) {
     if (t < 1 || t > 80 || s >= 40)
-        return false;
+        return failed(t ? t : 0xFF, s);  // a broken link: track 0 is "not found"
     uint8_t side = s >= 20;
     uint8_t track = t - 1;
     uint8_t sector = (s - side * 20) / 2 + 1;
@@ -101,7 +110,7 @@ static bool read_sector(uint8_t t, uint8_t s) {
         while (!read_physical(track, sector, side))
             if (++tries == TRIES) {
                 in_buf_track = 0xFF;
-                return false;
+                return failed(t, s);
             }
         in_buf_track = track;
         in_buf_sector = sector;
@@ -141,8 +150,13 @@ static bool write_sector(uint8_t s) {
     return true;
 }
 
-// The first track and sector of the file `name`
+// The first track and sector of the file `name`. The controller's buffer
+// is read afresh: something else may have used it since the last time (the
+// MEGA65's freezer, say), and a directory sector taken from it unread would
+// make every file seem gone.
 static bool find(const char *name, uint8_t *t, uint8_t *s) {
+    in_buf_track = 0xFF;
+    disk_err_track = 0;
     uint8_t len = strlen(name);
     uint8_t dt = DIR_TRACK, ds = DIR_SECTOR;
     while (dt) {
@@ -205,7 +219,8 @@ bool disk_save(const char *name, const void *data, uint16_t len) {
             memcpy(blk + from, src, n);
             src += n;
             len -= n;
-            ok = write_sector(s);
+            if (!(ok = write_sector(s)))
+                failed(t, s);
         }
         from = 2;
         t = blk[0];

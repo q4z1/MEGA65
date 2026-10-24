@@ -23,4 +23,9 @@ bool disk_save(const char *name, const void *data, uint16_t len);
 // Called after each sector the loader read (a spinner, for example); 0: none
 extern void (*disk_busy)(void);
 
+// After a load or save that failed: the logical sector that could not be
+// read or written, and the controller's status ($D082) then; track 0 if
+// the file is not on the disk
+extern uint8_t disk_err_track, disk_err_sector, disk_err_status;
+
 #endif

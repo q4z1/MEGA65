@@ -1134,6 +1134,29 @@ static void spin(void) {
     }
 }
 
+// A sector that could not be read: the file, the sector and the
+// controller's status in the status line ("CAVE07-1 ERROR T12 S05 18"),
+// until the button (or 30 seconds), for whoever tests on a MEGA65 to
+// tell. A file that is not there says nothing: an own cave without a file
+// for a level is played from the first level's.
+static void disk_failed(const char *file) {
+    if (!disk_err_track)
+        return;
+    uint8_t col = 2 + strlen(file);
+    status_begin();
+    status_print(2, file);
+    status_print(col + 1, "ERROR T");
+    put_num(col + 8, disk_err_track, 2);
+    status_put(col + 11, 'S');
+    put_num(col + 12, disk_err_sector, 2);
+    for (uint8_t i = 0; i < 2; i++) {  // the status in hex
+        uint8_t h = i ? disk_err_status & 15 : disk_err_status >> 4;
+        status_put(col + 15 + i, h < 10 ? '0' + h : 'A' - 10 + h);
+    }
+    status_end();
+    wait_button(1500);
+}
+
 // The spinner and `what` in the status line while the disk is busy
 static void busy(const char *what) {
     status_begin();
@@ -1154,6 +1177,8 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
     busy(what);
     bool ok = disk_load(file, bank, addr);
     not_busy();
+    if (!ok)
+        disk_failed(file);
     return ok;
 }
 
