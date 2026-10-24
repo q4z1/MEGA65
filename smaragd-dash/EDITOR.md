@@ -131,7 +131,9 @@ inbox in a cave: putting a new one turns the old one into dirt.
 **Fireflies and butterflies** start in a direction, as everything that
 walks. Pressing **7** (or **8**) again while it is chosen, or **R** for any
 of them, turns the direction on: up, right, down, left. The status line
-shows it.
+shows it, and in the cave all of one kind look alike: with the cursor on
+one, an arrow after the cursor's place in the status line (`^ > V <`) tells
+where it goes.
 
 ## All elements: the page of their own
 

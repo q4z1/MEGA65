@@ -62,7 +62,7 @@
 
 // tile per cell, for video_render; written in every frame before it is read
 static uint8_t tiles[CAVE_SIZE] __attribute__((section(".lowbss")));
-static uint8_t covered[CAVE_SIZE];  // 1: cell still hidden (start and end)
+static uint8_t covered[CAVE_SIZE / 8];  // a bit per cell, 1: still hidden (start and end)
 static bool any_covered;
 static uint8_t etile[E_COUNT];      // tile per element, animated
 static uint8_t gtile[O_COUNT];      // the same for GDash's elements (gd_tile, gfx.h)
@@ -711,7 +711,7 @@ static void update_tiles(void) {
     for (uint8_t y = y0; y <= y1; y++) {
         uint16_t i = y * CAVE_W + x0;
         for (uint8_t x = x0; x <= x1; x++, i++) {
-            if (any_covered && covered[i]) {
+            if (any_covered && (covered[i >> 3] & 1 << (i & 7))) {
                 tiles[i] = cover;
                 continue;
             }
@@ -777,18 +777,44 @@ static void camera_at(uint16_t px, uint16_t py, bool jump) {
 // most 8 pixels a frame.
 #define TRACK_MAX 8
 
-static void track(uint16_t *cam, uint16_t p, uint16_t view, uint16_t max, uint16_t margin) {
-    int16_t lo = (int16_t)p - (int16_t)(view - margin);  // the view's least position for p
-    int16_t hi = (int16_t)p - (int16_t)margin;           // its greatest
+// The view stays inside the part of the cave that is shown (GDash's x1-x2,
+// y1-y2): cam_lo to cam_hi. A part at most a cell larger than the view (an
+// intermission, 20 x 12) stands still in the middle, as on the C64's
+// screen.
+static uint16_t cam_lo_x, cam_hi_x, cam_lo_y, cam_hi_y;
+
+__attribute__((noinline)) static void bounds(uint16_t *lo, uint16_t *hi, uint8_t a, uint8_t b, uint16_t view, uint16_t max) {
+    uint16_t l = a * 16, end = (b + 1) * 16;
+    uint16_t h = end > view ? end - view : 0;
+    if (h <= l + 16)
+        l = h = (l + h) / 2;
+    if (h > max)
+        h = max;
+    *lo = l < h ? l : h;
+    *hi = h;
+}
+
+__attribute__((noinline)) static void view_bounds(void) {
+    const GdCaveFile *f = &file.own;
+    bounds(&cam_lo_x, &cam_hi_x, f->x1, f->x2, VIEW_W, MAX_X);
+    bounds(&cam_lo_y, &cam_hi_y, f->y1, f->y2, VIEW_H, MAX_Y);
+}
+
+__attribute__((noinline)) static int16_t within(int16_t v, uint16_t lo, uint16_t hi) {
+    if (v < (int16_t)lo)
+        return lo;
+    return v > (int16_t)hi ? hi : v;
+}
+
+static void track(uint16_t *cam, uint16_t p, uint16_t view, uint16_t lo, uint16_t hi, uint16_t margin) {
+    int16_t low = (int16_t)p - (int16_t)(view - margin);  // the view's least position for p
+    int16_t high = (int16_t)p - (int16_t)margin;          // its greatest
     int16_t c = *cam, to = c;
-    if (to < lo)
-        to = lo;
-    if (to > hi)
-        to = hi;
-    if (to < 0)
-        to = 0;
-    if (to > (int16_t)max)
-        to = max;
+    if (to < low)
+        to = low;
+    if (to > high)
+        to = high;
+    to = within(to, lo, hi);
     if (to > c + TRACK_MAX)
         to = c + TRACK_MAX;
     if (to < c - TRACK_MAX)
@@ -800,11 +826,12 @@ static void camera(bool jump) {
     uint16_t px, py;
     cell_pos(game.player, &px, &py);
     if (jump) {
-        camera_at(px + 8, py + 8, true);
+        cam_x = within((int16_t)px + 8 - VIEW_W / 2, cam_lo_x, cam_hi_x);
+        cam_y = within((int16_t)py + 8 - VIEW_H / 2, cam_lo_y, cam_hi_y);
         return;
     }
-    track(&cam_x, px + 8, VIEW_W, MAX_X, VIEW_W / 2 - 32);  // a box of 64 x 32 pixels
-    track(&cam_y, py + 8, VIEW_H, MAX_Y, VIEW_H / 2 - 16);
+    track(&cam_x, px + 8, VIEW_W, cam_lo_x, cam_hi_x, VIEW_W / 2 - 32);  // a box of 64 x 32 pixels
+    track(&cam_y, py + 8, VIEW_H, cam_lo_y, cam_hi_y, VIEW_H / 2 - 16);
 }
 
 // ---------------------------------------------------------------- status
@@ -1104,13 +1131,18 @@ static void cover_cave(uint8_t on) {
     uint8_t steps = quick ? 8 : 70, per_row = quick ? 8 : 1;
     for (uint8_t n = 0; n < steps; n++) {
         for (uint8_t y = 0; y < CAVE_H; y++)
-            for (uint8_t k = 0; k < per_row; k++)
-                covered[y * CAVE_W + ((rnd() * CAVE_W) >> 8)] = on;
+            for (uint8_t k = 0; k < per_row; k++) {
+                uint16_t i = y * CAVE_W + ((rnd() * CAVE_W) >> 8);
+                if (on)
+                    covered[i >> 3] |= 1 << (i & 7);
+                else
+                    covered[i >> 3] &= ~(1 << (i & 7));
+            }
         sound_crackle();
         next_frame();
         next_frame();
     }
-    memset(covered, on, sizeof covered);
+    memset(covered, on ? 0xFF : 0, sizeof covered);
     any_covered = on;
 }
 
@@ -1346,11 +1378,19 @@ static void text_cancel(void) {
     text_pos = 0;
 }
 
+// The music goes by the frames that went by: a page drawn at once (the
+// help) takes a few, and they are caught up
 static void title_frame(void) {
+    static uint8_t last;
     video_sync();
     video_show();
     SHOT_TICK();
-    music_frame();
+    uint8_t now = PEEK(0xD7FA), n = now - last;
+    last = now;
+    if (n == 0 || n > 8)  // the first frame, or after a game
+        n = 1;
+    while (n--)
+        music_frame();
     sound_frame();
     text_more(TEXT_STEP);
     frame++;
@@ -1810,7 +1850,7 @@ static uint8_t d030_was;
 // BASIC's palette 0 (red, green, blue: 768 bytes) to or from the attic RAM,
 // behind the ROM's copy, through a piece in bank 0
 static void basic_palette(bool back) {
-    static uint8_t part[64];
+    static uint8_t part[64] __attribute__((section(".lowbss")));  // no value needed (link.ld)
     POKE(0xD070, 0x00);  // edit palette 0
     for (uint16_t i = 0; i < 768; i += 64) {
         volatile uint8_t *reg = (volatile uint8_t *)(0xD100 + i);
@@ -1998,6 +2038,14 @@ static uint16_t gd_step_ms(void) {
     return gd.speed < 40 ? 40 : gd.speed;
 }
 
+// A step's length in 1/3 ms, in whole frames (frame_len each) as on the
+// C64: every step then moves alike - 16 pixels in 8 frames of 2 - where
+// GDash's 155 ms would give a 1 or a 3 now and then, at other places each
+// time
+static uint16_t step_len(uint8_t frame_len) {
+    return (gd_step_ms() * 3 + frame_len / 2) / frame_len * frame_len;
+}
+
 static void rules_start(void) {
     memset(&game, 0, sizeof game);
     game.def = &cave_def;
@@ -2060,11 +2108,12 @@ static uint8_t play_cave(void) {
 
     rules_start();
     FLOW_SCREEN(SCR_CAVE);
-    tick_len = gd_step_ms() * 3;
+    tick_len = step_len(frame_len);
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
     rf_view = VIEW_FRONT;
-    memset(covered, 1, sizeof covered);
+    memset(covered, 0xFF, sizeof covered);
+    view_bounds();
     camera(true);
     status_intro();
     cover_cave(0);
@@ -2137,7 +2186,7 @@ static uint8_t play_cave(void) {
         if (tick_acc >= tick_len && ticks) {
             tick_acc -= tick_len;
             rules_tick();
-            tick_len = gd_step_ms() * 3;  // GDash's steps take as long as it says
+            tick_len = step_len(frame_len);  // GDash's steps take as long as it says
             add_trails();
             if (moved[game.player] != DIR_NONE)
                 rf_foot ^= 1;
@@ -2372,8 +2421,21 @@ static EDITOR void digits3(char *p, uint16_t v) {
     }
 }
 
-// The element, where the cursor is, the slot, * if not saved:
-// "[tile] FIREFLY LEFT         12,05  OWN 03*"
+// The direction of what walks in cell e (dir_name's order), or 4
+static EDITOR uint8_t walks_to(uint8_t e) {
+    static const uint8_t first[] EDITOR_DATA = {O_FIREFLY_1, O_ALT_FIREFLY_1, O_BUTTER_1, O_ALT_BUTTER_1,
+                                                O_STONEFLY_1, O_DRAGONFLY_1, O_COW_1, O_BITER_1};
+    for (uint8_t k = 0; k < sizeof first; k++) {
+        uint8_t b = first[k];
+        if (e >= b && e < b + 4)
+            return walks(b) == 1 ? (e - b + 3) & 3 : e - b;
+    }
+    return 4;
+}
+
+// The element, where the cursor is (with an arrow if what is there walks:
+// its direction), the slot, * if not saved:
+// "[tile] FIREFLY LEFT         12,05< OWN 03*"
 static EDITOR void edit_status(void) {
     static char line[36];
     memset(line, ' ', 35);
@@ -2385,9 +2447,10 @@ static EDITOR void edit_status(void) {
     digits2(line + 21, cur_x);
     line[23] = ',';
     digits2(line + 24, cur_y);
-    memcpy(line + 27, "OWN", 3);
-    digits2(line + 31, slot + 1);
-    line[33] = dirty ? '*' : ' ';
+    line[26] = "^>V< "[walks_to(file.own.map[cur_y * CAVE_W + cur_x])];
+    memcpy(line + 28, "OWN", 3);
+    digits2(line + 32, slot + 1);
+    line[34] = dirty ? '*' : ' ';
     status_tile(2, elem_tile(pen));
     status_print(4, line);
     edit_shown = true;
@@ -2833,7 +2896,7 @@ static EDITOR void editor(void) {
         cur_x = cur_y = 2;
     }
     edit_camera(true);
-    memset(covered, 1, sizeof covered);
+    memset(covered, 0xFF, sizeof covered);
     cover_cave(0);
     bool armed = false;  // fire from the title must be let go first
     uint8_t rep = 0;
@@ -2890,6 +2953,10 @@ static EDITOR void editor(void) {
             edit_take();
             break;
         case 'R':
+            if (!walks(pen)) {
+                edit_note("R TURNS WHAT WALKS: FIREFLIES, ...");
+                break;
+            }
             pen_dir = (pen_dir + 1) & 3;
             edit_shown = false;
             break;

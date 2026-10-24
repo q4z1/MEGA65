@@ -413,8 +413,10 @@ four). Fireflies try to turn left, butterflies right; touching Rockford or
 the amoeba blows them up, and butterflies leave nine emeralds. The amoeba
 grows slowly, then fast; shut in it turns to emeralds, at 200 cells to
 boulders. The magic wall turns boulders into emeralds and back for a while.
-A step takes the cave's `speed` (160 ms in the first cave); Rockford moves
-one cell per step and the screen is redrawn every frame. What moved in a
+A step takes the cave's `speed` (160 ms in the first cave), in whole
+frames as on the C64 (155 ms: 8 frames of 20 ms), so that every step moves
+alike; Rockford moves one cell per step and the screen is redrawn every
+frame. What moved in a
 step - Rockford, boulders, emeralds, fireflies, butterflies - slides from
 its old cell into the new one until the next step, so it always ends up in
 its cell: the rules stay in cells, only the drawing is smooth. The engine
@@ -481,13 +483,17 @@ until the engine has come to his cell. The view moves
 with Rockford: inside a box of 64 x 32 pixels round the middle he walks on
 a still cave, beyond it the cave moves under him exactly as far as he goes,
 frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).
+It stays inside the part of the cave that is shown (GDash's visible area);
+a part at most a cell larger than the view, as an intermission of 20 x 12,
+stands still in its middle.
 
 **The music** is written in `tools/mkmusic.py`: a chord per bar, the
 melody as note names with lengths in sixteenths, bass and drum patterns, and
 instruments (waveform, envelope, pulse width sweep, vibrato, arpeggio, pitch
 sweep for the kick drum). The player in `src/music.c` steps one row every
 6 frames (125 beats per minute; at 60 Hz it leaves out every sixth
-frame, so the tempo stays), closes each note's gate shortly before the
+frame, so the tempo stays; frames the title missed while it drew a page are
+caught up), closes each note's gate shortly before the
 next note, and slowly opens and closes the filter on the bass. The left SID
 plays melody, bass and chords, the right one the echo, the bass again and
 the drums.
