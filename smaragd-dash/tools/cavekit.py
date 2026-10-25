@@ -83,6 +83,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import unicodedata
 
 W, H = 40, 22
 NAME_LEN = 21          # what the status line has room for
@@ -131,8 +132,13 @@ def empty_map():
 
 
 def clean_name(name):
-    """The name in the letters the game has, at most NAME_LEN long"""
-    name = "".join(c if c in NAME_CHARS else " " for c in name.upper())
+    """The name in the letters the game has, at most NAME_LEN long: German
+    umlauts as two letters (HOEHLE), other letters without their accents"""
+    name = name.upper()
+    for a, b in (("Ä", "AE"), ("Ö", "OE"), ("Ü", "UE")):
+        name = name.replace(a, b)
+    name = "".join(c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c))
+    name = "".join(c if c in NAME_CHARS else " " for c in name)
     return " ".join(name.split())[:NAME_LEN].rstrip()
 
 
@@ -871,7 +877,12 @@ class BdcffFile:
         self.game = []
         self.caves = []
         self.mapcodes = {}
-        self.parse(open(path, encoding="latin-1").read())
+        data = open(path, "rb").read()
+        try:  # GDash writes UTF-8; older files are Latin-1
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text = data.decode("latin-1")
+        self.parse(text)
         self.properties()
 
     def parse(self, text):
