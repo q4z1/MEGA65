@@ -1975,6 +1975,11 @@ static bool title_screen(bool scores) {
         else
             logo_frame(pf);
         title_frame();
+#ifdef BASIC_DEMO
+        // tools/record-directory.sh: back to BASIC by itself, Run/Stop twice
+        if (pf == 150 || pf == 200)
+            pressed |= IN_RESTART;
+#endif
         if (basic && (!--basic || (pressed & ~IN_RESTART))) {
             basic = 0;
             title_status();
