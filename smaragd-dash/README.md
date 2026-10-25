@@ -412,6 +412,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `tools/solve.c` | finds the moves through the caves for the screencast (runs on the host) |
 | `demo/`, `tools/democave.py`, `tools/record-tour.sh` | the demo caves, their moves, and their video |
 | `tools/record-solutions.sh`, `solutions/` | the video of a disk's own caves being solved, and opening moves for it |
+| `tools/record-directory.sh` | a video of the disk's directory in BASIC: the partitions and their first files |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.bd`, `caves/*.moves` | the caves (GDash's files) and the solver's opening moves |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
