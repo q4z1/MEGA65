@@ -1,5 +1,7 @@
 # Smaragd Dash
 
+[Deutsch](https://translate.google.com/translate?sl=en&tl=de&u=https://github.com/q4z1/MEGA65/blob/main/smaragd-dash/README.md) (Google's translation)
+
 A Boulder Dash style game for the MEGA65: dig through the cave, collect
 emeralds, mind the boulders, reach the exit before the time runs out.
 
