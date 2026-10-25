@@ -9,6 +9,8 @@
 #   -t SECONDS  stop after this much emulated time (default 600)
 #   -s SECONDS  cut this much from the start (the boot screen takes about 2)
 #   -x FACTOR   enlarge the picture, pixels stay sharp (default 2)
+#   -b          a D81 only goes into drive 8: BASIC starts, nothing is run
+#               (a BASIC program from a text file: -- -importbas FILE)
 #
 # A PRG is started directly (-prg), a D81 goes into drive 8 and its first
 # program is run (-autoload). The recording ends when the program writes 0
@@ -19,20 +21,22 @@
 set -e
 
 usage() {
-    sed -n '2,17s/^# \{0,1\}//p' "$0" >&2
+    sed -n '2,19s/^# \{0,1\}//p' "$0" >&2
     exit 1
 }
 
 OUT=""
+BASIC=""
 MAX=600
 SKIP=0
 SCALE=2
-while getopts o:t:s:x:h opt; do
+while getopts o:t:s:x:bh opt; do
     case $opt in
         o) OUT=$OPTARG ;;
         t) MAX=$OPTARG ;;
         s) SKIP=$OPTARG ;;
         x) SCALE=$OPTARG ;;
+        b) BASIC=1 ;;
         *) usage ;;
     esac
 done
@@ -57,7 +61,7 @@ else
 fi
 
 case "$IN" in
-    *.d81|*.D81) set -- -8 "$IN" -autoload "$@" ;;
+    *.d81|*.D81) if [ -n "$BASIC" ]; then set -- -8 "$IN" "$@"; else set -- -8 "$IN" -autoload "$@"; fi ;;
     *) set -- -prg "$IN" "$@" ;;
 esac
 [ -n "$OUT" ] || OUT="${IN%.*}.mp4"
