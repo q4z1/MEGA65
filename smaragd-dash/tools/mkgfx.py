@@ -587,18 +587,26 @@ def draw_drops(stage):
 
 
 def draw_smoke(stage):
-    """Rocket: a small puff of smoke that thins out and fades, with a
-    spark at first"""
+    """Rocket: a puff of smoke behind it, glowing at first, then bigger,
+    thinner and darker as it rises a little and fades"""
     t = new_tile()
-    cols = [hexc("8a8e98"), hexc("5c606a"), hexc("3a3d44")]
-    r = 2.6 - 0.5 * stage
+    cols = [hexc("c8ccd4"), hexc("8a8e98"), hexc("5c606a")]
+    dense = [0.9, 0.75, 0.5][stage]
+    r = 4.8 + 0.8 * stage
+    rnd = random.Random(60 + stage)
     for y in range(T):
         for x in range(T):
-            d = math.hypot(x + 0.5 - 8, (y + 0.5 - 8 + stage) * 1.2)
-            if d < r and (x + y + stage) % 2 == 0:
+            d = math.hypot(x + 0.5 - 8, (y + 0.5 - 8 + stage) * 1.15)
+            if d < r and rnd.random() < dense * (1.3 - 0.8 * d / r):
                 t[y][x] = cols[stage]
     if stage == 0:
-        plot(t, [(8, 8)], hexc("ffc840"))
+        for y in range(T):
+            for x in range(T):
+                d = math.hypot(x + 0.5 - 8, y + 0.5 - 8)
+                if d < 1.6:
+                    t[y][x] = hexc("ffe080")
+                elif d < 2.8:
+                    t[y][x] = hexc("ff9020")
     return t
 
 
@@ -1337,12 +1345,28 @@ def draw_gravestone():
     return t
 
 
+# A wing for what flies (the left one; the right one is its mirror):
+# o outline, w white, b light blue
+WING = ["o.....",
+        "wo....",
+        "wwo...",
+        "bwwo..",
+        "bbwwo.",
+        ".bbwwo",
+        "..bbo.",
+        "...o.."]
+
+
 def winged(t):
-    """Flies up: small wings at the sides"""
+    """Flies up: a wing at each side, outlined so that it shows on any
+    ground"""
     t = [list(row) for row in t]
-    for i, x in enumerate((0, 1, 2)):
-        plot(t, [(x, 4 + i), (15 - x, 4 + i)], hexc("fff8c0"))
-        plot(t, [(x, 5 + i), (15 - x, 5 + i)], hexc("a0f0ff"))
+    col = {"o": hexc("1c2030"), "w": hexc("fff8f0"), "b": hexc("a0d8ff")}
+    for y, row in enumerate(WING):
+        for x, ch in enumerate(row):
+            if ch in col:
+                t[1 + y][x] = col[ch]
+                t[1 + y][T - 1 - x] = col[ch]
     return t
 
 
@@ -1389,25 +1413,50 @@ def draw_hammer(active=False, frame=0):
 
 
 def draw_rocket_launcher():
+    """A bazooka pointing right: an olive tube with two bands, a sight on
+    top, a grip below, and the red tip of a rocket in its mouth"""
     t = new_tile()
-    for y in range(6, 10):
-        for x in range(2, 14):
-            t[y][x] = hexc("1c5a1c") if y in (6, 9) else hexc("3c9a2c")
-    for y in range(10, 14):
-        t[y][5] = hexc("4a2c16")
-    plot(t, [(13, 7), (13, 8)], hexc("08080c"))
+    tube = [hexc("24501c"), hexc("4a8a2c"), hexc("7cc040")]
+    for y in range(5, 10):
+        for x in range(1, 15):
+            t[y][x] = tube[2] if y == 5 else tube[0] if y == 9 else tube[1]
+    for x in (4, 11):  # bands
+        for y in range(5, 10):
+            t[y][x] = hexc("2c5a1c") if y > 5 else hexc("5a9a34")
+    for y in range(5, 10):  # the ends
+        t[y][1] = hexc("1c3a14")
+        t[y][14] = hexc("1c3a14")
+    plot(t, [(14, 6), (14, 7), (14, 8)], hexc("08080c"))
+    plot(t, [(15, 7), (15, 8)], hexc("ff3060"))  # the rocket's tip
+    plot(t, [(9, 3), (10, 3), (9, 4), (10, 4)], hexc("1c2030"))  # sight
+    plot(t, [(10, 3)], hexc("7c88a0"))
+    grip = [(7, 10), (8, 10), (6, 11), (7, 11), (6, 12), (7, 12)]
+    plot(t, grip, hexc("8a5a30"))
+    plot(t, [(8, 11), (8, 12)], hexc("4a2c16"))
+    plot(t, [(10, 10), (10, 11)], hexc("1c2030"))  # trigger
+    plot(t, [(2, 10), (3, 10), (2, 11)], hexc("4a2c16"))  # shoulder rest
     return t
 
 
 def draw_rocket(direction):
-    """A rocket flying right (0), up, left, down"""
+    """A rocket flying right (0), up, left, down: a fat body with a red
+    nose, red fins and a flame behind"""
     t = new_tile()
+    body = [hexc("e8eef8"), hexc("b8c4d8"), hexc("6c7890")]
     for x in range(3, 12):
-        for y in (7, 8):
-            t[y][x] = hexc("c8d4e8") if y == 7 else hexc("7c88a0")
-    plot(t, [(12, 7), (12, 8), (13, 7)], hexc("ff3060"))
-    plot(t, [(3, 5), (4, 6), (3, 10), (4, 9)], hexc("7c88a0"))
-    plot(t, [(1, 7), (2, 8), (0, 8), (2, 7)], hexc("ffc840"))
+        for y in range(6, 10):
+            t[y][x] = body[0] if y == 6 else body[2] if y == 9 else body[1]
+    for y in range(6, 10):  # a band
+        t[y][8] = hexc("d02040")
+    red = hexc("ff3060")
+    plot(t, [(12, 6), (12, 7), (12, 8), (12, 9), (13, 7), (13, 8), (14, 7)], red)
+    plot(t, [(14, 8), (13, 9), (13, 6)], hexc("a01030"))
+    fins = [(3, 3), (3, 4), (4, 4), (3, 5), (4, 5), (5, 5),
+            (3, 12), (3, 11), (4, 11), (3, 10), (4, 10), (5, 10)]
+    plot(t, fins, hexc("d02040"))
+    plot(t, [(2, 7), (2, 8), (2, 6), (2, 9)], hexc("ffe060"))  # flame
+    plot(t, [(1, 7), (1, 8)], hexc("ff9020"))
+    plot(t, [(0, 7)], hexc("e04010"))
     for _ in range(direction):  # turn a quarter left
         t = [[t[x][T - 1 - y] for x in range(T)] for y in range(T)]
     return t

@@ -94,7 +94,7 @@ static const uint8_t trail_first[] = {0, T_EMBERS0, T_GLITTER0, T_CRUMBS0, T_DUS
 static const uint8_t trail_last[] = {0, T_EMBERS3, T_GLITTER3, T_CRUMBS2, T_DUSTL1, T_DUSTR1,
                                      T_EMBERS_ALT3, T_GLITTER_ALT3, T_GLITTER_STONE3, T_GLITTER_DRAGON3, T_MIST3,
                                      T_CRUMBS_BITER2, T_CRUMBS_GRIT2, T_DROPS2, T_GLINT3, T_SMOKE2};
-static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5, 3, 5, 5, 4, 5, 3, 3, 4, 3, 4};  // frames per stage
+static const uint8_t trail_step[] = {0, 3, 5, 3, 5, 5, 3, 5, 5, 4, 5, 3, 3, 4, 3, 10};  // frames per stage
 // The trail of each creature's event (EV_*; 0: none)
 static const uint8_t event_trail[] = {TR_EMBERS, TR_GLITTER, 0, 0, TR_EMBERS_ALT, TR_GLITTER_ALT,
                                       TR_GLITTER_STONE, TR_GLITTER_DRAGON, TR_MIST, TR_CRUMBS,
