@@ -185,9 +185,9 @@ static bool have_gdash;             // GDash's engine is there (bank 2): no cave
 struct game game;
 
 // For everything outside the cave: animations, sounds (xorshift16)
-static uint16_t rnd_state = 0xACE1;
+uint16_t rnd_state = 0xACE1;  // not static: the check of src/sound.s (sound.c)
 
-uint8_t rnd(void) {
+__attribute__((noinline)) uint8_t rnd(void) {
     rnd_state ^= rnd_state << 7;
     rnd_state ^= rnd_state >> 9;
     rnd_state ^= rnd_state << 8;
@@ -881,25 +881,10 @@ static void camera(bool jump) {
 
 // ---------------------------------------------------------------- status
 
-// Without division, which is slow on the 6502: each power of ten is taken
-// away as often as it goes. Only the last n digits are written. Not
-// inlined: it is called from many places.
-static const uint32_t pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
+// The last n digits of v at out, without division (src/text.s)
+void to_digits(char *out, uint32_t v, uint8_t n);
 
-__attribute__((noinline)) static void to_digits(char *out, uint32_t v, uint8_t n) {
-    while (v >= pow10[n])
-        v -= pow10[n];
-    while (n--) {
-        uint32_t p = pow10[n];
-        char d = '0';
-        while (v >= p) {
-            v -= p;
-            d++;
-        }
-        *out++ = d;
-    }
-}
-
+// Not inlined: it is called from many places.
 __attribute__((noinline)) static void put_num(uint8_t col, uint32_t v, uint8_t n) {
     static char d[6];
     to_digits(d, v, n);
@@ -1178,20 +1163,49 @@ static uint8_t joy_dir(uint8_t in) {
 // 70 times, while it is uncovered; eight cells of each row, 8 times, while
 // it is covered - and in the editor, as GDash tests a cave, also while it
 // is uncovered; then the rest
+// In each row per_row random cells covered or uncovered (src/cover.s)
+void cover_cells(uint8_t on, uint8_t per_row, uint8_t *bits);
+
+#ifdef ASM_CHECK
+// The C cover_cells came from, and the check of it (tests/test_asm.sh):
+// cover_bad of cover_runs not as the C's
+static void cover_cells_c(uint8_t on, uint8_t per_row, uint8_t *bits) {
+    for (uint8_t y = 0; y < CAVE_H; y++)
+        for (uint8_t k = 0; k < per_row; k++) {
+            uint16_t i = y * CAVE_W + ((rnd() * CAVE_W) >> 8);
+            if (on)
+                bits[i >> 3] |= 1 << (i & 7);
+            else
+                bits[i >> 3] &= ~(1 << (i & 7));
+        }
+}
+
+uint16_t cover_bad, cover_runs;
+
+static void cover_check(void) {
+    static uint8_t a[CAVE_SIZE / 8], b[CAVE_SIZE / 8];
+    memset(a, 0x5A, sizeof a);
+    memset(b, 0x5A, sizeof b);
+    for (uint16_t n = 0; n < 400; n++) {
+        uint8_t on = n & 1, per_row = n & 2 ? 8 : 1;
+        uint16_t r = rnd_state;
+        cover_cells(on, per_row, a);
+        uint16_t after = rnd_state;
+        rnd_state = r;
+        cover_cells_c(on, per_row, b);
+        cover_bad += memcmp(a, b, sizeof a) != 0 || rnd_state != after;
+        cover_runs++;
+    }
+}
+#endif
+
 static void cover_cave(uint8_t on) {
     any_covered = true;
     sound_still();
     bool quick = on || play_mode == PLAY_TEST;
     uint8_t steps = quick ? 8 : 70, per_row = quick ? 8 : 1;
     for (uint8_t n = 0; n < steps; n++) {
-        for (uint8_t y = 0; y < CAVE_H; y++)
-            for (uint8_t k = 0; k < per_row; k++) {
-                uint16_t i = y * CAVE_W + ((rnd() * CAVE_W) >> 8);
-                if (on)
-                    covered[i >> 3] |= 1 << (i & 7);
-                else
-                    covered[i >> 3] &= ~(1 << (i & 7));
-            }
+        cover_cells(on, per_row, covered);
         sound_crackle();
         next_frame();
         next_frame();
@@ -2422,7 +2436,7 @@ static const uint8_t pick_elem[PICKS] EDITOR_DATA = {
     O_DIRT_SLOPED_DOWN_LEFT, O_DIRT_SLOPED_DOWN_RIGHT, O_BRICK_SLOPED_UP_RIGHT, O_BRICK_SLOPED_UP_LEFT,
     O_BRICK_SLOPED_DOWN_LEFT, O_BRICK_SLOPED_DOWN_RIGHT, O_STEEL_SLOPED_UP_RIGHT, O_STEEL_SLOPED_UP_LEFT,
     O_STEEL_SLOPED_DOWN_LEFT, O_STEEL_SLOPED_DOWN_RIGHT};
-static const char pick_names[] EDITOR_DATA =
+static const char pick_names[] =  // in bank 0: the overlay is full
     "SPACE\0DIRT\0BRICK WALL\0STEEL WALL\0BOULDER\0EMERALD\0FIREFLY\0BUTTERFLY\0AMOEBA\0MAGIC WALL\0"
     "INBOX\0EXIT\0HIDDEN EXIT\0ROCKFORD\0SLIME\0NUT\0CLOCK\0ACID\0LAVA\0"
     "WALL, GROWS ACROSS\0WALL, GROWS UP/DOWN\0WALL, GROWS 4 WAYS\0STEEL, GROWS ACROSS\0"
@@ -2813,7 +2827,6 @@ static bool cursor_move(uint8_t *rep) {
     return now;
 }
 
-#ifndef FLOWTEST  // which never opens the editor: room in bank 0
 // The editor's map (M): the whole cave at once, each cell a character in
 // the colour of its tile (mkgfx.py's tile_colours), the cursor a blinking
 // white cell that moves as in the editor. The view has 38 columns: a wider
@@ -2865,7 +2878,6 @@ __attribute__((noinline)) static void edit_map(void) {
     edit_shown = false;
     note = 0;
 }
-#endif
 
 static EDITOR void edit_help(void) {
     static const char *const lines[9] = {
@@ -3132,13 +3144,11 @@ static EDITOR void editor(void) {
             edit_values();
             armed = false;
             break;
-#ifndef FLOWTEST
         case 'M':
             edit_map();
             edit_camera(true);
             armed = false;
             break;
-#endif
         case 'T':
             edit_try();
             armed = false;
@@ -3431,6 +3441,15 @@ int main(void) {
 #endif
 #ifdef GDCHECK
     gd_check();
+#endif
+#ifdef ASM_CHECK
+    music_check();
+    sound_check();
+    cover_check();
+    POKE(0xD6CF, 0);
+    POKE(0xD6CF, 0x42);
+    for (;;)
+        ;
 #endif
 
     for (bool scores = false;;) {

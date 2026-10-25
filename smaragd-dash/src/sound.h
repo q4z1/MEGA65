@@ -7,7 +7,7 @@
 //   bombs, the hammer, expanding walls   voice 5: Rockford's steps
 //   voice 6: teleporters, switches, slime, water; the hum of the magic
 //            wall or the amoeba
-// A sound of lower rank does not cut one off in its first third (sound.c).
+// A sound of lower rank does not cut one off in its first third (sound.s).
 
 #ifndef SOUND_H
 #define SOUND_H
@@ -24,5 +24,9 @@ void sound_life(void);            // extra life
 void sound_off(void);
 void sound_still(void);           // the cave stands still: no more hum
 void sound_frame(void);           // once per frame: ended sounds off
+
+#ifdef ASM_CHECK
+void sound_check(void);  // src/sound.c: the C sounds against src/sound.s
+#endif
 
 #endif

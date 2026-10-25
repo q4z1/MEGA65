@@ -223,7 +223,13 @@ its own for that.
 `tests/test_render.sh` lets the screencast
 build make each frame's DMA jobs with `src/render.s` and with the C loop
 (`-DRENDER_CHECK`), counts the frames where they differ, and checks that
-it got through all the caves. Built with `-DGDPROF`, the game measures how
+it got through all the caves. `tests/test_asm.sh` does the same for the
+music and the sounds: built with `-DASM_CHECK`, the game plays the song
+with `src/music.s` and with the C player of `src/music.c` (PAL and NTSC),
+and random events of a cave's ticks with `src/sound.s` and `src/sound.c`
+(with the same random numbers), each into a copy of the SIDs' registers,
+and counts the frames where the copies differ; and so for covering the
+cave (`src/cover.s` and `cover_cells_c`). Built with `-DGDPROF`, the game measures how
 long GDash's engine and the frames take (by CIA 1's timer and the raster,
 read from a memory dump), with `-DGDPROF_ENGINE` also the parts of a step.
 `tools/scroll-profile.sh` plays the caves with their moves built with
@@ -408,8 +414,10 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `src/video.c` | screen setup, drawing via DMA, status line, text screens |
 | `src/render.s` | the DMA jobs of a frame's playfield in assembler |
 | `src/input.c` | joysticks and keyboard |
-| `src/sound.c` | sound effects on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title); each starts with a hard restart (gate closed with the test bit, opened in the next frame), so that a real SID surely starts the envelope again; the amoeba and the magic wall sound as long as they are alive, as GDash's looped C64 sounds: a triangle with a new random frequency every frame |
-| `src/music.c` | music player on the second and fourth SID |
+| `src/sound.s`, `src/sound.c` | sound effects in assembler (the C they came from, for its test) on six voices of all four SIDs, the same left and right (the second and fourth only in a cave, the music has them on the title); each starts with a hard restart (gate closed with the test bit, opened in the next frame), so that a real SID surely starts the envelope again; the amoeba and the magic wall sound as long as they are alive, as GDash's looped C64 sounds: a triangle with a new random frequency every frame |
+| `src/music.s`, `src/music.c` | music player on the second and fourth SID, in assembler; the C player it came from, for its test |
+| `src/text.s` | the big letters' pixels and the digits of a number, in assembler |
+| `src/cover.s` | covering and uncovering the cave, cell by cell, in assembler |
 | `src/disk.c` | loading files from the disk, and writing one back, through the floppy controller |
 | `src/dma.c` | DMA lists: copying and filling, for the screen and the loader |
 | `tools/mkgfx.py` | draws all graphics in code, builds the palette |
@@ -516,7 +524,7 @@ round it is ever needed.
 **The music** is written in `tools/mkmusic.py`: a chord per bar, the
 melody as note names with lengths in sixteenths, bass and drum patterns, and
 instruments (waveform, envelope, pulse width sweep, vibrato, arpeggio, pitch
-sweep for the kick drum). The player in `src/music.c` steps one row every
+sweep for the kick drum). The player in `src/music.s` steps one row every
 6 frames (125 beats per minute; at 60 Hz it leaves out every sixth
 frame, so the tempo stays; frames the title missed while it drew a page are
 caught up, all of them, and the help pages call it between their lines, so
@@ -548,7 +556,10 @@ still, also on something round with no free cell to roll to on either
 side, a magic wall, which is only heard, a wall that grows four ways with
 no free cell beside it -; the player found on the way) and the access to a
 cell (`src/gdcell.s`: `cell`, `get`, `store`, `has_flag`); in the program
-the DMA jobs of a frame (`src/render.s`). The engine's chances (an amoeba
+the DMA jobs of a frame (`src/render.s`), the music player
+(`src/music.s`), the sound effects (`src/sound.s`), covering the cave
+(`src/cover.s`), the big letters and the digits of the scores
+(`src/text.s`): llvm-mos's code for them was two to three times as long. The engine's chances (an amoeba
 growing, slime letting through) take no division: a number below a
 million is the high half of the random number times a million, by the
 MEGA65's multiplier. A step of GDash's engine takes 4-9 ms in the game's

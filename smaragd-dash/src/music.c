@@ -1,4 +1,8 @@
-// Smaragd Dash: music player for the song made by tools/mkmusic.py.
+// Smaragd Dash: the music player in C - the reference for src/music.s,
+// which the game plays. Built only for the check (-DASM_CHECK,
+// tests/test_music.sh): both play the song for thousands of frames, PAL
+// and NTSC, each into a copy of the SIDs' registers in RAM, and every
+// frame the copies must be the same.
 //
 // Six voices on the second ($D420, left) and fourth ($D460, right) SID;
 // the sound effects keep the first and third. Called once per frame; the
@@ -8,12 +12,23 @@
 #include "music.h"
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <string.h>
 
 #include "hw.h"
 #include "song.h"
 
-#define SID_L 0xD420
-#define SID_R 0xD460
+// The numbers src/music.s stands on
+_Static_assert(SONG_TEMPO == 6 && SONG_VOICES == 6, "src/music.s: TEMPO, VOICES");
+_Static_assert(sizeof(struct instrument) == 11 && offsetof(struct instrument, pw) == 3 &&
+                   offsetof(struct instrument, noise) == 10,
+               "src/music.s: I_*");
+_Static_assert(SONG_INSTRUMENTS * sizeof(struct instrument) <= 256, "src/music.s: v_in");
+
+#ifdef ASM_CHECK
+static uint16_t sid_l, sid_r;  // the copies of the SIDs
+#define SID_L sid_l
+#define SID_R sid_r
 
 struct voice {
     const uint8_t *p;
@@ -77,7 +92,7 @@ static void sid_setup(uint16_t sid) {
     POKE(sid + 0x18, 0x1F);  // low pass, full volume
 }
 
-void music_start(void) {
+static void music_c_start(void) {
     sid_setup(SID_L);
     sid_setup(SID_R);
     for (uint8_t i = 0; i < SONG_VOICES; i++) {
@@ -96,7 +111,7 @@ void music_start(void) {
     playing = true;
 }
 
-void music_stop(void) {
+static void music_c_stop(void) {
     playing = false;
     POKE(SID_L + 0x18, 0);
     POKE(SID_R + 0x18, 0);
@@ -104,7 +119,7 @@ void music_stop(void) {
         POKE(voices[i].reg + 4, 0);
 }
 
-void music_frame(void) {
+static void music_c_frame(void) {
     if (!playing)
         return;
     if (ntsc && ++ntsc_frame == 6) {
@@ -161,3 +176,35 @@ void music_frame(void) {
     POKE(SID_R + 0x15, cutoff & 7);
     POKE(SID_R + 0x16, cutoff >> 3);
 }
+
+// The check: music_bad frames of music_frames were not the same
+extern uint16_t music_sid_l, music_sid_r;  // src/music.s
+extern uint8_t music_ntsc;
+uint16_t music_bad, music_frames;
+
+void music_check(void) {
+    static uint8_t a[0x80], b[0x80];  // two SIDs each, $40 apart
+    for (uint8_t n = 0; n < 2; n++) {
+        memset(a, 0, sizeof a);
+        memset(b, 0, sizeof b);
+        music_sid_l = (uint16_t)a;
+        music_sid_r = (uint16_t)a + 0x40;
+        sid_l = (uint16_t)b;
+        sid_r = (uint16_t)b + 0x40;
+        music_start();
+        music_c_start();
+        music_ntsc = ntsc = n;
+        for (uint16_t k = 0; k < 4000; k++) {  // more than two times the song
+            music_frame();
+            music_c_frame();
+            music_bad += memcmp(a, b, sizeof a) != 0;
+            music_frames++;
+        }
+        music_stop();
+        music_c_stop();
+        music_bad += memcmp(a, b, sizeof a) != 0;
+    }
+    music_sid_l = 0xD420;
+    music_sid_r = 0xD460;
+}
+#endif

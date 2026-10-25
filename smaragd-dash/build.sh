@@ -40,7 +40,7 @@ build/solve build/gen build/caves
 # The program: all but GDash's engine (src/gdengine.c, build/gen/gdcave.c),
 # which is linked on its own below
 set --
-for f in src/*.c src/gdfar.s src/render.s build/gen/*.c; do
+for f in src/*.c src/gdfar.s src/render.s src/text.s src/music.s src/sound.s src/cover.s build/gen/*.c; do
     case "$f" in
         src/gdengine.c | build/gen/gdcave.c) ;;
         *) set -- "$@" "$f" ;;

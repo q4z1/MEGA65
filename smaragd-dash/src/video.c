@@ -406,7 +406,7 @@ void video_flash(bool on) {
 
 // ---------------------------------------------------------------- status
 
-static uint8_t font_index(uint8_t ch) {
+__attribute__((noinline)) static uint8_t font_index(uint8_t ch) {
     uint8_t gi = 0;
     while (font_chars[gi] && font_chars[gi] != ch)
         gi++;
@@ -504,7 +504,7 @@ void video_clear(void) {
 
 // Copy len bytes from sbank:src into both framebuffers at column col,
 // pixel row y
-static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_t len) {
+__attribute__((noinline)) static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_t len) {
     uint16_t dst = col * FB_COL + y * 8;
     dma_begin(0, 0);
     dma_copy(src, sbank, dst, FB_BANK_A, len);
@@ -534,7 +534,7 @@ void video_text_in(uint8_t col, uint8_t y, const char *text, const uint8_t *rows
         to_both(make_glyph((uint8_t)*text, rows), 0, col, y, 128);
 }
 
-void video_text(uint8_t col, uint8_t y, const char *text) {
+__attribute__((noinline)) void video_text(uint8_t col, uint8_t y, const char *text) {
     video_text_in(col, y, text, font_row);
 }
 
@@ -555,20 +555,11 @@ void video_blank(uint8_t col, uint8_t y, uint8_t cols, uint8_t h) {
 
 // Twice the size: 16x32 pixels per character in the shining title colours,
 // drawn as two strips of 8x32.
+void big_glyph(uint8_t shadow, const uint8_t *bits, uint8_t *out);  // src/text.s
+
 void video_big_text(uint8_t col, uint8_t y, const char *text) {
     for (; *text; text++, col += 2) {
-        const uint8_t *b = font_bits + font_index((uint8_t)*text) * 16;
-        uint8_t *g = glyph;
-        // x counts from a start fixed per strip: a loop bound of
-        // half * 8 + 8 was miscompiled (its counter never went up)
-        for (uint8_t x0 = 0; x0 < 16; x0 += 8)
-            for (uint8_t r = 0; r < 32; r++)
-                for (uint8_t i = 0; i < 8; i++) {
-                    uint8_t x = x0 + i;
-                    uint8_t on = b[r >> 1] & (0x80 >> (x >> 1));
-                    uint8_t sh = r >= 2 && x >= 2 && (b[(r - 2) >> 1] & (0x80 >> ((x - 2) >> 1)));
-                    *g++ = on ? title_row[r >> 1] : sh ? FONT_SHADOW : 0;
-                }
+        big_glyph(FONT_SHADOW, font_bits + font_index((uint8_t)*text) * 16, glyph);
         to_both((uint16_t)glyph, 0, col, y, 256);
         to_both((uint16_t)glyph + 256, 0, col + 1, y, 256);
     }

@@ -1,15 +1,25 @@
-// Smaragd Dash: sound effects (see sound.h). Every effect plays on two SIDs
-// alike, left and right: voices 1-3 on the first ($D400) and the third
-// ($D440), voices 4-6 on the second ($D420) and the fourth ($D460), which
-// the title's music has (music.c) - in a cave they are the effects'.
+// Smaragd Dash: the sound effects in C - the reference for src/sound.s,
+// which the game plays. Built only for the check (-DASM_CHECK,
+// tests/test_asm.sh): both get the same events and random numbers for
+// thousands of frames, each writing into a copy of the SIDs' registers in
+// RAM, and every frame the copies must be the same.
+//
+// Every effect plays on two SIDs alike, left and right: voices 1-3 on the
+// first ($D400) and the third ($D440), voices 4-6 on the second ($D420)
+// and the fourth ($D460), which the title's music has (music.s) - in a
+// cave they are the effects'.
 
 #include "sound.h"
+
+#ifdef ASM_CHECK
+#include <string.h>
 
 #include "engine.h"
 #include "hw.h"
 
-#define SID   0xD400
-#define SID2  0xD420
+static uint16_t sid;  // the copy of the SIDs
+#define SID   sid
+#define SID2  (sid + 0x20)
 #define RIGHT 0x40  // offset of the third SID from the first (the fourth from the second)
 
 #define VOICES 6
@@ -83,7 +93,7 @@ static void play(uint8_t v, uint8_t r, uint16_t freq, uint8_t wave, uint8_t ad) 
     }
 }
 
-void sound_init(void) {
+static void sound_c_init(void) {
     for (uint8_t i = 0; i < 25; i++) {
         POKE(SID + i, 0);
         POKE(SID + RIGHT + i, 0);
@@ -96,7 +106,7 @@ void sound_init(void) {
     POKE(SID2 + RIGHT + 24, 0x0F);
 }
 
-void sound_off(void) {
+static void sound_c_off(void) {
     for (uint8_t v = 0; v < VOICES; v++) {
         uint16_t reg = voice_reg(v) + 4;
         POKE(reg, 0);
@@ -106,7 +116,7 @@ void sound_off(void) {
     hum = humming = 0;
 }
 
-void sound_still(void) {
+static void sound_c_still(void) {
     hum = 0;
 }
 
@@ -146,7 +156,7 @@ static void hum_frame(void) {
     rank[HUM_VOICE] = hold[HUM_VOICE] = 0;
 }
 
-void sound_frame(void) {
+static void sound_c_frame(void) {
     for (uint8_t v = 0; v < VOICES; v++) {
         if (start[v]) {  // the frames of the sound count from here
             uint16_t reg = voice_reg(v) + 4;
@@ -204,7 +214,7 @@ static const struct {
 };
 #define TICK_FX (sizeof tick_fx / sizeof *tick_fx)
 
-void sound_tick(uint32_t ev) {
+static void sound_c_tick(uint32_t ev) {
     hum = ev & SND_MAGIC ? HUM_MAGIC : ev & SND_AMOEBA ? HUM_AMOEBA : 0;
     uint8_t done = 0;  // a bit for each voice that has had its sound
     for (uint8_t i = 0; i < TICK_FX; i++) {
@@ -219,22 +229,75 @@ void sound_tick(uint32_t ev) {
     }
 }
 
-void sound_crackle(void) {
+static void sound_c_crackle(void) {
     play(2, TOP, 0x8000 + rnd() * 128, NOISE, 0x01);
 }
 
-void sound_clock(void) {
+static void sound_c_clock(void) {
     play(2, TOP, 0x2400, PULSE, 0x05);
 }
 
-void sound_bonus(void) {
+static void sound_c_bonus(void) {
     play(0, TOP, 0x4000 + rnd() * 32, TRI, 0x02);
 }
 
-void sound_exit(void) {
+static void sound_c_exit(void) {
     play(2, TOP, 0x2000, NOISE, 0x08);
 }
 
-void sound_life(void) {
+static void sound_c_life(void) {
     play(2, TOP, 0x5800, SAW, 0x0A);
 }
+
+// The check: sound_bad of sound_frames frames were not the same (the SIDs'
+// copies, or the random numbers taken)
+extern uint16_t sound_sid;  // src/sound.s
+extern uint16_t rnd_state;  // main.c
+uint16_t sound_bad, sound_frames;
+
+static uint16_t lcg = 1;
+static uint16_t next(void) {
+    return lcg = lcg * 25173u + 13849u;
+}
+
+void sound_check(void) {
+    static uint8_t a[0x80], b[0x80];  // four SIDs, $20 apart
+    memset(a, 0, sizeof a);
+    memset(b, 0, sizeof b);
+    sound_sid = (uint16_t)a;
+    sid = (uint16_t)b;
+    sound_init();
+    sound_c_init();
+    for (uint16_t k = 0; k < 6000; k++) {
+        // sparse events, now and then the hum's, and one of the own sounds
+        uint32_t ev = (uint32_t)(next() & next() & next()) | (uint32_t)(next() & next() & 0x000F) << 16;
+        uint8_t own = next() >> 12;
+        uint16_t r = rnd_state;
+        sound_tick(ev);
+        if (own == 1) sound_crackle();
+        if (own == 2) sound_clock();
+        if (own == 3) sound_bonus();
+        if (own == 4) sound_exit();
+        if (own == 5) sound_life();
+        if (own == 6) sound_still();
+        if (own == 7 && (k & 7) == 0) sound_off();
+        sound_frame();
+        sound_frame();
+        uint16_t after = rnd_state;
+        rnd_state = r;  // the C the same random numbers
+        sound_c_tick(ev);
+        if (own == 1) sound_c_crackle();
+        if (own == 2) sound_c_clock();
+        if (own == 3) sound_c_bonus();
+        if (own == 4) sound_c_exit();
+        if (own == 5) sound_c_life();
+        if (own == 6) sound_c_still();
+        if (own == 7 && (k & 7) == 0) sound_c_off();
+        sound_c_frame();
+        sound_c_frame();
+        sound_bad += memcmp(a, b, sizeof a) != 0 || rnd_state != after;
+        sound_frames++;
+    }
+    sound_sid = 0xD400;
+}
+#endif

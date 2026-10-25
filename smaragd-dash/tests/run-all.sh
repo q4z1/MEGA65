@@ -14,7 +14,9 @@
 # all 25 caves of level 1 (tests/test_render.sh, which also has the
 # screencast build solve them), the same for 6 caves with a floppy
 # controller that fails every third try (-DDISK_FLAKY: the loader must ask
-# again) and an NMI in every frame (-DNMI_STORM, as Restore gives), the editor (tests/test_editor.sh), and the game's flow from the
+# again) and an NMI in every frame (-DNMI_STORM, as Restore gives), the
+# music and the sounds of music.s and sound.s against the C (tests/test_asm.sh), the
+# editor (tests/test_editor.sh), and the game's flow from the
 # title to the high score table on the disk (tests/test_flow.py).
 # They all build into build/, so they run one by one; the normal build is
 # made again at the end.
@@ -47,6 +49,7 @@ if [ "$1" != --host ]; then
     run gdmega65 python3 tests/test_gdmega65.py
     run render tests/test_render.sh 25
     run flakydisk env RENDER_CFLAGS="-DDISK_FLAKY -DNMI_STORM" tests/test_render.sh 6
+    run asm tests/test_asm.sh
     run editor tests/test_editor.sh
     run flow python3 tests/test_flow.py
 fi
