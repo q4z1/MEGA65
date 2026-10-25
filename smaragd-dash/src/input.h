@@ -1,7 +1,7 @@
 // Smaragd Dash: joysticks (either port) and keyboard.
 //   cursor keys        move
 //   Space / Return     fire (with a direction: snap)
-//   P                  pause
+//   P                  pause (main.c reads it from the key queue)
 //   Run/Stop           give up the life (as in the original)
 //   I                  held: what Rockford carries (GDash's caves)
 
@@ -15,7 +15,7 @@
 #define IN_LEFT    0x04
 #define IN_RIGHT   0x08
 #define IN_BUTTON  0x10
-#define IN_PAUSE   0x20
+#define IN_PAUSE   0x20  // only from the test scripts (main.c)
 #define IN_RESTART 0x40
 #define IN_ITEMS   0x80
 

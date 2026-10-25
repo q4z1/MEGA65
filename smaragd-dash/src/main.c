@@ -2217,13 +2217,16 @@ static uint8_t play_cave(void) {
     cover_cave(0);
 
     for (;;) {
-        if (get_key() == KEY_F1) {
+        uint8_t key = get_key();
+        if (key == KEY_F1) {
             sound_off();
             step_state = ST_IDLE;  // a step being made is not shown
             cover_cave(1);
             return END_QUIT;
         }
-        if (pressed & IN_PAUSE) {
+        // P typed: the MEGA65's own key queue, which no joystick touches (in
+        // the matrix P shares its line with joystick 1's down)
+        if (key == 'P' || (pressed & IN_PAUSE)) {
             paused = !paused;
             if (paused) {
                 sound_off();
