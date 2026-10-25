@@ -18,7 +18,7 @@ PALTiming=false
 FrameTime=160 155 150 145 145
 CaveDelay=12
 TimeValue=1
-DiamondValue=10 20
+DiamondValue=5 10
 ActiveGuyIsFirst=false
 BonusTime=10
 AmoebaTime=30
@@ -46,7 +46,7 @@ Wd...r....r...w..........w....r...r... W
 Wrr..drrr....rwwwwwwwwwwww.....rrr.....W
 W...........rd.. .r....................W
 W.d...   . drr......... ..d....   .....W
-W.....   .........d. ......r...   .....W
+W..... . .........d. ......r... . .....W
 W.r... c .......... ..r.rrr.... c .r...W
 W................r..rr....r............W
 Wrd...................r................X

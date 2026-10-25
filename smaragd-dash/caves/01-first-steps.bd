@@ -16,7 +16,7 @@ PALTiming=false
 FrameTime=160 155 150 145 145
 CaveDelay=12
 TimeValue=1
-DiamondValue=10 15
+DiamondValue=5 10
 ActiveGuyIsFirst=false
 BonusTime=10
 AmoebaTime=0
@@ -38,15 +38,15 @@ W. ..........r ...r ..rd.r..r.d.....r..W
 Wwwwwwwwwwwwwwww...rr ..rr.r. .. ......W
 W.  ..rr.. ........r.r....... rrrrr.d..W
 W.... d.. ....... r................ ...W
-W.. ...r.r .... .........r...rw   w... W
+W.. ...r.r .... .........r...rw . w... W
 W..........r.....d....r... ...w c w.r.rW
 W.d.........rr..........d.r.r.wwwww....W
 W..... ............  .wwwwwwwwwwwwwwwwwW
 W........r.. r......r..... .r..........W
 W.wwwwwwwr.d... ..r.d......d.r... .....W
-W.w  d  w....d..........d. ..r...... ..W
-Wrw Q d w.wwwwwwwwwwwwwwww...r..r......W
-W.w  d  wr.d.....rr...r.... .....r.....X
+W.w. d  w....d..........d. ..r...... ..W
+Wrw.Q d w.wwwwwwwwwwwwwwww...r..r......W
+W.w. d  wr.d.....rr...r.... .....r.....X
 W.www.www.........r.... r..............W
 W. ..... d......r.r...dr....d.....r.r..W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
