@@ -37,7 +37,7 @@ SLOTS=$(python3 -c "
 import sys; sys.path.insert(0, 'tools')
 import cavekit as ck
 d = ck.Disk(sys.argv[1])
-print(' '.join(str(i + 1) for i, s in enumerate(d.slots()) if ck.read_slot(d, s)))
+print(' '.join(f'{i + 1:02d}' for i, s in enumerate(d.slots()) if ck.read_slot(d, s)))
 " "$SRC")
 python3 -c "import sys; sys.path.insert(0, 'tools'); import democave; democave.library()"
 # the slots at once (the search takes minutes), each into its log
@@ -61,9 +61,8 @@ python3 -c "
 import sys; sys.path.insert(0, 'tools')
 import cavekit as ck
 src, dst = ck.Disk(sys.argv[1]), ck.Disk(sys.argv[2])
-for name in src.files():
-    if name.startswith(ck.SLOT) and dst.has(name):
-        dst.rewrite(name, src.read(name))
+for s, d in zip(src.slots(), dst.slots()):  # slot by slot, the games' names aside
+    ck.write_slot(dst, d, ck.read_levels(src, s))
 dst.save()
 " "$SRC" $DISK
 mkdir -p build/cast-tmp
