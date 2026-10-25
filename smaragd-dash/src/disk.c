@@ -40,6 +40,11 @@
 #define BUF_BANK 0x0D
 #define BUF_OFF  0x6C00u
 
+// Bit 7 shows the SD card's buffer there instead. The MEGA65's freezer
+// works with the SD card and may leave it set: every directory sector
+// would then be the SD card's, and every file seem gone.
+#define SD_BUFFER_SEL 0xD689
+
 #define DIR_TRACK  40
 #define DIR_SECTOR 3
 
@@ -64,14 +69,21 @@ static bool wait_ready(void) {
     return true;
 }
 
+// The controller's buffer at $FFD6C00, for DMA to and from it
+static void controller_buffer(void) {
+    POKE(SD_BUFFER_SEL, PEEK(SD_BUFFER_SEL) & 0x7F);
+}
+
 // The physical sector into the controller's buffer, once. Built with
 // -DDISK_FLAKY (tests/run-all.sh) every third try fails, as if the
-// controller had not answered.
+// controller had not answered, and leaves the SD card's buffer shown, as
+// the freezer may.
 static bool read_physical(uint8_t track, uint8_t sector, uint8_t side) {
 #ifdef DISK_FLAKY
     static uint8_t try_no;
     if (++try_no == 3) {
         try_no = 0;
+        POKE(SD_BUFFER_SEL, PEEK(SD_BUFFER_SEL) | 0x80);
         return false;
     }
 #endif
@@ -118,6 +130,7 @@ static bool read_sector(uint8_t t, uint8_t s) {
         if (disk_busy)
             disk_busy();
     }
+    controller_buffer();
     dma_begin(BUF_MB, 0);
     dma_copy(BUF_OFF + ((uint16_t)(s & 1) << 8), BUF_BANK, (uint16_t)blk, 0, 256);
     dma_run();
@@ -128,6 +141,7 @@ static bool read_sector(uint8_t t, uint8_t s) {
 // (read_sector of the same s just before): into its half of the
 // controller's buffer, and the whole buffer onto the disk
 static bool write_sector(uint8_t s) {
+    controller_buffer();
     dma_begin(0, BUF_MB);
     dma_copy((uint16_t)blk, 0, BUF_OFF + ((uint16_t)(s & 1) << 8), BUF_BANK, 256);
     dma_run();
