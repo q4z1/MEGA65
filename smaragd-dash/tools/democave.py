@@ -125,9 +125,14 @@ SOUNDS = {m[0]: int(m[1], 16) for m in re.findall(r"#define SND_(\w+) +0x([0-9A-
 
 
 def read_cave(path, cave=1):
-    """The cave of a .bd file (the N-th) or a disk (slot N, level 1)"""
+    """The cave of a .bd file (the N-th) or a disk (slot N of all its games'
+    slots, level 1)"""
     if path.lower().endswith(".d81"):
-        found = ck.read_slot(ck.Disk(path), f"{ck.SLOT}{cave:02d}")
+        disk = ck.Disk(path)
+        slots = disk.slots()
+        if not 1 <= cave <= len(slots):
+            sys.exit(f"{path}: slots 1-{len(slots)}")
+        found = ck.read_slot(disk, slots[cave - 1])
         if not found:
             sys.exit(f"{path}: slot {cave} is empty")
         return found

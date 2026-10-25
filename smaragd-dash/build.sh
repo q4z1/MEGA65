@@ -82,13 +82,22 @@ case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
             set -- "$@" "build/gen/check.bin=CHECK$n"
         done ;;
 esac
+# The game's caves in the partition CAVES; the own caves' slots in the
+# partitions OWN1 ... (a game each, renamed in the editor), kept from the
+# old disk
+GAMES=3
 KEEP="--keep SMARAGD.SCORES"
 for f in build/caves/*.bin; do
+    name=$(basename "$f" .bin)
     case "$f" in
-        build/caves/demo*) [ $DEMOS = yes ] || continue ;;
-        build/caves/own*) KEEP="$KEEP --keep $(basename "$f" .bin)" ;;
+        build/caves/demo*) [ $DEMOS = yes ] && set -- "$@" "$f=$name" ;;
+        build/caves/cave*) set -- "$@" "$f=CAVES/$name" ;;
+        build/caves/own*)
+            for g in $(seq 1 $GAMES); do
+                KEEP="$KEEP --keep OWN$g/$name"
+                set -- "$@" "$f=OWN$g/$name"
+            done ;;
     esac
-    set -- "$@" "$f=$(basename "$f" .bin)"
 done
 # The high score table: one sector of zeros, which the game reads as the
 # default table and overwrites (src/hiscore.c); a new build keeps the one
@@ -96,7 +105,7 @@ done
 head -c 254 /dev/zero > build/gen/scores.bin
 # shellcheck disable=SC2086
 ../toolchain/tools/bin/mkd81.py $KEEP build/smaragd-dash.d81 "SMARAGD $VERSION" \
-    "build/smaragd-dash.prg=SMARAGD DASH" "build/gen/tiles.bin=SMARAGD.TILES" \
+    "build/smaragd-dash.prg=SMARAGD DASH" "build/gen/pal.bin=SMARAGD.PAL" "build/gen/tiles.bin=SMARAGD.TILES" \
     "build/gen/logo.bin=SMARAGD.LOGO" "build/gen/edit.prg=SMARAGD.EDIT" \
     "build/gen/low.prg=SMARAGD.LOW" "build/gen/gd.prg=SMARAGD.GD" \
     "build/gen/scores.bin=SMARAGD.SCORES" "$@"

@@ -3,8 +3,9 @@
 [Deutsch](https://translate.google.com/translate?sl=en&tl=de&u=https://github.com/q4z1/MEGA65/blob/main/smaragd-dash/EDITOR.md) (Google's translation)
 
 Smaragd Dash has a cave editor built in. With it you draw your own caves on
-the MEGA65, try them out at once and keep them on the game's disk, in twenty
-slots. From the title screen you play them like the game's own caves.
+the MEGA65, try them out at once and keep them on the game's disk: three
+games of twenty slots each, which you can name. From the title screen you
+play them like the game's own caves.
 
 **[Video: the editor in 1½ minutes](screenshots/cave-editor.mp4)**: it shows
 everything this guide describes, from loading a cave to playing the changed
@@ -88,8 +89,8 @@ The status line at the top shows, from left to right:
 - the element chosen, as a tile and by name; for one that walks (firefly,
   butterfly, biter, cow, ...) also the direction it starts in (FIREFLY UP),
 - the cursor's place, column and row (02,02; the cave is 40 x 22 cells,
-  0-39 and 0-21),
-- the slot, OWN 01 to OWN 20,
+  0-39 and 0-21), and an arrow if what is there walks: where it goes,
+- the game (its first four letters) and the slot, OWN1 01 to OWN3 20,
 - a `*` while there are changes not saved.
 
 Below it is the cave, as it is at its start, with all its elements standing
@@ -170,13 +171,17 @@ list; the others are set with GDash on the PC.
 
 ## Slots: loading, new caves, emptying
 
-The disk has twenty slots for own caves, `OWN01` to `OWN20`. The editor
-opens on slot 1 (later on the slot you had last).
+The disk has three games for own caves, OWN1, OWN2 and OWN3, each with
+twenty slots, `OWN01` to `OWN20` - in the disk's directory each game is a
+partition (a 1581 subdirectory) of its own, which keeps the directory
+short. The editor opens on the first game's slot 1 (later on the slot you
+had last). A game gets its name on the values page (see
+[Name and values](#name-and-values)).
 
 | Key | |
 | --- | --- |
-| + | the next slot (after 20: 1) |
-| - | the last slot (before 1: 20) |
+| + | the next slot (after 20: the next game's 1) |
+| - | the last slot (before 1: the last game's 20) |
 | C, C again | a new cave in place of this one (not saved yet) |
 | D, D again | empty the slot on the disk |
 
@@ -197,7 +202,8 @@ asks: CAVE NOT SAVED - RUN/STOP AGAIN: BASIC).
 
 ## Name and values
 
-**V** opens the page with the cave's name and values.
+**V** opens the page with the cave's name and values, and the name of the
+game the slot belongs to.
 
 | Line | Range | |
 | --- | --- | --- |
@@ -209,10 +215,12 @@ asks: CAVE NOT SAVED - RUN/STOP AGAIN: BASIC).
 | SPEED | 50-250 | milliseconds per step: smaller is faster (the game's caves: about 150) |
 | AMOEBA | 0-999 | seconds the amoeba grows slowly, then it grows fast |
 | MAGIC | 0-999 | seconds the magic wall runs once started; 0: it does not stop |
+| GAME | up to 8 letters | the game's name (as NAME, without `/`): renamed on the disk when you leave the page; the title shows it |
 
 Up and down choose a line (it shines). Left and right change the number;
 held, it runs on, and after a while in steps of ten. On the NAME line the
-keys type the name and **Del** takes the last letter back. **Return**,
+keys type the name and **Del** takes the last letter back - so on the GAME
+line, which keeps at least one letter. **Return**,
 **V**, **Run/Stop** or fire (not on the NAME line, where Space is a space)
 go back to the cave.
 
@@ -250,20 +258,23 @@ The disk is the D81 image the game runs from. On a real MEGA65 it has to be
 mounted from the SD card, as usual, and must not be write protected. In Xemu
 the editor writes into the image file. Keep a copy of the image if you want
 to keep your caves. A new version of the game comes on a new disk with
-empty slots: take your caves along with `cavekit.py export` from the old
-disk and `import` into the new one (see
-[below](#caves-on-the-pc-gdash-and-cavekitpy)). Building the game with
-`build.sh` keeps the slots of the old disk by itself.
+empty slots: take your caves along with `cavekit.py upgrade old.d81
+new.d81`, which copies all own caves, the games' names and the high
+scores (see [below](#caves-on-the-pc-gdash-and-cavekitpy)). A disk of
+version 1.3 or older has its 20 slots in the disk's directory: the game
+plays them still, as one game. Building the game with `build.sh` keeps the
+slots of the old disk by itself.
 
 ## Playing your caves
 
 On the title screen, left and right choose the cave to start with (1, 6,
-11, 16, 21). Right of cave 21 come the own caves, OWN 1 to 20: left
-and right choose the slot to start with, up and down the level, 1 to 5.
-Fire starts them: from the slot chosen on, all slots that are not empty,
-one after the other, with three lives; after the last one the first comes
-again, in the next level (after level 5: level 5 again), as in GDash. The
-status line shows slot and level, OWN 03/2. A cave saved in the editor is
+11, 16, 21). Right of cave 21 come the own caves, game by game: OWN1 1 to
+20, then OWN2 1 to 20, ... (with the games' names): left and right choose
+the game and the slot to start with, up and down the level, 1 to 5. Fire
+starts them: from the slot chosen on, all slots of the game that are not
+empty, one after the other, with three lives; after the last one the first
+comes again, in the next level (after level 5: level 5 again), as in
+GDash. The status line shows the game, slot and level, OWN1 03/2. A cave saved in the editor is
 the same in every level; one from GDash plays its own levels. The own caves
 have no place in the high score table, which is for the game's caves.
 
@@ -289,13 +300,21 @@ the game's own 25 caves:
 game's disk and the PC:
 
 ```sh
-tools/cavekit.py list   smaragd-dash.d81                 # what is in the slots
-tools/cavekit.py export smaragd-dash.d81 my-caves.bd     # all own caves as one GDash file
-tools/cavekit.py import smaragd-dash.d81 game.bd         # into the slots, from slot 1 on
-tools/cavekit.py import smaragd-dash.d81 game.bd --cave 3 --slot 5
-tools/cavekit.py empty  smaragd-dash.d81 --slot 3
-tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game on its own disks
+tools/cavekit.py list    smaragd-dash.d81                 # what is in the slots, game by game
+tools/cavekit.py export  smaragd-dash.d81 my-caves.bd     # all own caves as one GDash file
+tools/cavekit.py export  smaragd-dash.d81 bd2.bd --game BD2   # one game's caves
+tools/cavekit.py import  smaragd-dash.d81 game.bd         # into the slots, from slot 1 on
+tools/cavekit.py import  smaragd-dash.d81 game.bd --cave 3 --slot 5
+tools/cavekit.py import  smaragd-dash.d81 game.bd --game 2   # into the second game
+tools/cavekit.py empty   smaragd-dash.d81 --slot 3
+tools/cavekit.py rename  smaragd-dash.d81 2 MY GAME       # name a game (or in the editor)
+tools/cavekit.py upgrade old.d81 smaragd-dash.d81         # an older disk's caves onto a new one
+tools/cavekit.py disks   smaragd-dash.d81 a.bd b.bd --out disks/   # whole games on their own disks
 ```
+
+Without `--game`, the slots of the three games count one after the other:
+slot 21 is the second game's first, `--slot 41` the third's. `--game`
+takes a game by its name or number (1-3).
 
 - **Sharing your caves:** `export` writes them as a BDCFF file (`.bd`), the
   format of GDash. Someone else imports it into their disk with `import`,
@@ -315,19 +334,26 @@ tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/   # a whole game o
   `toolchain/tools/build-tools.sh` builds (`toolchain/tools/bin/gdash-oracle`;
   elsewhere `GDASH_ORACLE=` names the program): then all commands take
   `.gds` files as well.
-- **A whole game:** `disks` makes disks to play a game from GDash on. Each
-  is a copy of the game's disk with as many of the game's caves as there are
-  slots (20), the rest empty: `game.d81`, or `game-1.d81`, `game-2.d81`, ...
-  for a bigger game. Start one and choose OWN CAVES on the title: after the
-  last cave the game goes on with the first in the next level, as the
+- **Whole games:** `disks` makes disks to play games from GDash on. Each
+  is a copy of the game's disk; each file becomes a game of its own on it,
+  named after the file (`Boulder_Dash_1.bd`: BD1; `--name` gives another),
+  20 caves a game (a bigger one goes on in a second game, BD1-2), three
+  games a disk, the rest empty: `a.d81`, or `a-1.d81`, `a-2.d81`, ... for
+  more. Start one and choose the game on the title, right of cave 21: after
+  its last cave it goes on with the first in the next level, as the
   original does. The options of `import` work here too, e.g. `--level 3`
-  for the game's third level alone. The caves of the game itself stay on
+  for the games' third level alone. The caves of the game itself stay on
   every disk.
 
   ```sh
-  tools/cavekit.py disks build/smaragd-dash.d81 Boulder_Dash_1.bd --out disks/
-  # disks/Boulder_Dash_1.d81: 20 caves - A: INTRO ... INTERMISSION 4
+  tools/cavekit.py disks build/smaragd-dash.d81 Boulder_Dash_1.bd Boulder_Dash_2.bd Boulder_Dash_3.bd --out disks/
+  # disks/Boulder_Dash_1.d81: BD1: 20 caves - A: INTRO ... INTERMISSION 4; BD2: 20 caves - ...; BD3: ...
   ```
+
+  `cavekit.py` needs nothing but Python 3 and works on its own: with it,
+  the game's disk (`smaragd-dash.d81` from the release) and GDash's `.bd`
+  files you make such disks on any PC, Windows too, without building the
+  game.
 
   Many of GDash's caves are the caves of the original commercial games:
   keep such disks for yourself, do not pass them on.

@@ -150,20 +150,19 @@ static bool write_sector(uint8_t s) {
     return true;
 }
 
-// The first track and sector of the file `name`. The controller's buffer
-// is read afresh: something else may have used it since the last time (the
-// MEGA65's freezer, say), and a directory sector taken from it unread would
-// make every file seem gone.
-static bool find(const char *name, uint8_t *t, uint8_t *s) {
-    in_buf_track = 0xFF;
-    disk_err_track = 0;
-    uint8_t len = strlen(name);
-    uint8_t dt = DIR_TRACK, ds = DIR_SECTOR;
+// An entry of the directory that starts at track dt, sector ds: the file
+// (or with part, the partition) named by the len characters at name. Its
+// first track and sector into t and s; the entry stays in blk[] at entry.
+#define CBM 5  // a partition's type (the entry's byte 2, low bits)
+static const uint8_t *entry;
+static uint8_t entry_sector;
+
+static bool lookup(uint8_t dt, uint8_t ds, const char *name, uint8_t len, bool part, uint8_t *t, uint8_t *s) {
     while (dt) {
         if (!read_sector(dt, ds))
             return false;
         for (const uint8_t *e = blk; e < blk + 256; e += 32) {
-            if (!e[2])
+            if (!e[2] || ((e[2] & 7) == CBM) != part)
                 continue;
             uint8_t i = 0;
             while (i < 16 && e[5 + i] == (i < len ? (uint8_t)name[i] : 0xA0))
@@ -171,6 +170,8 @@ static bool find(const char *name, uint8_t *t, uint8_t *s) {
             if (i == 16) {
                 *t = e[3];
                 *s = e[4];
+                entry = e;
+                entry_sector = ds;
                 return true;
             }
         }
@@ -178,6 +179,72 @@ static bool find(const char *name, uint8_t *t, uint8_t *s) {
         ds = blk[1];
     }
     return false;
+}
+
+// The first track and sector of the file `name` - DIR/NAME: in the
+// partition DIR, whose directory starts on its first track, sector 3. The
+// controller's buffer is read afresh: something else may have used it
+// since the last time (the MEGA65's freezer, say), and a directory sector
+// taken from it unread would make every file seem gone.
+static bool find(const char *name, uint8_t *t, uint8_t *s) {
+    in_buf_track = 0xFF;
+    disk_err_track = 0;
+    uint8_t dt = DIR_TRACK;
+    const char *slash = strchr(name, '/');
+    if (slash) {
+        if (!lookup(DIR_TRACK, DIR_SECTOR, name, slash - name, true, &dt, s))
+            return false;
+        name = slash + 1;
+    }
+    return lookup(dt, DIR_SECTOR, name, strlen(name), false, t, s);
+}
+
+uint8_t disk_partitions(char (*names)[9], uint8_t max, const char *skip) {
+    in_buf_track = 0xFF;
+    uint8_t n = 0, dt = DIR_TRACK, ds = DIR_SECTOR;
+    while (dt && n < max) {
+        if (!read_sector(dt, ds))
+            break;
+        for (const uint8_t *e = blk; e < blk + 256 && n < max; e += 32) {
+            if (!e[2] || (e[2] & 7) != CBM)
+                continue;
+            uint8_t i = 0;
+            while (i < 8 && e[5 + i] != 0xA0) {
+                names[n][i] = e[5 + i];
+                i++;
+            }
+            names[n][i] = 0;
+            if (strcmp(names[n], skip))
+                n++;
+        }
+        dt = blk[0];
+        ds = blk[1];
+    }
+    POKE(FDC_CONTROL, 0);
+    return n;
+}
+
+// The 16 characters of a name, padded with $A0, at p
+static void put_name(uint8_t *p, const char *name) {
+    for (uint8_t i = 0; i < 16; i++)
+        p[i] = *name ? (uint8_t)*name++ : 0xA0;
+}
+
+bool disk_rename(const char *part, const char *name) {
+    uint8_t t, s;
+    in_buf_track = 0xFF;
+    disk_err_track = 0;
+    bool ok = lookup(DIR_TRACK, DIR_SECTOR, part, strlen(part), true, &t, &s);
+    if (ok) {  // its entry, then its header (on its first track, sector 0)
+        put_name((uint8_t *)entry + 5, name);
+        ok = write_sector(entry_sector) && read_sector(t, 0);
+    }
+    if (ok) {
+        put_name(blk + 4, name);
+        ok = write_sector(0);
+    }
+    POKE(FDC_CONTROL, 0);
+    return ok;
 }
 
 bool disk_load(const char *name, uint8_t bank, uint16_t addr) {

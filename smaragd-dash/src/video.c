@@ -27,23 +27,6 @@ static uint8_t drawn_fx;       // fine scroll of the one just drawn
 
 // ---------------------------------------------------------------- setup
 
-static void set_palette(void) {
-    POKE(0xD070, 0x00);  // edit and use palette 0
-    for (uint8_t i = 0; i < PAL_COUNT; i++) {
-        POKE(0xD100 + i, pal_r[i]);
-        POKE(0xD200 + i, pal_g[i]);
-        POKE(0xD300 + i, pal_b[i]);
-    }
-    POKE(0xD070, 0x40);  // edit palette 1: the title screen's
-    for (uint16_t i = 0; i < 256; i++) {
-        POKE(0xD100 + i, pal1_r[i]);
-        POKE(0xD200 + i, pal1_g[i]);
-        POKE(0xD300 + i, pal1_b[i]);
-    }
-    POKE(0xD070, 0x00);
-    POKE(0xD030, PEEK(0xD030) | 0x04);  // colours 0-15 from palette RAM too
-}
-
 void video_palette(uint8_t n) {
     POKE(0xD070, n << 4);  // palette for text; palette 0 stays mapped
 }
@@ -96,7 +79,6 @@ void video_init(void) {
     POKE(0xD05E, COLS);
     POKE(0xD064, 0);                    // colour RAM from its start
     POKE(0xD065, 0);
-    set_palette();
 
     // Colour RAM all 0 (no attributes): its first 2K at $D800
     POKE(0xD030, PEEK(0xD030) | 0x01);
@@ -588,10 +570,26 @@ void video_big_text(uint8_t col, uint8_t y, const char *text) {
 
 void video_shine(uint8_t phase) {
     for (uint8_t i = 0; i < 16; i++) {
-        uint8_t from = title_row[(i + phase) & 15];
+        uint8_t from = (i + phase) & 15;
         uint8_t to = title_row[i];
-        POKE(0xD100 + to, pal_r[from]);
-        POKE(0xD200 + to, pal_g[from]);
-        POKE(0xD300 + to, pal_b[from]);
+        POKE(0xD100 + to, title_rgb[from]);
+        POKE(0xD200 + to, title_rgb[16 + from]);
+        POKE(0xD300 + to, title_rgb[32 + from]);
     }
+}
+
+void video_palettes(void) {
+    // palette 0, then palette 1 (the title screen's): red, green, blue,
+    // 256 bytes each, through glyph[]
+    for (uint8_t k = 0; k < 6; k++) {
+        POKE(0xD070, k < 3 ? 0x00 : 0x40);  // the palette to edit
+        dma_begin(0, 0);
+        dma_copy(PAL_OFF + k * 256u, PAL_BANK, (uint16_t)glyph, 0, 256);
+        dma_run();
+        volatile uint8_t *reg = (volatile uint8_t *)(0xD100 + (k % 3) * 0x100);
+        for (uint16_t i = 0; i < 256; i++)
+            reg[i] = glyph[i];
+    }
+    POKE(0xD070, 0x00);
+    POKE(0xD030, PEEK(0xD030) | 0x04);  // colours 0-15 from palette RAM too
 }

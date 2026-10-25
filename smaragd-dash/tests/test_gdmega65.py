@@ -102,7 +102,7 @@ def main():
         """Xemu plays the caves of chunk, in slots 1, 2, ...: its memory, or None if it hangs"""
         shutil.copyfile(os.path.join(ROOT, "build", "smaragd-dash.d81"), disk_path)
         disk = ck.Disk(disk_path)
-        for i, name in enumerate(disk.slots()):
+        for i, name in enumerate(disk.slots(disk.games()[0])):  # the first game's: CHECK01 ...
             ck.write_slot(disk, name, [chunk[i][1]] if i < len(chunk) else None)
             moves = chunk[i][2] if i < len(chunk) else None
             size = len(disk.read(f"CHECK{i + 1:02d}"))

@@ -37,7 +37,7 @@ SLOTS=$(python3 -c "
 import sys; sys.path.insert(0, 'tools')
 import cavekit as ck
 d = ck.Disk(sys.argv[1])
-print(' '.join(s[3:] for s in d.slots() if ck.read_slot(d, s)))
+print(' '.join(str(i + 1) for i, s in enumerate(d.slots()) if ck.read_slot(d, s)))
 " "$SRC")
 python3 -c "import sys; sys.path.insert(0, 'tools'); import democave; democave.library()"
 # the slots at once (the search takes minutes), each into its log

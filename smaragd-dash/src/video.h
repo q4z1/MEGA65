@@ -22,6 +22,7 @@
 #define VIEW_H 176
 
 void video_init(void);
+void video_palettes(void);  // from the disk's SMARAGD.PAL, loaded at PAL_BANK:PAL_OFF (mem.h)
 
 // A frame: video_sync waits until the separator row is on screen and sets
 // the playfield's horizontal scroll; video_render then draws the hidden

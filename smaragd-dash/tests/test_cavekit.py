@@ -13,6 +13,7 @@ with GDash itself, on all of its caves.)
 
 import os
 import re
+import shutil
 import sys
 import tempfile
 
@@ -123,55 +124,87 @@ if os.path.exists(game_disk):
         ck.cmd_disks([game_disk, BD, "--out", out_dir])
     d = ck.Disk(os.path.join(out_dir, "objects.d81"))
     got = [ck.read_slot(d, n) for n in d.slots()]
-    check("disks: the caves in slots 1-4, the others empty",
+    check("disks: a game of its own, named after the file, the caves in its slots 1-4, the rest empty",
+          d.games()[0] == ck.game_name(BD) and
           [c.name for c in got[:4]] == [c.name for c in (c1, c2, c3, c4)] and not any(got[4:]),
-          [c and c.name for c in got])
+          (d.games(), [c and c.name for c in got[:6]]))
     with contextlib.redirect_stdout(io.StringIO()):
         ck.cmd_disks([game_disk] + [BD] * 7 + ["--out", out_dir, "--cave", "1-4"])
     parts = sorted(f for f in os.listdir(out_dir) if f.startswith("objects-"))
-    last = ck.Disk(os.path.join(out_dir, parts[-1]))
-    check("disks: 28 caves on two disks of 20 and 8",
-          parts == ["objects-1.d81", "objects-2.d81"] and
-          sum(1 for n in last.slots() if ck.read_slot(last, n)) == 8, parts)
+    first, last = ck.Disk(os.path.join(out_dir, parts[0])), ck.Disk(os.path.join(out_dir, parts[-1]))
+    name = ck.game_name(BD)
+    check("disks: seven files, seven games, three on a disk, told apart by their names",
+          parts == ["objects-1.d81", "objects-2.d81", "objects-3.d81"] and
+          first.games() == [name, f"{name}-2", f"{name}-3"] and last.games()[0] == f"{name}-7" and
+          sum(1 for n in last.slots() if ck.read_slot(last, n)) == 4, (parts, first.games(), last.games()))
 
     # the levels of a slot: OWNnn-2 ... OWNnn-5 where they differ from the first
-    lv = ck.read_levels(d, "OWN01")
+    s1, s2 = d.slots()[:2]
+    lv = ck.read_levels(d, s1)
     check("disks: all five levels of a cave, level 5 with its own numbers",
           len(lv) == 5 and lv[0].v["time"] == 150 and (lv[4].v["time"], lv[4].v["diamonds_needed"]) == (110, 16) and
-          ck.own_levels(d, "OWN01")[-1] == 5, [c.v["time"] for c in lv])
+          ck.own_levels(d, s1)[-1] == 5, [c.v["time"] for c in lv])
     same = [n for n in range(1, 5) if lv[n].tobytes() == lv[0].tobytes()]
     check("a level like the first has no cave of its own (its file is empty)",
-          all(not ck.read_slot(d, ck.level_file("OWN01", n)) for n in same) and
-          all(ck.read_slot(d, ck.level_file("OWN01", n)) for n in range(1, 5) if n not in same), same)
+          all(not ck.read_slot(d, ck.level_file(s1, n)) for n in same) and
+          all(ck.read_slot(d, ck.level_file(s1, n)) for n in range(1, 5) if n not in same), same)
     with contextlib.redirect_stdout(io.StringIO()):
         ck.cmd_import([os.path.join(out_dir, "objects.d81"), BD, "--level", "5", "--cave", "1"])
     d = ck.Disk(os.path.join(out_dir, "objects.d81"))
     check("import --level 5: that level alone, the others empty",
-          ck.read_slot(d, "OWN01").v["time"] == 110 and ck.own_levels(d, "OWN01") == [1],
-          ck.own_levels(d, "OWN01"))
-    ck.write_slot(d, "OWN02", None)
+          ck.read_slot(d, s1).v["time"] == 110 and ck.own_levels(d, s1) == [1],
+          ck.own_levels(d, s1))
+    ck.write_slot(d, s2, None)
     check("an empty slot: its levels empty too",
-          not ck.read_levels(d, "OWN02") and ck.own_levels(d, "OWN02") == [1] and
-          not any(ck.read_slot(d, ck.level_file("OWN02", n)) for n in range(1, 5)))
-    old = os.path.join(tmp, "old.d81")  # a disk of an older version: no files for the levels
-    old_disk = ck.Disk(game_disk)
-    t, s = ck.DIR_TRACK, 3
-    while t:  # the levels' files deleted from the directory
-        sec = old_disk.sector(t, s)
-        for e in range(0, 256, 32):
-            if sec[e + 2] and re.fullmatch(ck.SLOT + r"\d\d-\d", bytes(sec[e + 5:e + 21]).rstrip(b"\xa0").decode()):
-                sec[e + 2] = 0
-        t, s = sec[0], sec[1]
-    old_disk.path = old
-    old_disk.save()
+          not ck.read_levels(d, s2) and ck.own_levels(d, s2) == [1] and
+          not any(ck.read_slot(d, ck.level_file(s2, n)) for n in range(1, 5)))
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_import([os.path.join(out_dir, "objects.d81"), BD, "--game", "3", "--slot", "20", "--cave", "2"])
+    d = ck.Disk(os.path.join(out_dir, "objects.d81"))
+    check("import --game 3 --slot 20: the last slot of the third game",
+          ck.read_slot(d, d.slots(d.games()[2])[19]).name == c2.name and not ck.read_slot(d, d.slots()[19]))
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_rename([os.path.join(out_dir, "objects.d81"), "2", "my game"])
+    d = ck.Disk(os.path.join(out_dir, "objects.d81"))
+    check("rename: the second game, in the directory and in its partition's header",
+          d.games()[1] == "MY GAME" and d.slots("MY GAME") and
+          bytes(d.sector(d.files()[d.slots("MY GAME")[0]][0], 0)[4:11]) == b"MY GAME", d.games())
+    try:
+        ck.Disk(os.path.join(out_dir, "objects.d81")).rename("MY GAME", "A/B")
+        bad = False
+    except ck.CaveError:
+        bad = True
+    check("rename: no / in a game's name", bad)
+
+    # a disk of an older version: its slots in its directory, no files for the levels
+    sys.path.insert(0, os.path.join(HERE, "..", "..", "toolchain", "tools", "bin"))
+    import mkd81
+    src = ck.Disk(os.path.join(out_dir, "objects-1.d81"))
+    flat = [("OWN%02d" % (i + 1), src.read(n)) for i, n in enumerate(src.slots(src.games()[0]))]
+    img, _ = mkd81.build("SMARAGD 1.2", [("SMARAGD.SCORES", bytes(range(254)))] + flat)
+    old = os.path.join(tmp, "old.d81")
+    with open(old, "wb") as f:
+        f.write(img)
     od = ck.Disk(old)
-    ok = ck.write_slot(od, "OWN01", ck.read_levels(ck.Disk(os.path.join(out_dir, "objects-1.d81")), "OWN01"))
+    check("an older disk: one game without a name, its slots in the directory",
+          od.games() == [""] and od.slots() == [n for n, _ in flat], od.slots()[:3])
+    ok = ck.write_slot(od, "OWN01", ck.read_levels(src, src.slots()[0]))
     check("an older disk: the first level only, and it says so",
           not ok and ck.read_slot(od, "OWN01").v["time"] == 150 and ck.own_levels(od, "OWN01") == [1])
+    od.save()
+    up = os.path.join(tmp, "up.d81")
+    shutil.copyfile(game_disk, up)
+    with contextlib.redirect_stdout(io.StringIO()):
+        ck.cmd_upgrade([old, up])
+    ud = ck.Disk(up)
+    check("upgrade: the older disk's caves in the first game, its high scores along",
+          [c and c.name for c in (ck.read_slot(ud, n) for n in ud.slots()[:4])] ==
+          [c and c.name for c in (ck.read_slot(od, n) for n in od.slots()[:4])] and
+          ud.read("SMARAGD.SCORES") == bytes(range(254)), ud.slots()[:2])
     back_bd = os.path.join(tmp, "back.bd")
     with contextlib.redirect_stdout(io.StringIO()):
         ck.cmd_export([os.path.join(out_dir, "objects-1.d81"), back_bd, "--slot", "1-4"])
-    exported = ck.read_levels(ck.Disk(os.path.join(out_dir, "objects-1.d81")), "OWN01")
+    exported = ck.read_levels(ck.Disk(os.path.join(out_dir, "objects-1.d81")), src.slots()[0])
     _, back5 = ck.read_bd(back_bd, 4)
     if all(c.cells == exported[0].cells for c in exported):
         check("export: the levels' numbers in the .bd file",

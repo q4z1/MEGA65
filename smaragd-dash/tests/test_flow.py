@@ -100,14 +100,14 @@ def main():
         disk = ck.Disk(disk_path)
         exit_cave, box_cave = cave_file(EXIT_CAVE, tmp), cave_file(BOX_CAVE, tmp)
         for n in range(21, 26):
-            disk.rewrite(f"CAVE{n}-1", disk.read(f"CAVE{n}-1")[:2] + exit_cave)
-        disk.rewrite("CAVE01-2", disk.read("CAVE01-2")[:2] + box_cave)
+            disk.rewrite(f"CAVES/CAVE{n}-1", disk.read(f"CAVES/CAVE{n}-1")[:2] + exit_cave)
+        disk.rewrite("CAVES/CAVE01-2", disk.read("CAVES/CAVE01-2")[:2] + box_cave)
         disk.rewrite("SMARAGD.SCORES", bytes(len(disk.read("SMARAGD.SCORES"))))  # the default table
         own = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE, tmp)))
         own3 = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE.replace("time = 20", "time = 30"), tmp)))
         for name in disk.slots():
             ck.write_slot(disk, name, None)
-        ck.write_slot(disk, "OWN01", [own, own, own3])
+        ck.write_slot(disk, disk.slots()[0], [own, own, own3])
         disk.save()
         dump = os.path.join(tmp, "mem.bin")
         subprocess.run(["timeout", "900", XEMU, "-headless", "-sleepless", "-testing", "-besure",

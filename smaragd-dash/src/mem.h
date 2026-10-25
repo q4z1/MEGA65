@@ -113,6 +113,12 @@ _Static_assert(KEEP_OFF + FILE_SIZE <= GD_OFF, "the kept cave reaches GDash's en
 _Static_assert(STATUS_OFF + (uint32_t)STATUS_SIZE <= 0x10000, "the status line leaves bank 4");
 _Static_assert(SCREEN_A + SCREEN_SIZE <= SCREEN_B, "screen A reaches screen B");
 _Static_assert(SCREEN_B + (uint32_t)SCREEN_SIZE <= 0x10000, "screen B leaves bank 5");
+// Behind them the palettes from the disk (SMARAGD.PAL, mkgfx.py's pal.bin),
+// which video.c sets once: two of 3 x 256 bytes
+#define PAL_BANK    FB_BANK_B
+#define PAL_OFF     0xF000u
+_Static_assert(SCREEN_B + (uint32_t)SCREEN_SIZE <= PAL_OFF, "screen B reaches the palettes");
+_Static_assert(PAL_OFF + 6 * 256ul <= 0x10000, "the palettes leave bank 5");
 
 // ---------------------------------------------------------------- colour RAM
 

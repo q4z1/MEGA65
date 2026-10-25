@@ -17,7 +17,8 @@ On the title screen the joystick picks the level (up and down) and the cave
 to start with (left and right: 1, 6, 11, 16 or 21). After the last cave
 the game goes on with the first one of the next level.
 
-Right of cave 21 come the **own caves**: twenty slots on the disk for caves
+Right of cave 21 come the **own caves**: three games on the disk, OWN1,
+OWN2 and OWN3 (renamed in the editor), each with twenty slots for caves
 made with the game's [cave editor](#cave-editor) (E on the title), or
 brought over from GDash with `tools/cavekit.py`, with all of its
 elements.
@@ -85,8 +86,8 @@ cave to its exit, saving it and loading it again)
 
 E on the title screen opens the editor on the first slot. It shows the
 cave as it starts, with a cursor; the status line names the element
-chosen, where the cursor is, the slot, and a `*` while there are changes
-not saved. H shows the keys:
+chosen, where the cursor is, the game and the slot (`OWN1 03`), and a `*`
+while there are changes not saved. H shows the keys:
 
 | | |
 | --- | --- |
@@ -96,10 +97,10 @@ not saved. H shows the keys:
 | E | choose among all of GDash's elements (95), on a page of their own: cursor keys or joystick, fire takes one |
 | the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left) |
 | G | choose the element the cursor is on |
-| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times |
+| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times; and the game's name |
 | T | try the cave (one life), then back in the editor |
 | S | save it into its slot on the disk |
-| + and - | the next and the last slot |
+| + and - | the next and the last slot (after a game's slot 20 the next game's slot 1) |
 | C | a new cave: steel frame, dirt, inbox and exit |
 | D | empty the slot on the disk |
 | Run/Stop | back to the title; the cave stays as it is for the next time |
@@ -120,9 +121,10 @@ it is changed.
 
 ![The editor](screenshots/editor-changed.png)
 
-The own caves are played from the title (right of cave 21: own cave 1 to
-20, left and right pick the one to start with): one after the
-other, empty slots left out, with three lives as usual; after the last one
+The own caves are played from the title (right of cave 21: the games, each
+with its slots 1 to 20 - OWN1 1 ... OWN1 20, OWN2 1, ...; left and right
+pick the one to start with): one after the other in the game, empty slots
+left out, with three lives as usual; after the last one
 the first comes again, in the next level - as GDash does, in its five levels
 (up and down pick the one to start with). A cave from GDash brings its
 levels along (`cavekit.py`); one made in the editor is the same in all of
@@ -142,9 +144,11 @@ smaragd-dash/build.sh                       # build only
 (`tools/mkmusic.py`) into `build/gen/`, the caves (`tools/mkcave.py`) into
 `build/caves/`, then compiles everything into `build/smaragd-dash.prg` and
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
-(`SMARAGD.TILES`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
-(`CAVE01-1` ... `CAVE25-4`: cave and level), the slots for the own caves
-(`OWN01` ... `OWN20`, and `OWN01-2` ... `OWN20-5` for their other levels),
+(`SMARAGD.TILES`), the palettes (`SMARAGD.PAL`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
+(`CAVE01-1` ... `CAVE25-4`: cave and level) in the partition `CAVES`, the
+slots for the own caves (`OWN01` ... `OWN20`, and `OWN01-2` ... `OWN20-5`
+for their other levels) in the partitions `OWN1`, `OWN2` and `OWN3` - 1581
+subdirectories, which `mkd81.py` makes for file names `DIR/NAME` -,
 GDash's engine (`SMARAGD.GD`, `SMARAGD.LOW`) and the
 editor (`SMARAGD.EDIT`); the screencast build adds
 its moves (`DEMO01`, ...; see below). F5 starts
@@ -221,8 +225,9 @@ view's steps in pixels per frame, how long the game's work and the drawing
 took in each frame and the most a step of the engine took.
 
 The slots for the own caves (`OWN01` ... `OWN20` and their levels
-`OWN01-2` ... `OWN20-5`, see `tools/mkcave.py`) go onto the disk empty;
-like the high scores, a new build keeps them from the old disk.
+`OWN01-2` ... `OWN20-5`, see `tools/mkcave.py`) go onto the disk empty, in
+each game's partition; like the high scores, a new build keeps them from
+the old disk (in a partition of the same name).
 
 ## Own caves and GDash
 
@@ -234,21 +239,29 @@ needs nothing but Python 3) brings them onto the game's disk and back:
 ```sh
 tools/cavekit.py list   game.bd                     # its caves
 tools/cavekit.py import smaragd-dash.d81 game.bd    # into the slots, from slot 1 on
-tools/cavekit.py list   smaragd-dash.d81            # what is in the slots
+tools/cavekit.py list   smaragd-dash.d81            # what is in the slots, game by game
 tools/cavekit.py export smaragd-dash.d81 own.bd     # the own caves for GDash
 tools/cavekit.py empty  smaragd-dash.d81 --slot 3   # empty a slot
+tools/cavekit.py rename smaragd-dash.d81 2 BD2      # name a game
+tools/cavekit.py upgrade old.d81 smaragd-dash.d81   # the own caves of an older version's disk
 tools/cavekit.py convert game.bd caves-dir/         # .bd -> .cave files (and back)
-tools/cavekit.py disks  smaragd-dash.d81 game.bd --out disks/  # disks to play a whole game on
+tools/cavekit.py disks  smaragd-dash.d81 a.bd b.bd --out disks/  # disks to play whole games on
 ```
 
 `import` takes all caves of the file in all five levels, or `--cave N` or
 `N-M`, `--level L` (1-5: that level alone) and `--slot N` to start with;
+the slots of the three games count one after the other (slot 21 is the
+second game's first), `--game G` (its name or number) takes one game's.
 `--as NAME=NAME2` puts one element in place of another. A slot keeps a
 cave's first level in `OWN01` and every level that differs from it in
 `OWN01-2` ... `OWN01-5`; a level without a file of its own plays the first
-(so do the caves of a disk of an older version, which has no such files). `disks` puts a whole game onto copies of the
-disk, 20 caves each (`game.d81` or `game-1.d81`, `game-2.d81`, ...), to be
-played as the own caves. All commands also take GDash's `.gds` files: they
+(so do the caves of a disk of an older version, which has no such files). `disks` puts whole games onto copies of the
+disk: each file a game of its own, named after the file (`Boulder_Dash_1.bd`:
+BD1, or `--name`), 20 caves a game, three games a disk (`a.d81` or
+`a-1.d81`, `a-2.d81`, ...), to be played as the own caves. A disk of an
+older version (1.0 to 1.3) has its 20 slots in its directory, a game
+without a name: the game plays them as they are, and `upgrade` copies them
+(and the high scores) onto a disk of this version. All commands also take GDash's `.gds` files: they
 go through GDash's own code, `toolchain/tools/bin/gdash-oracle` (or
 `$GDASH_ORACLE`), which saves them as `.bd` as GDash does.
 
@@ -549,7 +562,8 @@ knows how many there are (`levels.h`, written by `mkcave.py`), for the
 choice on the title.
 
 **The loader** (`disk.c`) does without the KERNAL: it finds the file in
-the D81's directory and reads its sectors through the F011 floppy
+the D81's directory (`DIR/NAME` in the partition's: its first track,
+sector 3) and reads its sectors through the F011 floppy
 controller, waiting for each one by polling and copying it with DMA from
 the controller's sector buffer ($FFD6C00). It needs neither the ROM nor
 interrupts, so it works at any time, and after each sector it calls a

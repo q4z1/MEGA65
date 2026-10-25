@@ -51,16 +51,21 @@ PY
 fi
 if [ "$STOPS" -ge 8 ]; then
     # what the script saved in slot 1: name, time, a boulder at 3,2 and a
-    # firefly starting upwards at 3,3 (GDash's elements)
+    # firefly starting upwards at 3,3 (GDash's elements); the first game
+    # renamed on the values page
     python3 - $OUT/editor.d81 <<'PY'
 import sys
 sys.path.insert(0, "tools")
 import cavekit
-cave = cavekit.read_slot(cavekit.Disk(sys.argv[1]), "OWN01")
+disk = cavekit.Disk(sys.argv[1])
+cave = cavekit.read_slot(disk, disk.slots()[0])
 O = cavekit.O
 ok = cave and cave.name == "TEST" and cave.time == 153 and cave.cells[2 * 40 + 3] == O["STONE"] \
     and cave.cells[3 * 40 + 3] == O["FIREFLY_2"]
 print("slot 1:", "as saved" if ok else f"wrong: {cave and (cave.name, cave.time, cave.rows()[2:4])}")
+renamed = disk.games()[0] == "OWN1X"
+print("the game:", "renamed OWN1X" if renamed else f"not renamed: {disk.games()}")
+ok = ok and renamed
 sys.exit(0 if ok else 1)
 PY
 fi

@@ -2,15 +2,25 @@
 """Smaragd Dash cave kit: caves between the game's disk, its .cave files
 and GDash (BDCFF, .bd files). Needs nothing but Python 3.
 
-  cavekit.py list    <disk.d81 | game.bd | game.gds | file.cave>
+  cavekit.py list    <disk.d81 | game.bd | game.gds | file.cave> [--game G]
   cavekit.py import  <disk.d81> <game.bd | game.gds | file.cave>... [options]
-  cavekit.py disks   <disk.d81> <game.bd | game.gds | file.cave>... [--out DIR] [options]
-  cavekit.py export  <disk.d81> <game.bd> [--slot N[-M]]
-  cavekit.py empty   <disk.d81> [--slot N[-M]]
+  cavekit.py disks   <disk.d81> <game.bd | game.gds | file.cave>... [--out DIR] [--name NAME] [options]
+  cavekit.py export  <disk.d81> <game.bd> [--game G] [--slot N[-M]]
+  cavekit.py empty   <disk.d81> [--game G] [--slot N[-M]]
+  cavekit.py rename  <disk.d81> <G> <NAME>
+  cavekit.py upgrade <old.d81> <new.d81>
   cavekit.py convert <game.bd | game.gds | file.cave> <out.cave | out.bd | directory>
 
-list shows the own caves on a disk (the slots OWN01, OWN02, ... that the
-game's editor saves into and plays), or the caves of a file.
+The disk has three games of own caves: partitions (1581 subdirectories)
+OWN1, OWN2, OWN3, each with 20 slots OWN01, OWN02, ... that the game's
+editor saves into and plays; the editor renames them (at most 8 letters,
+digits, spaces and :.!-,), and so does rename. G is a game's name or its
+number (1-3); without --game a command takes the slots of all games one
+after the other (slot 21 is the second game's first). A disk of an older
+version has its 20 slots in its directory, a game without a name: upgrade
+copies its own caves (and the high scores) onto a disk of this version.
+
+list shows the own caves on a disk, game by game, or the caves of a file.
 
 import puts caves into the slots of the disk, from slot 1 on (or --slot N),
 over what is there. From a .bd file it takes all its caves (or --cave N or
@@ -25,20 +35,22 @@ the last one the next level, as GDash does. A cave from a .cave file, or
 with --level, has one level; so has one the editor saves. A disk of an
 older version has no files for the levels: only the first is written.
 
-disks makes disks to play a whole game from: copies of the disk (the
-game's), each with as many caves of the files as it has slots, the other
-slots empty - <name>.d81, or <name>-1.d81, <name>-2.d81, ... for more, in
-DIR (default: the current directory), <name> after the first file.
+disks makes disks to play whole games from: copies of the disk (the
+game's), each file a game of its own (named after the file, as
+Boulder_Dash_1.bd: BD1, or --name; a game of more caves than 20 goes on in
+a second one, BD1-2), three games on a disk, the other slots empty -
+<name>.d81, or <name>-1.d81, <name>-2.d81, ... for more, in DIR (default:
+the current directory), <name> after the first file.
 
 A .gds file (a C64 game, as GDash imports them) is read through GDash's
 own code: toolchain/tools/bin/gdash-oracle of this repository (built by
 toolchain/tools/build-tools.sh), or the program $GDASH_ORACLE names, saves
 it as .bd first - as GDash itself does with File / Save as.
 
-export writes the own caves of the disk (or --slot N-M) as a .bd file for
+export writes the own caves of the disk (or a game's, or --slot N-M) as a .bd file for
 GDash, with their levels where only the values differ (a .bd file has one
 map for all levels; where the maps differ, only the first level). empty
-empties all slots of the disk (or --slot N-M), with their levels.
+empties all slots of the disk (or a game's, or --slot N-M), with their levels.
 
 convert turns a .bd file into .cave files (one per cave, into a
 directory, or a single one with --cave N), for building them into the
@@ -57,7 +69,8 @@ The own caves play by GDash's rules: the game has GDash's engine for them
 and starts it - its objects (lines, rectangles, random fills with the
 C64's random numbers, ...), its properties and their defaults, those of
 the C64 engines (Engine=BD1, ...) included. A cave is at most 40x22 cells;
-a smaller one (an intermission) shows in the top left corner.
+a small one (an intermission of 20x12) stands still in the middle of the
+screen.
 
 The .cave format of the game's own caves is described in tools/mkcave.py;
 its map characters are the ones BDCFF uses.
@@ -1748,8 +1761,16 @@ def game_cave(gd):
 TRACKS, SECTORS, DIR_TRACK = 80, 40, 40
 
 
+CBM = 5  # a partition's type in the directory (low bits of byte 2)
+GAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 :.!-,"  # a game's name, as the editor takes it
+GAME_LEN = 8
+
+
 class Disk:
-    """A D81 image; the files are rewritten in place, as the game does"""
+    """A D81 image; the files are rewritten in place, as the game does. The
+    own caves' slots lie in partitions, a game each (OWN1, ..., renamed in
+    the editor; CAVES holds the game's caves); a disk of an older version
+    has them in its directory: one game without a name"""
 
     def __init__(self, path):
         self.path = path
@@ -1762,17 +1783,43 @@ class Disk:
         o = ((t - 1) * SECTORS + s) * 256
         return memoryview(self.img)[o:o + 256]
 
-    def files(self):
-        """{name: (track, sector)} of the directory"""
-        out, t, s = {}, DIR_TRACK, 3
+    def entries(self, t=DIR_TRACK):
+        """The directory from t/3 on: (name, type, track, sector, its
+        sector, its offset) of each entry"""
+        out, s = [], 3
         while t:
             sec = self.sector(t, s)
             for e in range(0, 256, 32):
                 if sec[e + 2]:
                     name = bytes(sec[e + 5:e + 21]).rstrip(b"\xa0").decode("ascii", "replace")
-                    out[name] = (sec[e + 3], sec[e + 4])
+                    out.append((name, sec[e + 2], sec[e + 3], sec[e + 4], (t, s), e))
             t, s = sec[0], sec[1]
         return out
+
+    def files(self):
+        """{name: (track, sector)} of the directory, a partition's files as
+        DIR/NAME"""
+        out = {}
+        for name, typ, t, s, _, _ in self.entries():
+            if typ & 7 == CBM:
+                out.update((f"{name}/{n}", (tt, ss)) for n, ty, tt, ss, _, _ in self.entries(t) if ty & 7 != CBM)
+            else:
+                out[name] = (t, s)
+        return out
+
+    def games(self):
+        """The games: the partitions but CAVES, in the directory's order;
+        [""] for a disk without them"""
+        return [n for n, typ, *_ in self.entries() if typ & 7 == CBM and n != "CAVES"] or [""]
+
+    def game(self, spec):
+        """A game by its name or its number (from 1)"""
+        games = self.games()
+        if spec.isdigit() and 1 <= int(spec) <= len(games):
+            return games[int(spec) - 1]
+        if spec.upper() in games:
+            return spec.upper()
+        raise CaveError(f"no game '{spec}' on the disk: {', '.join(games) or '(none)'}")
 
     def blocks(self, name):
         t, s = self.files()[name]
@@ -1797,8 +1844,30 @@ class Disk:
             blk[2:2 + n] = data[pos:pos + n]
             pos += n
 
-    def slots(self):
-        return sorted(n for n in self.files() if re.fullmatch(SLOT + r"\d\d", n))
+    def slots(self, game=None):
+        """The slots of a game (DIR/OWNnn), or of all games one after the
+        other"""
+        files = self.files()
+        out = []
+        for g in self.games() if game is None else [game]:
+            pre = f"{g}/" if g else ""
+            out += sorted(n for n in files if n.startswith(pre) and re.fullmatch(SLOT + r"\d\d", n[len(pre):]))
+        return out
+
+    def rename(self, game, name):
+        """The game's partition renamed: its entry and its header"""
+        name = name.upper()
+        if not 1 <= len(name) <= GAME_LEN or any(c not in GAME_CHARS for c in name):
+            raise CaveError(f"'{name}': a game's name has 1 to {GAME_LEN} of {GAME_CHARS.strip()}")
+        if name != game and name in self.games() + ["CAVES"]:
+            raise CaveError(f"there is a game '{name}' already")
+        for n, typ, t, _, (dt, ds), e in self.entries():
+            if typ & 7 == CBM and n == game:
+                pad = name.encode("ascii") + b"\xa0" * (16 - len(name))
+                self.sector(dt, ds)[e + 5:e + 21] = pad
+                self.sector(t, 0)[4:20] = pad
+                return
+        raise CaveError(f"no game '{game}' on the disk")
 
     def has(self, name):
         return name in self.files()
@@ -1806,6 +1875,14 @@ class Disk:
     def save(self):
         with open(self.path, "wb") as f:
             f.write(self.img)
+
+
+def game_name(path):
+    """A game's name from its file's: the words' initials and the numbers
+    (Boulder_Dash_1.bd: BD1), at most GAME_LEN characters"""
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", os.path.splitext(os.path.basename(path))[0]) if w]
+    name = "".join(w[0] for w in words if not w.isdigit()) + "".join(w for w in words if w.isdigit())
+    return name.upper()[:GAME_LEN] or "GAME"
 
 
 def level_file(slot, level):
@@ -1881,11 +1958,11 @@ def element_code(name):
 
 
 def options(args):
-    opts = {"cave": None, "level": None, "slot": None, "as": {}}
+    opts = {"cave": None, "level": None, "slot": None, "game": None, "name": None, "as": {}}
     rest = []
     while args:
         a = args.pop(0)
-        if a in ("--cave", "--level", "--slot", "--as"):
+        if a in ("--cave", "--level", "--slot", "--game", "--name", "--as"):
             if not args:
                 raise CaveError(f"{a} needs a value")
             v = args.pop(0)
@@ -1969,17 +2046,25 @@ def show(label, cave, levels=None):
     return True
 
 
+def disk_slots(disk, opts):
+    """The slots --game names (all games' without it)"""
+    return disk.slots(disk.game(opts["game"]) if opts["game"] else None)
+
+
 def cmd_list(args):
     opts, rest = options(args)
     path = rest[0]
     if path.lower().endswith(".d81"):
         disk = Disk(path)
-        for name in disk.slots():
-            cave = read_slot(disk, name)
-            if cave:
-                show(name, cave, own_levels(disk, name))
-            else:
-                print(f"  {name}: (empty)")
+        for game in [disk.game(opts["game"])] if opts["game"] else disk.games():
+            if game:
+                print(f"{game}:")
+            for name in disk.slots(game):
+                cave = read_slot(disk, name)
+                if cave:
+                    show(name, cave, own_levels(disk, name))
+                else:
+                    print(f"  {name}: (empty)")
         return
     caves = load_caves(path, opts)
     ok = sum(show(label, cave) for label, cave in caves)
@@ -1989,7 +2074,7 @@ def cmd_list(args):
 def cmd_import(args):
     opts, rest = options(args)
     disk = Disk(rest[0])
-    slots = disk.slots()
+    slots = disk_slots(disk, opts)
     if not slots:
         raise CaveError(f"{rest[0]}: no slots ({SLOT}01, ...) - not a disk of Smaragd Dash with the editor?")
     first = int(opts["slot"] or 1)
@@ -2004,7 +2089,7 @@ def cmd_import(args):
             show(label, cave)
     room = len(slots) - first + 1
     if len(good) > room:
-        raise CaveError(f"{len(good)} caves, but only {room} slots from {first} on (--cave or --slot)")
+        raise CaveError(f"{len(good)} caves, but only {room} slots from {first} on (--cave, --slot or --game)")
     old = False
     for (label, cave), name in zip(good, slots[first - 1:]):
         old |= not write_slot(disk, name, cave)
@@ -2027,34 +2112,53 @@ def cmd_disks(args):
     src, files = rest[0], rest[1:]
     if not files:
         raise CaveError("disks: which caves?")
-    per = len(Disk(src).slots())
+    games = Disk(src).games()
+    per = len(Disk(src).slots(games[0]))
     if not per:
         raise CaveError(f"{src}: no slots ({SLOT}01, ...) - not a disk of Smaragd Dash with the editor?")
-    todo = []
+    # each file a game of its own (more caves than a game has slots: more
+    # games, NAME-2, ...), as many games on a disk as it has
+    units, total = [], 0
     for path in files:
-        todo += load_caves(path, opts, True)
-    good = []
-    for label, cave in todo:
-        if isinstance(cave, CaveError):
-            show(label, cave)
-        else:
-            good.append((label, cave))
-    if not good:
+        todo = load_caves(path, opts, True)
+        total += len(todo)
+        good = []
+        for label, cave in todo:
+            if isinstance(cave, CaveError):
+                show(label, cave)
+            else:
+                good.append((label, cave))
+        name = (opts["name"] or game_name(path)).upper()
+        for k in range(0, len(good), per):
+            units.append((name, good[k:k + per]))
+    # the names told apart: NAME, NAME-2, ...
+    seen = {}
+    for i, (name, caves) in enumerate(units):
+        seen[name] = seen.get(name, 0) + 1
+        sfx = f"-{seen[name]}" if seen[name] > 1 else ""
+        units[i] = (name[:GAME_LEN - len(sfx)] + sfx, caves)
+    if not units:
         raise CaveError("no caves to put on a disk")
     os.makedirs(out, exist_ok=True)
     base = re.sub(r"[^A-Za-z0-9_.-]+", "-", os.path.splitext(os.path.basename(files[0]))[0])
-    parts = [good[i:i + per] for i in range(0, len(good), per)]
+    parts = [units[i:i + len(games)] for i in range(0, len(units), len(games))]
+    old = False
     for k, part in enumerate(parts):
         path = os.path.join(out, f"{base}.d81" if len(parts) == 1 else f"{base}-{k + 1}.d81")
         shutil.copyfile(src, path)
         disk = Disk(path)
-        slots = disk.slots()
-        old = False
-        for i, name in enumerate(slots):
-            old |= not write_slot(disk, name, part[i][1] if i < len(part) else None)
+        for g, game in enumerate(games):
+            name, caves = part[g] if g < len(part) else (None, [])
+            slots = disk.slots(game)
+            for i, slot in enumerate(slots):
+                old |= not write_slot(disk, slot, caves[i][1] if i < len(caves) else None)
+            if name and game:
+                disk.rename(game, name)
         disk.save()
-        print(f"{path}: {len(part)} caves - {part[0][1][0].name} ... {part[-1][1][0].name}")
-    print(f"{len(good)} of {len(todo)} caves on {len(parts)} disk{'s' if len(parts) > 1 else ''} "
+        print(f"{path}: " + "; ".join(f"{n}: {len(c)} caves - {c[0][1][0].name} ... {c[-1][1][0].name}"
+                                      for n, c in part))
+    caves = sum(len(c) for _, c in units)
+    print(f"{caves} of {total} caves on {len(parts)} disk{'s' if len(parts) > 1 else ''} "
           f"({level_text(opts)})")
     if old:
         print(f"{src} has no files for the levels (a disk of an older version): only the first level")
@@ -2063,7 +2167,7 @@ def cmd_disks(args):
 def cmd_export(args):
     opts, rest = options(args)
     disk = Disk(rest[0])
-    slots = disk.slots()
+    slots = disk_slots(disk, opts)
     which = numbers(opts["slot"], len(slots)) if opts["slot"] else set(range(1, len(slots) + 1))
     slot_levels = [lv for i, n in enumerate(slots) if i + 1 in which and (lv := read_levels(disk, n))]
     if not slot_levels:
@@ -2071,7 +2175,8 @@ def cmd_export(args):
     # a .bd file has one map for a cave's levels: where they differ, the first level only
     first_only = [lv[0].name for lv in slot_levels if any(c.cells != lv[0].cells for c in lv)]
     levels = [[lv[0]] if lv[0].name in first_only else lv for lv in slot_levels]
-    write_bd(rest[1], [lv[0] for lv in slot_levels], "Smaragd Dash own caves", levels)
+    title = disk.game(opts["game"]) if opts["game"] else "Smaragd Dash own caves"
+    write_bd(rest[1], [lv[0] for lv in slot_levels], title, levels)
     print(f"{len(slot_levels)} caves written to {rest[1]}")
     if first_only:
         print(f"only the first level (the maps of the levels differ): {', '.join(first_only)}")
@@ -2080,13 +2185,45 @@ def cmd_export(args):
 def cmd_empty(args):
     opts, rest = options(args)
     disk = Disk(rest[0])
-    slots = disk.slots()
+    slots = disk_slots(disk, opts)
     which = numbers(opts["slot"], len(slots)) if opts["slot"] else set(range(1, len(slots) + 1))
     for i, name in enumerate(slots):
         if i + 1 in which:
             write_slot(disk, name, None)
     disk.save()
     print(f"{len(which)} slots emptied")
+
+
+def cmd_rename(args):
+    opts, rest = options(args)
+    disk = Disk(rest[0])
+    game = disk.game(rest[1])
+    if not game:
+        raise CaveError(f"{rest[0]}: a disk of an older version has no games to name")
+    disk.rename(game, rest[2])
+    disk.save()
+    print(f"{rest[0]}: {game} is {rest[2].upper()} now")
+
+
+def cmd_upgrade(args):
+    opts, rest = options(args)
+    old, new = Disk(rest[0]), Disk(rest[1])
+    src, dst = old.slots(), new.slots()
+    caves = [(n, read_levels(old, n)) for n in src]
+    used = [(n, lv) for n, lv in caves if lv]
+    if len(caves) > len(dst) and caves[len(dst):] and any(lv for _, lv in caves[len(dst):]):
+        raise CaveError(f"{rest[0]} has caves in more slots than {rest[1]} has ({len(dst)})")
+    for (_, lv), name in zip(caves, dst):
+        write_slot(new, name, lv)
+    names = [g for g in old.games() if g]
+    for g, name in zip(new.games(), names):
+        if g and name != g:
+            new.rename(g, name)
+    if old.has("SMARAGD.SCORES") and new.has("SMARAGD.SCORES") and \
+            len(old.read("SMARAGD.SCORES")) == len(new.read("SMARAGD.SCORES")):
+        new.rewrite("SMARAGD.SCORES", old.read("SMARAGD.SCORES"))
+    new.save()
+    print(f"{rest[1]}: {len(used)} own caves of {rest[0]}, its games' names and high scores")
 
 
 def cmd_convert(args):
@@ -2127,7 +2264,8 @@ def cmd_convert(args):
 
 
 COMMANDS = {"list": (cmd_list, 1), "import": (cmd_import, 2), "disks": (cmd_disks, 2), "export": (cmd_export, 2),
-            "empty": (cmd_empty, 1), "convert": (cmd_convert, 2)}
+            "empty": (cmd_empty, 1), "convert": (cmd_convert, 2), "rename": (cmd_rename, 3),
+            "upgrade": (cmd_upgrade, 2)}
 
 
 def main():

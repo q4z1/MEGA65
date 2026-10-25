@@ -144,7 +144,15 @@ static uint8_t flash;               // frames left of the exit flash
 static uint8_t lives;
 static uint8_t cave_no, level;      // from 0
 static uint8_t start_cave, start_level;  // picked on the title; CAVE_COUNT: the own caves
-static uint8_t start_own;                // ... from this slot
+static uint8_t start_game, start_own;    // ... of this game, from this slot
+
+// The own caves' games: the partitions of the disk (but CAVES), OWN1, ...
+// at first, renamed in the editor; each with OWN_SLOTS slots. A disk
+// without them (of an older version) has its slots in the directory
+// itself: one game without a name.
+#define GAMES_MAX 3
+static char game_name[GAMES_MAX][9];
+static uint8_t games = 1, own_game;     // own_game: the one played or edited
 enum { PLAY_CAVES, PLAY_OWN, PLAY_TEST };  // the game's caves, the own ones, one in the editor
 static uint8_t play_mode;
 static bool show_cursor;            // the editor's, at cur_x, cur_y
@@ -297,7 +305,7 @@ static const uint8_t test_script[][3] = {
     {1, '+', 0}, {80, 0, 0}, {1, '-', 0}, {150, 0, 0},    // loaded again: as saved
     {2, 0, IN_RESTART}, {100, 0, 0},                      // the title, the own caves
     {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {60, 0, 0},
+    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {20, 0, 0},  // the line under the logo whole
     SHOT,                                                 // 10: editor-title
     {90, 0, 0},
     {0, 0, 0},
@@ -313,6 +321,9 @@ static const uint8_t test_script[][3] = {
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
     {2, 0, IN_UP}, {2, 0, 0},                             // the name: TEST
     {1, 'T', 0}, {1, 0, 0}, {1, 'E', 0}, {1, 0, 0}, {1, 'S', 0}, {1, 0, 0}, {1, 'T', 0}, {10, 0, 0},
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {1, 'X', 0}, {10, 0, 0},                              // the game: OWN1X
     {0, 0, 0},                                            // 3: values
     {1, '\r', 0}, {1, 'S', 0}, {30, 0, 0}, {0, 0, 0},     // 4: saved
     {1, 'T', 0}, {250, 0, 0}, {150, 0, 0}, {0, 0, 0},     // 5: trying it, Rockford out
@@ -970,8 +981,8 @@ static void status_play(void) {
         status_game();
 }
 
-// "CAVE 12/3": cave and level, as the original's "A/1"; "OWN 12/3" for an
-// own cave, "TEST" for the one in the editor
+// "CAVE 12/3": cave and level, as the original's "A/1"; "OWN1 12/3" for an
+// own cave (the game's name), "TEST" for the one in the editor
 static void status_intro(void) {
     status_begin();
     status_put(2, ICON(ICON_LIFE));
@@ -984,12 +995,14 @@ static void status_intro(void) {
         status_put(col, '/');
         put_num(col + 1, level + 1, 1);
         col += 3;
-    } else if (play_mode == PLAY_OWN) {
-        status_print(7, "OWN");
-        put_num(11, cave_no + 1, 2);
-        status_put(13, '/');
-        put_num(14, level + 1, 1);
-        col = 16;
+    } else if (play_mode == PLAY_OWN) {  // "OWN1 12/3"
+        const char *name = game_name[own_game][0] ? game_name[own_game] : "OWN";
+        status_print(7, name);
+        col = 8 + strlen(name);
+        put_num(col, cave_no + 1, 2);
+        status_put(col + 2, '/');
+        put_num(col + 3, level + 1, 1);
+        col += 5;
     } else {
         status_print(7, "TEST");
         col = 12;
@@ -1220,12 +1233,12 @@ static void use_own_cave(void);
 static bool load_cave(uint8_t n) {
     if (n == loaded && level == loaded_level)
         return true;
-    static char name[] = "CAVE00-0";
+    static char name[] = "CAVES/CAVE00-0";
     static char what[] = "LOADING CAVE 00/0";
     uint8_t tens = (n + 1) / 10, ones = (n + 1) % 10;
-    name[4] = '0' + tens;
-    name[5] = '0' + ones;
-    name[7] = '1' + level;
+    name[10] = '0' + tens;
+    name[11] = '0' + ones;
+    name[13] = '1' + level;
     char *num = what + 13;
     if (tens)
         *num++ = '0' + tens;
@@ -1238,8 +1251,8 @@ static bool load_cave(uint8_t n) {
         return false;
 #ifdef SCREENCAST
     static char demo_file[] = "DEMO00";
-    demo_file[4] = name[4];
-    demo_file[5] = name[5];
+    demo_file[4] = name[10];  // the cave's number in CAVES/CAVE00-0
+    demo_file[5] = name[11];
     if (!disk_load(demo_file, 0, (uint16_t)demo_moves))
         demo_moves[0] = 0;
 #endif
@@ -1265,14 +1278,22 @@ static bool next_cave(void) {
     return load_cave(0);
 }
 
-// The file of slot n (from 0) in level lv (from 0): OWN01, ... in the
-// first level, OWN01-2, ... in the others
+// The file of slot n (from 0) in level lv (from 0) of own_game: OWN01, ...
+// in the first level, OWN01-2, ... in the others, in the game's partition:
+// OWN1/OWN01-2
 static const char *own_name(uint8_t n, uint8_t lv) {
-    static char file[] = "OWN00-0";
-    file[3] = '0' + (n + 1) / 10;
-    file[4] = '0' + (n + 1) % 10;
-    file[5] = lv ? '-' : 0;
-    file[6] = '1' + lv;
+    static char file[18];
+    char *p = file;
+    for (const char *g = game_name[own_game]; *g;)
+        *p++ = *g++;
+    if (p != file)
+        *p++ = '/';
+    memcpy(p, "OWN", 3);
+    p[3] = '0' + (n + 1) / 10;
+    p[4] = '0' + (n + 1) % 10;
+    p[5] = lv ? '-' : 0;
+    p[6] = '1' + lv;
+    p[7] = 0;
     return file;
 }
 
@@ -1415,38 +1436,49 @@ static void title_line(const char *text) {
 // The status line on the title: what the game starts with, and the hi-score
 static void title_status(void) {
     status_begin();
-    if (start_cave == CAVE_COUNT) {  // "OWN 12", as in the cave
-        status_print(2, "OWN");
-        put_num(6, start_own + 1, start_own >= 9 ? 2 : 1);
-    } else {
-        status_print(2, "CAVE");
-        put_num(7, start_cave + 1, start_cave >= 9 ? 2 : 1);
+    const char *name = "CAVE";
+    uint8_t n = start_cave;
+    if (start_cave == CAVE_COUNT) {  // the game's name and the slot: "OWN1 12"
+        name = game_name[start_game][0] ? game_name[start_game] : "OWN";
+        n = start_own;
     }
-    status_print(11, "LEVEL");
-    put_num(17, start_level + 1, 1);
-    status_print(22, "HI-SCORE");
-    put_num(31, hs_table[0].score, 6);
+    uint8_t col = 2 + strlen(name) + 1;
+    status_print(2, name);
+    put_num(col, n + 1, n >= 9 ? 2 : 1);
+    col = col + 4 > 11 ? col + 4 : 11;
+    status_print(col, "LEVEL");
+    put_num(col + 6, start_level + 1, 1);
+    status_print(23, "HI-SCORE");
+    put_num(32, hs_table[0].score, 6);
     status_end();
 }
 
 // Up and down pick the level, left and right the cave to start with; right
-// of the last one come the own caves, one by one, with GDash's levels (an
-// empty slot starts with the next own cave)
+// of the last one come the own caves, one by one, game after game, with
+// GDash's levels (an empty slot starts with the next own cave)
 #define LAST_START ((CAVE_COUNT - 1) / START_STEP * START_STEP)
 
 static void title_pick(void) {
-    uint8_t l = start_level, c = start_cave, o = start_own;
+    uint8_t l = start_level, c = start_cave, g = start_game, o = start_own;
     if (pressed & IN_RIGHT) {
-        if (c < CAVE_COUNT)
+        if (c < CAVE_COUNT) {
             c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
-        else if (o < OWN_SLOTS - 1)
+        } else if (o < OWN_SLOTS - 1) {
             o++;
+        } else if (g < games - 1) {
+            g++;
+            o = 0;
+        }
     }
     if (pressed & IN_LEFT) {
-        if (c == CAVE_COUNT && o)
+        if (c == CAVE_COUNT && o) {
             o--;
-        else if (c)
+        } else if (c == CAVE_COUNT && g) {
+            g--;
+            o = OWN_SLOTS - 1;
+        } else if (c) {
             c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
+        }
     }
     uint8_t top = (c == CAVE_COUNT ? OWN_LEVELS : LEVELS) - 1;
     if ((pressed & IN_UP) && l < top)
@@ -1455,9 +1487,10 @@ static void title_pick(void) {
         l--;
     if (l > top)
         l = top;
-    if (l != start_level || c != start_cave || o != start_own) {
+    if (l != start_level || c != start_cave || g != start_game || o != start_own) {
         start_level = l;
         start_cave = c;
+        start_game = g;
         start_own = o;
         title_status();
         sound_crackle();
@@ -2435,7 +2468,8 @@ static EDITOR uint8_t walks_to(uint8_t e) {
 
 // The element, where the cursor is (with an arrow if what is there walks:
 // its direction), the slot, * if not saved:
-// "[tile] FIREFLY LEFT         12,05< OWN 03*"
+// "[tile] FIREFLY LEFT         12,05<OWN1 03*" (the last column the
+// screen shows is 38)
 static EDITOR void edit_status(void) {
     static char line[36];
     memset(line, ' ', 35);
@@ -2448,7 +2482,9 @@ static EDITOR void edit_status(void) {
     line[23] = ',';
     digits2(line + 24, cur_y);
     line[26] = "^>V< "[walks_to(file.own.map[cur_y * CAVE_W + cur_x])];
-    memcpy(line + 28, "OWN", 3);
+    const char *g = game_name[own_game][0] ? game_name[own_game] : "OWN";
+    uint8_t n4 = strlen(g);
+    memcpy(line + 27, g, n4 < 4 ? n4 : 4);  // the game, its first 4 letters
     digits2(line + 32, slot + 1);
     line[34] = dirty ? '*' : ' ';
     status_tile(2, elem_tile(pen));
@@ -2734,14 +2770,16 @@ static EDITOR void edit_help(void) {
 }
 
 // The values page: a line each, the one chosen shining
-#define VALUES 8
-#define VAL_Y0 8
+#define VALUES 9
+#define VAL_GAME 8  // the game's name (the slot's partition), not the cave's
+#define VAL_Y0 4
 static const char *const val_text[VALUES] = {
     "NAME", "TIME          SECONDS", "EMERALDS      TO OPEN THE EXIT", "VALUE         POINTS EACH",
     "EXTRA         EACH AFTER THAT", "SPEED         MS PER STEP", "AMOEBA        SECONDS SLOW",
-    "MAGIC         SECONDS, 0: NO END"};
-static const uint8_t val_min[VALUES] = {0, 1, 0, 0, 0, 50, 0, 0};
-static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 999, 999};
+    "MAGIC         SECONDS, 0: NO END", "GAME"};
+static const uint8_t val_min[VALUES] = {0, 1, 0, 0, 0, 50, 0, 0, 0};
+static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 999, 999, 0};
+static char game_edit[9];  // the game's name as it is typed
 static uint16_t c64_speed;  // a C64 cave's speed (GDash's scheduling) as it starts
 
 static EDITOR uint16_t val_get(uint8_t i) {
@@ -2795,16 +2833,19 @@ static EDITOR void val_line(uint8_t i, bool chosen) {
     static char line[37];
     memset(line, ' ', 36);
     memcpy(line, val_text[i], strlen(val_text[i]));
-    if (i)
-        digits3(line + 9, val_get(i));
+    const char *text = i == VAL_GAME ? game_edit : i ? 0 : file.own.name;
+    if (text)
+        memcpy(line + 10, text, strlen(text));
     else
-        memcpy(line + 10, file.own.name, strlen(file.own.name));
+        digits3(line + 9, val_get(i));
     video_text_in(2, VAL_Y0 + i * 16, line, chosen ? title_row : font_row);
 }
 
 // Up and down choose a line, left and right change its value (held: on and
-// on, faster after a while), letters and Del the name. Return, V, Run/Stop
-// or the button (but not on the name, where Space is a space) go back.
+// on, faster after a while), letters and Del the names - the cave's, and
+// the game's (renamed on the disk as the page is left; not on an older
+// disk, whose slots have no game). Return, V, Run/Stop or the button (but
+// not on a name, where Space is a space) go back.
 static EDITOR void edit_values(void) {
     if (file.own.scheduling && have_gdash) {  // the speed GDash starts it with
         gd_start(&file.own, 0);
@@ -2812,11 +2853,11 @@ static EDITOR void edit_values(void) {
         memcpy(cave, file.own.map, CAVE_SIZE);
     }
     video_clear();
-    status_center("NAME AND VALUES");
-    video_text(CENTRE(33), 144, "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE");
-    video_text(CENTRE(31), 160, "TYPE THE NAME  RETURN OR V BACK");
+    status_center("NAME AND VALUES  RETURN OR V: BACK");
+    video_text(CENTRE(33), 156, "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE");
     uint8_t sel = 1, rep = 0;
     bool armed = false;
+    strcpy(game_edit, game_name[own_game]);
     for (uint8_t i = 0; i < VALUES; i++)
         val_line(i, i == sel);
     for (uint16_t f = 0;; f++) {
@@ -2833,10 +2874,11 @@ static EDITOR void edit_values(void) {
             val_line(old, false);
             val_line(sel, true);
         }
+        char *field = !sel ? file.own.name : sel == VAL_GAME && game_edit[0] ? game_edit : 0;
         uint8_t lr = held & (IN_LEFT | IN_RIGHT);
         if (!lr)
             rep = 0;
-        else if (sel && (rep == 0 || (rep >= 20 && (rep & 1)))) {
+        else if (!field && sel != VAL_GAME && (rep == 0 || (rep >= 20 && (rep & 1)))) {
             uint16_t v = val_get(sel), d = rep >= 100 ? 10 : 1;
             if (lr & IN_RIGHT)
                 v = v + d > val_max[sel] ? val_max[sel] : v + d;
@@ -2848,20 +2890,21 @@ static EDITOR void edit_values(void) {
         }
         if (lr && rep < 255)
             rep++;
-        if (!sel && key && key != '\r') {
-            uint8_t n = strlen(file.own.name);
-            if (key == KEY_DEL && n)
-                file.own.name[n - 1] = 0;
-            else if (n < NAME_LEN && key && strchr(name_chars, key))
-                file.own.name[n] = key;
+        if (field && key && key != '\r') {
+            uint8_t n = strlen(field);
+            if (key == KEY_DEL && n > (field == game_edit))  // a game keeps a name
+                field[n - 1] = 0;
+            else if (n < (field == game_edit ? 8 : NAME_LEN) && strchr(name_chars, key) && key != '/')
+                field[n] = key;
             else
                 continue;
-            dirty = true;
-            val_line(0, true);
+            if (field == file.own.name)
+                dirty = true;
+            val_line(sel, true);
             armed = false;  // Space was a space
             continue;
         }
-        if (key == '\r' || key == 'V' || (pressed & IN_RESTART) || (sel && armed && (pressed & IN_BUTTON)))
+        if (key == '\r' || key == 'V' || (pressed & IN_RESTART) || (!field && armed && (pressed & IN_BUTTON)))
             break;
         if (!(held & IN_BUTTON))
             armed = true;
@@ -2870,6 +2913,14 @@ static EDITOR void edit_values(void) {
     video_clear();
     edit_shown = false;
     note = 0;
+    if (strcmp(game_edit, game_name[own_game])) {  // a new name for the game
+        if (disk_rename(game_name[own_game], game_edit)) {
+            strcpy(game_name[own_game], game_edit);
+            edit_note("THE GAME IS RENAMED");
+        } else {
+            edit_note("CANNOT RENAME THE GAME");
+        }
+    }
 }
 
 // The edited cave in KEEP_BANK (mem.h) when the editor is left, and back
@@ -2990,7 +3041,14 @@ static EDITOR void editor(void) {
         case '+':
         case '-':
             if (twice(key, false, key == '+' ? "NOT SAVED - + AGAIN: NEXT SLOT" : "NOT SAVED - - AGAIN: LAST SLOT")) {
-                slot = key == '+' ? (slot + 1) % OWN_SLOTS : (slot + OWN_SLOTS - 1) % OWN_SLOTS;
+                // the slots of all games one after the other
+                if (key == '+' && ++slot == OWN_SLOTS) {
+                    slot = 0;
+                    own_game = (own_game + 1) % games;
+                } else if (key == '-' && !slot--) {
+                    slot = OWN_SLOTS - 1;
+                    own_game = (own_game + games - 1) % games;
+                }
                 edit_load();
             }
             break;
@@ -3017,6 +3075,7 @@ static void play_game(void) {
     next_life = LIFE_POINTS;
     play_mode = start_cave == CAVE_COUNT ? PLAY_OWN : PLAY_CAVES;
     cave_no = play_mode == PLAY_OWN ? start_own : start_cave;
+    own_game = start_game;
     level = start_level;
     bool have_cave = true;
     while (lives) {
@@ -3235,11 +3294,16 @@ int main(void) {
     init_tiles();
     // The tiles from the disk - without the spinner, which is made of
     // them -, the title logo and the high scores (mem.h)
+    disk_load("SMARAGD.PAL", PAL_BANK, PAL_OFF);
+    video_palettes();
     disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
     rom_ram = rom_writable();
     have_logo = rom_ram && load("LOADING", "SMARAGD.LOGO", LOGO_BANK, LOGO_OFF);
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);
+    games = disk_partitions(game_name, GAMES_MAX, "CAVES");
+    if (!games)
+        games = 1;  // an older disk: the slots in its directory
     hiscore_load();
 #ifdef TOUR
     start_cave = CAVE_COUNT;  // the own caves: the demo caves
