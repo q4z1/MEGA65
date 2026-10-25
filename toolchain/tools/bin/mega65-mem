@@ -290,10 +290,11 @@ def parse_range(text):
 
 
 def read_disk(path):
-    """The disk's files [(name, type, blocks, data)] and its blocks free."""
+    """The disk's files [(name, type, blocks, data)] and its blocks free; a
+    partition (type cbm, no data) with its files after it as DIR/NAME"""
     img = open(path, "rb").read()
-    files = [(name.decode("latin-1"), typ, blocks, mkd81.file_data(img, t, s))
-             for name, typ, t, s, blocks in mkd81.directory(img)]
+    files = [(name.decode("latin-1"), typ, blocks, b"" if typ & 7 == 5 else mkd81.file_data(img, t, s))
+             for name, typ, t, s, blocks in mkd81.all_files(img)]
     return files, mkd81.free_blocks(img)
 
 
@@ -513,7 +514,8 @@ def disk(path, disk_files, free, files, prg, show_all):
     used = 0
     groups = {}
     for name, typ, blocks, data in disk_files:
-        used += blocks
+        if "/" not in name:  # a partition's files are in its blocks
+            used += blocks
         pat, what = next(((p, w) for p, t, w in files if match(p, name)), (None, ""))
         if not what and data == prg_data:
             what = f"the program ({os.path.relpath(prg)})"
