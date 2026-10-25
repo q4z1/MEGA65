@@ -359,9 +359,9 @@ ROCK_HEADS = {
     ],
 }
 ROCK_BODIES = {
-    "front": ["...kJJkTTkJJk...", "..kJlJJTTJJlJk..", "..kSkjJJJJjkSk.."],
-    "front-swing": ["...kJJkTTkJJk...", "..kJlJJTTJJlJk..", "..kjkjJJJJjkSk.."],
-    "front-right": ["...kJJJkTTJJk...", "..kJlJJJTTJlk...", "..kSkjJJJJjkSk.."],
+    "front": ["...kJJksskJJk...", "..kJlJJTTJJlJk..", "..kSkjJJJJjkSk.."],
+    "front-swing": ["...kJJksskJJk...", "..kJlJJTTJJlJk..", "..kjkjJJJJjkSk.."],
+    "front-right": ["...kJJJkssJJk...", "..kJlJJJTTJlk...", "..kSkjJJJJjkSk.."],
     "back": ["...kJJjjjjJJk...", "..kJlJJJJJJlJk..", "..kSkJJJJJJkSk.."],
     "back-swing": ["...kJJjjjjJJk...", "..kJlJJJJJJlJk..", "..kSkJJJJJJkjk.."],
     "right": ["....kJlTTJJk....", "....kJJlTJJk....", "....kJSkJJJk...."],
@@ -1370,29 +1370,30 @@ def draw_gravestone():
     return t
 
 
-# A wing for what flies (the left one; the right one is its mirror):
-# o outline, w white, b light blue
-WING = ["o.....",
-        "wo....",
+# A wing for what flies (the left one; the right one is its mirror), from
+# row WING_Y on: o outline, w white, b light blue
+WING_Y = 4
+WING = ["oo....",
         "wwo...",
-        "bwwo..",
-        "bbwwo.",
-        ".bbwwo",
-        "..bbo.",
-        "...o.."]
+        "wbwo..",
+        "bwbwo.",
+        "obobo."]
 
 
 def winged(t):
-    """Flies up: a wing at each side, outlined so that it shows on any
-    ground"""
-    t = [list(row) for row in t]
+    """Flies up: the thing smaller (12x12, at the bottom), a wing at each
+    side of it, outlined so that it shows on any ground"""
+    w = new_tile()
+    for y in range(12):
+        for x in range(12):
+            w[4 + y][2 + x] = t[y * 16 // 12][x * 16 // 12]
     col = {"o": hexc("1c2030"), "w": hexc("fff8f0"), "b": hexc("a0d8ff")}
     for y, row in enumerate(WING):
         for x, ch in enumerate(row):
             if ch in col:
-                t[1 + y][x] = col[ch]
-                t[1 + y][T - 1 - x] = col[ch]
-    return t
+                w[WING_Y + y][x] = col[ch]
+                w[WING_Y + y][T - 1 - x] = col[ch]
+    return w
 
 
 def draw_nitro():
