@@ -16,7 +16,7 @@ Length=1
 [cave]
 Name=FIREFLY DENS
 Size=40 22 0 0 39 21
-DiamondsRequired=18 20 22 23 23
+DiamondsRequired=28 30 32 33 33
 CaveTime=120 110 95 85 85
 CaveScheduling=ms
 PALTiming=false

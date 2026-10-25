@@ -15,7 +15,7 @@ Length=1
 [cave]
 Name=TREASURE ROOM
 Size=40 22 0 0 39 21
-DiamondsRequired=24 26 29 31 31
+DiamondsRequired=32 34 36 38 38
 CaveTime=45 40 35 30 30
 CaveScheduling=ms
 PALTiming=false

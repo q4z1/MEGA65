@@ -12,7 +12,7 @@ Levels=1
 [cave]
 Name=FORTRESS
 Size=40 22 0 0 39 21
-DiamondsRequired=32 35 38 42 42
+DiamondsRequired=50 53 56 59 59
 CaveTime=100 90 80 70 70
 CaveScheduling=ms
 PALTiming=false

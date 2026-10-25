@@ -1,0 +1,4 @@
+# The moves the solver (tools/solve.c) starts every level of the cave with:
+# what it cannot find by itself. U R D L walk, u r d l snap, . wait, a
+# number repeats what follows.
+24. 10R 3D 2R D L D r D r 2L u L D R r L d 6R U 2R U u D 3R D d L U D l 3R 3U 2R r U R 2. R d 2D 2L 2D R U R d 2R U 6R 2D d 2R 8U 4L l 4L d L 2U l 4U 3R U R u D R D R 2D 3R 4D R

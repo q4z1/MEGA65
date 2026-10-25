@@ -10,7 +10,7 @@ Levels=1
 [cave]
 Name=ROOMS
 Size=40 22 0 0 39 21
-DiamondsRequired=20 22 24 26 26
+DiamondsRequired=25 26 27 27 27
 CaveTime=120 110 95 85 85
 CaveScheduling=ms
 PALTiming=false

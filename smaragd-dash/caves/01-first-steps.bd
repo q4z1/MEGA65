@@ -9,7 +9,7 @@ Levels=1
 [cave]
 Name=FIRST STEPS
 Size=40 22 0 0 39 21
-DiamondsRequired=12 13 14 16 16
+DiamondsRequired=15 16 17 18 18
 CaveTime=150 135 120 105 105
 CaveScheduling=ms
 PALTiming=false

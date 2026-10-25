@@ -16,7 +16,7 @@ Length=1
 [cave]
 Name=ROCKFALL
 Size=40 22 0 0 39 21
-DiamondsRequired=28 31 34 36 36
+DiamondsRequired=38 39 43 45 45
 CaveTime=110 100 90 75 75
 CaveScheduling=ms
 PALTiming=false

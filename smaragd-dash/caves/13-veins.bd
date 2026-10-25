@@ -12,7 +12,7 @@ Levels=1
 [cave]
 Name=VEINS
 Size=40 22 0 0 39 21
-DiamondsRequired=26 29 31 34 34
+DiamondsRequired=60 63 66 68 68
 CaveTime=100 90 80 70 70
 CaveScheduling=ms
 PALTiming=false

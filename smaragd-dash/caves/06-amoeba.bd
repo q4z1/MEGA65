@@ -11,8 +11,8 @@ Levels=1
 [cave]
 Name=AMOEBA
 Size=40 22 0 0 39 21
-DiamondsRequired=40 44 48 52 52
-CaveTime=150 145 140 135 135
+DiamondsRequired=40 42 44 46 46
+CaveTime=165 160 155 150 150
 CaveScheduling=ms
 PALTiming=false
 FrameTime=160 155 150 145 145
@@ -32,25 +32,25 @@ BorderProperties.lineshift=true
 [map]
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 W....r...................r...r.........W
-W.P....r....r..d....d...r.r......d.r...W
-W.............r.... rd............d....W
-W...........r.rr.d....r........d.d..d.rW
-Wd.....d.r....................r.....rr.W
+W.P....r....r..d....d...r.r........r...W
+W.............r.... rd.................W
+W...........r.rr.d....r..........d....rW
+Wd.......r....................r.....rr.W
 W..r .r.......................... .....W
-W ...............r....r............ .ddW
+W ...............r....r............ .d.W
 W.r..........................r....rdrrrW
-W.r..d. ......www.wwww.www........d....W
-W.d...r.r...r.w..........w...rdd..d.d..W
-Wr..d.d..  ...w....aa....w.r..r....d...W
-Wd...r..d.r...w..........w....r...r... W
+W.r..d. ......www.wwww.www.............W
+W.d...r.r...r.w..........w...r.d....d..W
+Wr....d..  ...w....aa....w.r..r........W
+Wd...r....r...w..........w....r...r... W
 Wrr..drrr....rwwwwwwwwwwww.....rrr.....W
-W...........rd.. .r................d...W
-W.d.d.   . drr......... d.d....   .....W
-Wd....   .........d. ......r...   .....W
-W.r.d. c .......... ..r.rrr.... c .r...W
+W...........rd.. .r....................W
+W.d...   . drr......... ..d....   .....W
+W.....   .........d. ......r...   .....W
+W.r... c .......... ..r.rrr.... c .r...W
 W................r..rr....r............W
-Wrd...................r............d...X
-W...rr..r....r..d.....d.r........r.r...W
+Wrd...................r................X
+W...rr..r....r..d.......r........r.r...W
 WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/map]
 [/cave]

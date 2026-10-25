@@ -575,11 +575,13 @@ plays all of them, in all four levels, as the game does. A cave is 40x22
 cells with a steel frame. The first six follow the first caves of Boulder Dash 1 in idea, not
 in layout; the others bring one idea each, getting a little harder from cave
 to cave - more boulders and creatures, a little less time to spare - but
-always with time to look around: each limit is at least three and a half
-times what the solver needs (the maze and the amoeba, where it has to wait,
-twice), and no cave asks for much more than half of
-its emeralds unless it makes more of them (magic walls, butterflies, the
-amoeba). Like the original's, most are a random fill with walls, rooms and
+always with time to look around: in the first level each limit is at
+least twice what the solver needs, mostly three times or more (the maze,
+with its long ways, 1.7 times). A cave asks
+for about three quarters of the emeralds that lie about; one with an idea
+that makes emeralds (butterflies, magic walls, the amoeba) has too few
+lying about without it: the amoeba's nest has to be shut, the butterflies
+in the garden hit, the wells fed. Like the original's, most are a random fill with walls, rooms and
 creatures drawn over it.
 
 From cave 7 on, a few elements of GDash that stay close to Boulder Dash 1
@@ -597,30 +599,30 @@ caves.
 
 | | | needs | |
 | --- | --- | --- | --- |
-| 1 | FIRST STEPS | 12 in 150 s | dirt, boulders and emeralds |
-| 2 | ROOMS | 20 in 120 s | brick walls make six rooms; two fireflies wait in theirs |
-| 3 | MAZE | 22 in 120 s | a maze with emeralds in its dead ends; fireflies guard three of them |
+| 1 | FIRST STEPS | 15 in 150 s | dirt, boulders and emeralds |
+| 2 | ROOMS | 25 in 120 s | brick walls make six rooms; two fireflies wait in theirs |
+| 3 | MAZE | 25 in 120 s | a maze with emeralds in its dead ends; fireflies guard three of them |
 | 4 | BUTTERFLIES | 36 in 150 s | dig under the boulders above the hall: a butterfly hit by a falling one leaves nine emeralds |
-| 5 | ENCHANTED WALL | 30 in 150 s | boulders falling through the magic wall come out as emeralds, for 20 seconds |
-| 6 | AMOEBA | 40 in 150 s | drop the two boulders into the openings of the nest before the amoeba gets out: shut in, it turns to emeralds |
-| 7 | FIREFLY DENS | 18 in 120 s | four fireflies circle in their dens. New: the clock - two in the open, one in a den |
-| 8 | TREASURE ROOM | 24 in 45 s | a small room full of emeralds and too little time, but two clocks of 15 s |
-| 9 | BOULDER RAIN | 20 in 120 s | plenty of boulders over plenty of holes. New: the nut - eight under boulders, for them to crack |
-| 10 | TRACKS | 22 in 120 s | fireflies run up and down brick tracks; cross at the ends. New: the expanding wall, growing sideways |
-| 11 | BUTTERFLY GARDEN | 24 in 120 s | a butterfly in each garden, a boulder above it; nuts between the gardens |
-| 12 | STAIRWAY | 24 in 120 s | brick stairs; what lies on them rolls. New: the expanding wall growing up and down |
-| 13 | VEINS | 26 in 100 s | emeralds run through the rock in veins. New: slime - two veins drip through it, one emerald at a time |
-| 14 | MAGIC WELLS | 26 in 130 s | three wells with a magic floor, boulders above them; over one, slime that lets its boulders seep in |
-| 15 | VAULTS | 28 in 120 s | small brick vaults with emeralds, one door each. New: the hidden exit, a steel block in a vault's wall |
-| 16 | AMOEBA FIELD | 26 in 120 s | the amoeba spreads from a corner; at 200 cells it turns to boulders. Expanding walls in its way |
-| 17 | CAVERNS | 20 in 110 s | big caverns with fireflies circling in them; nuts and two clocks |
-| 18 | LABYRINTH | 24 in 150 s | a bigger maze, and fireflies in it; the exit hidden in its walls, clocks in dead ends |
-| 19 | WATERFALL | 28 in 100 s | emeralds and boulders stacked in shafts; dig below and they pour out - two trickle through slime |
-| 20 | ROCKFALL | 28 in 110 s | more boulders than dirt, and a slightly faster step; nuts and a clock |
-| 21 | SWARM | 26 in 110 s | butterflies round the amoeba's nest blow up into emeralds when it reaches them; expanding walls between |
+| 5 | ENCHANTED WALL | 34 in 150 s | boulders falling through the magic wall come out as emeralds, for 20 seconds |
+| 6 | AMOEBA | 40 in 165 s | drop the two boulders into the openings of the nest before the amoeba gets out: shut in, it turns to emeralds |
+| 7 | FIREFLY DENS | 28 in 120 s | four fireflies circle in their dens. New: the clock - two in the open, one in a den |
+| 8 | TREASURE ROOM | 32 in 45 s | a small room full of emeralds and too little time, but two clocks of 15 s |
+| 9 | BOULDER RAIN | 34 in 120 s | plenty of boulders over plenty of holes. New: the nut - eight under boulders, for them to crack |
+| 10 | TRACKS | 30 in 120 s | fireflies run up and down brick tracks; cross at the ends. New: the expanding wall, growing sideways |
+| 11 | BUTTERFLY GARDEN | 30 in 120 s | a butterfly in each garden, a boulder above it; nuts between the gardens |
+| 12 | STAIRWAY | 32 in 120 s | brick stairs; what lies on them rolls. New: the expanding wall growing up and down |
+| 13 | VEINS | 60 in 100 s | emeralds run through the rock in veins. New: slime - two veins drip through it, one emerald at a time |
+| 14 | MAGIC WELLS | 28 in 130 s | three wells with a magic floor, boulders above them; over one, slime that lets its boulders seep in |
+| 15 | VAULTS | 38 in 120 s | small brick vaults with emeralds, one door each. New: the hidden exit, a steel block in a vault's wall |
+| 16 | AMOEBA FIELD | 38 in 120 s | the amoeba spreads from a corner; at 200 cells it turns to boulders. Expanding walls in its way |
+| 17 | CAVERNS | 26 in 110 s | big caverns with fireflies circling in them; nuts and two clocks |
+| 18 | LABYRINTH | 30 in 150 s | a bigger maze, and fireflies in it; the exit hidden in its walls, clocks in dead ends |
+| 19 | WATERFALL | 42 in 100 s | emeralds and boulders stacked in shafts; dig below and they pour out - two trickle through slime |
+| 20 | ROCKFALL | 38 in 110 s | more boulders than dirt, and a slightly faster step; nuts and a clock |
+| 21 | SWARM | 29 in 110 s | butterflies round the amoeba's nest blow up into emeralds when it reaches them; expanding walls between |
 | 22 | MAGIC FACTORY | 32 in 120 s | two magic floors, one above the other; nuts come through them as nuts, for the boulders to crack |
-| 23 | FORTRESS | 32 in 100 s | a brick fortress full of emeralds, fireflies at the gates, expanding walls inside, the exit hidden in its wall |
-| 24 | SERPENTINE | 32 in 130 s | one long way back and forth; clocks at the turns, expanding walls, nuts |
+| 23 | FORTRESS | 50 in 100 s | a brick fortress full of emeralds, fireflies at the gates, expanding walls inside, the exit hidden in its wall |
+| 24 | SERPENTINE | 46 in 130 s | one long way back and forth; clocks at the turns, expanding walls, nuts |
 | 25 | GRAND FINALE | 40 in 150 s | a bit of everything: maze, magic floor, fireflies, the amoeba, nuts, slime, expanding walls, clocks, the hidden exit |
 
 The table shows level 1. As in Boulder Dash 1, every cave comes in four

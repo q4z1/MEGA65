@@ -13,7 +13,7 @@ Levels=1
 [cave]
 Name=AMOEBA FIELD
 Size=40 22 0 0 39 21
-DiamondsRequired=26 29 31 34 34
+DiamondsRequired=38 39 33 42 42
 CaveTime=120 110 95 85 85
 CaveScheduling=ms
 PALTiming=false
