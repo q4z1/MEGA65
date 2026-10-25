@@ -14,6 +14,10 @@ VERSION=$(cat VERSION)
 OUT=build/release
 DISK=build/smaragd-dash.d81
 mkdir -p $OUT
+if [ -e $OUT/smaragd-dash-$VERSION.zip ]; then
+    echo "$OUT/smaragd-dash-$VERSION.zip is there already: a new VERSION, or delete it" >&2
+    exit 1
+fi
 rm -rf $OUT/zip
 mkdir -p $OUT/zip
 
