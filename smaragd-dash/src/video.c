@@ -512,6 +512,12 @@ static void to_both(uint16_t src, uint8_t sbank, uint8_t col, uint8_t y, uint16_
     dma_run();
 }
 
+// The tile's colour, read again and again (the source held), into the
+// character's 64 bytes
+__attribute__((noinline)) void video_cell(uint8_t col, uint8_t y, uint8_t tile) {
+    to_both(TILE_COLOURS + tile, PAL_BANK | DMA_HOLD, col, y, 64);
+}
+
 void video_logo(uint8_t col, uint8_t y) {
     uint16_t src = LOGO_OFF;  // LOAD skipped the file's load address
     dma_begin(0, 0);

@@ -14,6 +14,8 @@ void dma_begin(uint8_t src_mb, uint8_t dst_mb);
 void dma_job(uint8_t cmd, uint16_t src, uint8_t sbank, uint16_t dst, uint8_t dbank, uint16_t len);
 void dma_run(void);
 
+#define DMA_HOLD 0x10  // with a bank: the address stays (a copy from one byte fills)
+
 #define dma_copy(src, sbank, dst, dbank, len) dma_job(0, src, sbank, dst, dbank, len)
 #define dma_fill(val, dst, dbank, len)        dma_job(3, val, 0, dst, dbank, len)  // len 0: 64K
 

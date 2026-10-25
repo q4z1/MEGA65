@@ -1321,6 +1321,25 @@ def draw_pot():
     return t
 
 
+def draw_stirring():
+    """Rockford behind the pot, stirring it (GDash's player stirring)"""
+    t = [list(row) for row in draw_rockford_set()["RF_VIEW4"]]
+    p = new_tile()
+    stops = [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0")]
+    sphere(p, 8, 12.5, 6.0, stops, 4, squash=0.75)
+    for y in range(10, T):
+        for x in range(T):
+            if p[y][x] is not None:
+                t[y][x] = p[y][x]
+    for x in range(2, 14):
+        t[10][x] = stops[3]
+        t[11][x] = stops[2]
+    plot(t, [(14, 5), (13, 6), (13, 7), (12, 8), (12, 9), (11, 10)], hexc("f0d090"))  # the spoon
+    plot(t, [(15, 5), (14, 6), (14, 7), (13, 8), (13, 9)], hexc("6a4020"))
+    plot(t, [(1, 9), (2, 8), (0, 7)], hexc("c8d4e8"))  # steam
+    return t
+
+
 def draw_skeleton():
     t = new_tile()
     bone = [hexc("4e463e"), hexc("a09484"), hexc("e8e0d0")]
@@ -1540,12 +1559,6 @@ def draw_voodoo():
     return by_lum(rf, [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"), hexc("f4c0ff")], 5)
 
 
-def draw_unknown():
-    t = draw_steel()
-    q = ["  ####  ", " ##  ## ", "     ## ", "    ##  ", "   ##   ", "   ##   ", "        ", "   ##   "]
-    return from_pic(q, {"#": hexc("ff3060")}, t)
-
-
 def gd_tiles():
     """The tiles of GDash's elements: (name, picture)"""
     out = [("DIRT2", draw_dirt2()), ("STEEL_EXPL", draw_steel_explodable()),
@@ -1592,7 +1605,7 @@ def gd_tiles():
     out += [(f"CONVEYOR_L{i}", draw_conveyor(True, i)) for i in range(2)]
     out += [(f"CONVEYOR_R{i}", draw_conveyor(False, i)) for i in range(2)]
     out += [(f"COW{i}", draw_cow(i)) for i in range(2)]
-    out += [("VOODOO", draw_voodoo()), ("UNKNOWN", draw_unknown())]
+    out += [("VOODOO", draw_voodoo()), ("RF_STIR", draw_stirring())]
     return out
 
 
@@ -1666,6 +1679,7 @@ GD_TILES = [
     (r"BITER_\d", "BITER0", 2, 2),
     (r"DRAGONFLY_\d", "DRAGONFLY0", 2, 1),
     (r"PLAYER_GLUED", "RF_GLUED"),
+    (r"PLAYER_STIRRING", "RF_STIR"),
     (r"PLAYER.*", "RF_VIEW4"),
     (r"ROCKET_LAUNCHER", "ROCKET_LAUNCHER"),
     (r"ROCKET_(\d)", "ROCKET"),
@@ -1675,7 +1689,7 @@ GD_TILES = [
 ] + [(f"PRE_PL_{i + 1}", f"BIRTH{i}") for i in range(3)] + [
     (f"(EXPLODE|PRE_DIA|PRE_STONE|PRE_CLOCK|GHOST_EXPL|BOMB_EXPL|NITRO_EXPL|AMOEBA_2_EXPL|NUT_CRACK)_{i + 1}",
      f"EXPLODE{i}") for i in range(5)] + [
-    (r".*", "UNKNOWN"),
+    (r".*", "STEEL"),  # UNKNOWN (a map character cavekit.py does not know) and NONE
 ]
 
 SLOPE_CORNER = {"UP_RIGHT": "UR", "UP_LEFT": "UL", "DOWN_LEFT": "DL", "DOWN_RIGHT": "DR"}
@@ -1708,6 +1722,22 @@ def gd_tile_table(tile_index):
         frames, shift = (anim + [1, 0])[:2]
         anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2)
     return tiles, anims
+
+
+def tile_colours(tiles, tile_bytes, cols):
+    """Each tile as one palette entry, for the editor's map of a whole
+    cave: its most frequent colour, but Rockford, the inbox, the exit and
+    the cursor in their brightest, to be found at once"""
+    out = []
+    for i, (name, _) in enumerate(tiles):
+        pix = [b for b in tile_bytes[i * 256:(i + 1) * 256] if b]
+        if not pix:
+            out.append(0)
+        elif re.match(r"RF_|INBOX|OUTBOX|CURSOR", name):
+            out.append(max(pix, key=lambda e: sum(cols[e])))
+        else:
+            out.append(max(set(pix), key=pix.count))
+    return out
 
 
 # ---------------------------------------------------------------- assembly
@@ -1921,6 +1951,7 @@ def main():
         for p in (list(cols) + [(0, 0, 0)] * (256 - len(cols)), pal1):
             for k in range(3):
                 f.write(bytes(swap(c[k]) for c in p))
+        f.write(bytes(tile_colours(tiles, tile_bytes, cols)))  # behind them: each tile's colour
     tile_index = {n: i for i, (n, _) in enumerate(tiles)}
     gd_tiles, gd_anims = gd_tile_table(tile_index)
     with open(f"{outdir}/gfx.h", "w") as f:

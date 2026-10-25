@@ -12,6 +12,12 @@ PC, whose engine the game has (with Boulder Dash 1's rules for its own
 caves); levels and graphics are our own. Rockford is the adventurer from the title logo
 (`gfx/logo.png`).
 
+The release ZIP holds the disk (`smaragd-dash.d81`: on the SD card, mount
+it as drive 8, `RUN "SMARAGD DASH"`), this text, the editor's
+([EDITOR.md](EDITOR.md)) and `cavekit.py`. The disk's first game of own
+caves has the four [demo caves](#demo-caves), which show every element of
+GDash. `tools/make-release.sh` makes the ZIP.
+
 There are 25 caves, each in four levels, as in the original: 100 in all.
 On the title screen the joystick picks the level (up and down) and the cave
 to start with (left and right: 1, 6, 11, 16 or 21). After the last cave
@@ -97,6 +103,7 @@ while there are changes not saved. H shows the keys:
 | E | choose among all of GDash's elements (95), on a page of their own: cursor keys or joystick, fire takes one |
 | the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left) |
 | G | choose the element the cursor is on |
+| M | the whole cave at once, a map: the cursor moves on it, M or fire goes back there |
 | V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times; and the game's name |
 | T | try the cave (one life), then back in the editor |
 | S | save it into its slot on the disk |
@@ -191,7 +198,7 @@ but four lines (a diagonal input the game never sends, two default cases,
 a corner of GLib's random numbers). `tests/test_editor.sh`
 tries the editor and GDash's engine in Xemu: built with `-DEDITTEST=n`, the
 game takes its keys from a script (`test_script` in `src/main.c`) and stops
-at its n-th stop; the screens of the 18 stops land in `build/test/`
+at its n-th stop; the screens of the 19 stops land in `build/test/`
 (besides the editor: F1 ending a game, the title's help pages, the page of
 all elements and a biter taken from it, the cave kept after Run/Stop, and
 at last BASIC's screen after Run/Stop twice on the title), and at the end the cave the script saved is checked on the disk. It
@@ -501,7 +508,10 @@ a still cave, beyond it the cave moves under him exactly as far as he goes,
 frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).
 It stays inside the part of the cave that is shown (GDash's visible area);
 a part at most a cell larger than the view, as an intermission of 20 x 12,
-stands still in its middle.
+stands still in its middle. So does a small room in a cave of steel wall
+(cave 8, or one made in the editor): what is not steel decides, with its
+border of steel where that still fits - steel never changes, so nothing
+round it is ever needed.
 
 **The music** is written in `tools/mkmusic.py`: a chord per bar, the
 melody as note names with lengths in sixteenths, bass and drum patterns, and
@@ -509,7 +519,8 @@ instruments (waveform, envelope, pulse width sweep, vibrato, arpeggio, pitch
 sweep for the kick drum). The player in `src/music.c` steps one row every
 6 frames (125 beats per minute; at 60 Hz it leaves out every sixth
 frame, so the tempo stays; frames the title missed while it drew a page are
-caught up), closes each note's gate shortly before the
+caught up, all of them, and the help pages call it between their lines, so
+that few come at once), closes each note's gate shortly before the
 next note, and slowly opens and closes the filter on the bass. The left SID
 plays melody, bass and chords, the right one the echo, the bass again and
 the drums.
@@ -566,7 +577,9 @@ choice on the title.
 the D81's directory (`DIR/NAME` in the partition's: its first track,
 sector 3) and reads its sectors through the F011 floppy
 controller, waiting for each one by polling and copying it with DMA from
-the controller's sector buffer ($FFD6C00). It needs neither the ROM nor
+the controller's sector buffer ($FFD6C00; bit 7 of $D689 is cleared
+before, which shows the SD card's buffer there instead - the MEGA65's
+freezer may leave it set, and every file would seem gone). It needs neither the ROM nor
 interrupts, so it works at any time, and after each sector it calls a
 hook: while loading, the status line shows an emerald that turns. It
 reads the disk image mounted in drive 0; a real floppy would also need the

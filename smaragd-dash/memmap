@@ -30,7 +30,7 @@ ram  $8020100+768    BASIC's palette 0, put back before BASIC
 ram  $FF80000+2000   colour RAM for 40x25 characters of 2 bytes (video.c)
 
 # The disk (build.sh). The program itself is found by its contents.
-file SMARAGD.PAL    @$5F000     the palettes, set once (mkgfx.py, video.c)
+file SMARAGD.PAL    @$5F000     the palettes, set once, and the tiles' colours for the editor's map (mkgfx.py, video.c)
 file SMARAGD.TILES  @$10000     the tiles, 16x16 pixels (mkgfx.py)
 file SMARAGD.LOGO   @$30000     title logo, 288x144 pixels (mkgfx.py)
 file SMARAGD.EDIT   @$E000      the cave editor's code, an overlay (link.ld)

@@ -110,6 +110,7 @@ keys. Any key (or fire) goes back.
 | fire, Space, Return | put the chosen element under the cursor |
 | fire held while moving | draw: every cell the cursor passes gets the element |
 | G | choose the element the cursor is on |
+| M | the whole cave on one screen, each cell in the colour of its element: the cursor (a blinking frame) moves on it as well, M, fire or any key goes back to the editor there |
 
 Putting the element a cell already has does nothing. There is only one
 inbox in a cave: putting a new one turns the old one into dirt.
@@ -296,8 +297,9 @@ the game's own 25 caves:
 
 ## Caves on the PC: GDash and cavekit.py
 
-`tools/cavekit.py` (Python 3, nothing else needed) moves caves between the
-game's disk and the PC:
+`tools/cavekit.py` (Python 3, nothing else needed; in the release ZIP it is
+next to the disk: `python3 cavekit.py ...`) moves caves between the game's
+disk and the PC:
 
 ```sh
 tools/cavekit.py list    smaragd-dash.d81                 # what is in the slots, game by game
@@ -389,6 +391,7 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | fire, Space, Return | put the element; held while moving: draw |
 | 1-9, 0, I, X | choose the element (again for a firefly or butterfly: its direction) |
 | G | choose the element under the cursor |
+| M | map: the whole cave at once |
 | V | name and values |
 | T | try the cave |
 | S | save it into its slot |

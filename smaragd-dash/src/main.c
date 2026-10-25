@@ -330,28 +330,31 @@ static const uint8_t test_script[][3] = {
     {2, 0, IN_RESTART}, {250, 0, 0}, {2, 0, IN_BUTTON}, {150, 0, 0},  // dead after 15 steps
     {0, 0, 0},                                            // 6: back in the editor
     {1, '+', 0}, {100, 0, 0}, {0, 0, 0},                  // 7: slot 2, a cave from GDash
-    {1, 'T', 0}, {250, 0, 0}, {250, 0, 0}, {0, 0, 0},     // 8: trying it
+    {1, 'M', 0}, {20, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_RIGHT}, {40, 0, 0},
+    {0, 0, 0},                                            // 8: its map, the cursor at 3,3
+    {1, 'M', 0}, {20, 0, 0},
+    {1, 'T', 0}, {250, 0, 0}, {250, 0, 0}, {0, 0, 0},     // 9: trying it
     {2, 0, IN_RESTART}, {250, 0, 0}, {2, 0, IN_BUTTON}, {150, 0, 0},
-    {1, '-', 0}, {100, 0, 0}, {0, 0, 0},                  // 9: slot 1 again
+    {1, '-', 0}, {100, 0, 0}, {0, 0, 0},                  // 10: slot 1 again
     {2, 0, IN_RESTART}, {120, 0, 0},                      // the title, own caves
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {10, 0, 0},
-    {0, 0, 0},                                            // 10: the title
-    {2, 0, IN_BUTTON}, {250, 0, 0}, {200, 0, 0}, {0, 0, 0},  // 11: playing own cave 1
-    {1, KEY_F1, 0}, {150, 0, 0}, {0, 0, 0},               // 12: F1, the title again
-    {1, 'H', 0}, {60, 0, 0}, {0, 0, 0},                   // 13: help, how to play
-    {1, ' ', 0}, {60, 0, 0}, {0, 0, 0},                   // 14: help, the elements
+    {0, 0, 0},                                            // 11: the title
+    {2, 0, IN_BUTTON}, {250, 0, 0}, {200, 0, 0}, {0, 0, 0},  // 12: playing own cave 1
+    {1, KEY_F1, 0}, {150, 0, 0}, {0, 0, 0},               // 13: F1, the title again
+    {1, 'H', 0}, {60, 0, 0}, {0, 0, 0},                   // 14: help, how to play
+    {1, ' ', 0}, {60, 0, 0}, {0, 0, 0},                   // 15: help, the elements
     {1, ' ', 0}, {60, 0, 0}, {1, 'E', 0}, {120, 0, 0},    // the editor: slot 1 as it was left
     {1, '4', 0}, {4, 0, IN_BUTTON}, {10, 0, 0},           // steel at 3,3, not saved
     {1, 'E', 0}, {20, 0, 0}, {2, 0, IN_DOWN}, {10, 0, 0}, {2, 0, IN_DOWN}, {30, 0, 0},
-    {0, 0, 0},                                            // 15: all elements, on the biter
+    {0, 0, 0},                                            // 16: all elements, on the biter
     {3, 0, IN_BUTTON}, {20, 0, 0}, {1, 'R', 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
     {4, 0, IN_BUTTON}, {10, 0, 0},                        // a biter going right at 4,3
     {2, 0, IN_RESTART}, {120, 0, 0}, {1, 'E', 0}, {120, 0, 0},
-    {0, 0, 0},                                            // 16: kept, with the steel, the biter and *
+    {0, 0, 0},                                            // 17: kept, with the steel, the biter and *
     {2, 0, IN_RESTART}, {120, 0, 0}, {2, 0, IN_RESTART}, {10, 0, 0},
-    {0, 0, 0},                                            // 17: Run/Stop on the title: BASIC?
-    {2, 0, IN_RESTART}, {0, 0, 0},                        // 18: BASIC (Xemu is stopped from outside)
+    {0, 0, 0},                                            // 18: Run/Stop on the title: BASIC?
+    {2, 0, IN_RESTART}, {0, 0, 0},                        // 19: BASIC (Xemu is stopped from outside)
 #endif
 };
 static uint8_t test_pos, test_left, test_in, test_key;
@@ -791,7 +794,9 @@ static void camera_at(uint16_t px, uint16_t py, bool jump) {
 // The view stays inside the part of the cave that is shown (GDash's x1-x2,
 // y1-y2): cam_lo to cam_hi. A part at most a cell larger than the view (an
 // intermission, 20 x 12) stands still in the middle, as on the C64's
-// screen.
+// screen. So does a small room in a cave of steel wall (a cave of the
+// editor, or one of the game's, 40 x 22): steel wall never changes, so
+// what lies round the room with its steel border is never seen.
 static uint16_t cam_lo_x, cam_hi_x, cam_lo_y, cam_hi_y;
 
 __attribute__((noinline)) static void bounds(uint16_t *lo, uint16_t *hi, uint8_t a, uint8_t b, uint16_t view, uint16_t max) {
@@ -805,10 +810,39 @@ __attribute__((noinline)) static void bounds(uint16_t *lo, uint16_t *hi, uint8_t
     *hi = h;
 }
 
+// The room a to b (its cells that are not steel) in the shown part lo to hi:
+// if it fits into the view, it stands still with its border of steel, or
+// without, when that is a cell too many (an exit in the border).
+__attribute__((noinline)) static void room_bounds(uint16_t *cl, uint16_t *ch, uint8_t a, uint8_t b, uint8_t lo, uint8_t hi,
+                                                  uint16_t view, uint16_t max) {
+    if (a <= b && b - a < view / 16) {
+        if (a > lo && b < hi && b - a + 2 < view / 16 + 1) {
+            a--;
+            b++;
+        }
+        lo = a;
+        hi = b;
+    }
+    bounds(cl, ch, lo, hi, view, max);
+}
+
 __attribute__((noinline)) static void view_bounds(void) {
     const GdCaveFile *f = &file.own;
-    bounds(&cam_lo_x, &cam_hi_x, f->x1, f->x2, VIEW_W, MAX_X);
-    bounds(&cam_lo_y, &cam_hi_y, f->y1, f->y2, VIEW_H, MAX_Y);
+    uint8_t x1 = f->x2, x2 = f->x1, y1 = f->y2, y2 = f->y1;  // the room: what is not steel
+    for (uint8_t y = f->y1; y <= f->y2; y++)
+        for (uint8_t x = f->x1; x <= f->x2; x++)
+            if (f->map[y * CAVE_W + x] != O_STEEL) {
+                if (x < x1)
+                    x1 = x;
+                if (x > x2)
+                    x2 = x;
+                if (y < y1)
+                    y1 = y;
+                if (y > y2)
+                    y2 = y;
+            }
+    room_bounds(&cam_lo_x, &cam_hi_x, x1, x2, f->x1, f->x2, VIEW_W, MAX_X);
+    room_bounds(&cam_lo_y, &cam_hi_y, y1, y2, f->y1, f->y2, VIEW_H, MAX_Y);
 }
 
 __attribute__((noinline)) static int16_t within(int16_t v, uint16_t lo, uint16_t hi) {
@@ -848,22 +882,29 @@ static void camera(bool jump) {
 // ---------------------------------------------------------------- status
 
 // Without division, which is slow on the 6502: each power of ten is taken
-// away as often as it goes. Only the last `digits` digits are shown. Not
+// away as often as it goes. Only the last n digits are written. Not
 // inlined: it is called from many places.
 static const uint32_t pow10[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
 
-__attribute__((noinline)) static void put_num(uint8_t col, uint32_t v, uint8_t digits) {
-    while (v >= pow10[digits])
-        v -= pow10[digits];
-    while (digits--) {
-        uint32_t p = pow10[digits];
-        uint8_t d = '0';
+__attribute__((noinline)) static void to_digits(char *out, uint32_t v, uint8_t n) {
+    while (v >= pow10[n])
+        v -= pow10[n];
+    while (n--) {
+        uint32_t p = pow10[n];
+        char d = '0';
         while (v >= p) {
             v -= p;
             d++;
         }
-        status_put(col++, d);
+        *out++ = d;
     }
+}
+
+__attribute__((noinline)) static void put_num(uint8_t col, uint32_t v, uint8_t n) {
+    static char d[6];
+    to_digits(d, v, n);
+    for (uint8_t i = 0; i < n; i++)
+        status_put(col++, d[i]);
 }
 
 static void status_clear(void) {
@@ -1399,19 +1440,23 @@ static void text_cancel(void) {
     text_pos = 0;
 }
 
-// The music goes by the frames that went by: a page drawn at once (the
-// help) takes a few, and they are caught up
+// The music goes by the frames that went by, however many: a page drawn at
+// once (the help) takes a few. Drawing it, this comes now and then, so
+// they are not many at a time.
+static uint8_t music_last;  // the frame it played last
+
+static void music_catch_up(void) {
+    uint8_t now = PEEK(0xD7FA), n = now - music_last;
+    music_last = now;
+    while (n--)
+        music_frame();
+}
+
 static void title_frame(void) {
-    static uint8_t last;
     video_sync();
     video_show();
     SHOT_TICK();
-    uint8_t now = PEEK(0xD7FA), n = now - last;
-    last = now;
-    if (n == 0 || n > 8)  // the first frame, or after a game
-        n = 1;
-    while (n--)
-        music_frame();
+    music_catch_up();
     sound_frame();
     text_more(TEXT_STEP);
     frame++;
@@ -1545,19 +1590,13 @@ static const uint8_t *place_colours(uint8_t rank) {
     return rank_row + (rank < 3 ? rank : 3) * 16;
 }
 
-// v as six digits from p on
-static void digits6(char *p, uint32_t v) {
-    for (uint8_t k = 6; k--; v /= 10)
-        p[k] = '0' + v % 10;
-}
-
 static void hs_line(uint8_t i) {
     static char line[28];
     const HiScore *e = &hs_table[i];
     memset(line, ' ', 27);
     memcpy(line, places + i * 3, 3);
     memcpy(line + 5, e->name, 3);
-    digits6(line + 10, e->score);
+    to_digits(line + 10, e->score, 6);
     memcpy(line + 18, "CAVE", 4);
     char *p = line + 23;
     uint8_t c = e->cave + 1;
@@ -1624,7 +1663,7 @@ static void enter_name(HiScore *e, uint8_t rank) {
     video_clear();
     video_palette(0);
     video_big_text(CENTRE(28), 4, "NEW HIGH SCORE");
-    digits6(line, e->score);
+    to_digits(line, e->score, 6);
     memcpy(line + 16, places + rank * 3, 3);
     video_text_in(CENTRE(25), 44, line, place_colours(rank));
     video_text(CENTRE(31), 136, "UP/DOWN LETTER   FIRE/RIGHT OK");
@@ -1729,6 +1768,7 @@ static void save_scores(void) {
 static void logo_page(void) {
     text_cancel();
     video_clear();
+    music_catch_up();
     if (have_logo) {
         video_palette(1);
         video_logo(CENTRE(LOGO_W / 8), 2);
@@ -1795,7 +1835,7 @@ static uint8_t get_key(void) {
 }
 
 // Wait on a page for a key or the button
-static void page_wait(void) {
+__attribute__((noinline)) static void page_wait(void) {
     bool armed = false;
     for (;;) {
         title_frame();
@@ -1835,18 +1875,23 @@ static void help_pages(void) {
     };
     text_cancel();
     video_clear();
+    music_catch_up();
     video_palette(0);
     status_center("ANY KEY: THE ELEMENTS");
     video_text_in(CENTRE(11), 0, "HOW TO PLAY", title_row);
     video_text(1, 16, "DIG FOR EMERALDS: ENOUGH OF THEM OPEN");
     video_text(1, 32, "THE EXIT. GET THERE BEFORE TIME IS UP.");
-    for (uint8_t i = 0; i < 7; i++)
+    for (uint8_t i = 0; i < 7; i++) {
+        music_catch_up();
         video_text(2, 56 + i * 16, keys[i]);
+    }
     page_wait();
     video_clear();
+    music_catch_up();
     status_center("ANY KEY: BACK");
     video_text_in(CENTRE(12), 0, "THE ELEMENTS", title_row);
     for (uint8_t i = 0; i < 10; i++) {
+        music_catch_up();
         video_tile(2, 16 + i * 16, tile[i]);
         video_text(5, 16 + i * 16, what[i]);
     }
@@ -1961,6 +2006,7 @@ static bool title_screen(bool scores) {
     title_status();
     sound_off();
     music_start();
+    music_last = PEEK(0xD7FA) - 1;
     // The button counts only after it was let go once (Return from the
     // emulator's RUN, or fire still held from the last game)
     bool armed = false;
@@ -2743,6 +2789,84 @@ static EDITOR bool twice(uint8_t key, bool always, const char *what) {
     return false;
 }
 
+// The editor's cursor: at once, then on and on while a direction is held;
+// true if it moved
+static bool cursor_move(uint8_t *rep) {
+    uint8_t dir = held & (IN_UP | IN_DOWN | IN_LEFT | IN_RIGHT);
+    if (!dir) {
+        *rep = 0;
+        return false;
+    }
+    bool now = *rep == 0 || (*rep >= 12 && (*rep & 3) == 0);
+    if (now) {
+        if ((dir & IN_LEFT) && cur_x)
+            cur_x--;
+        if ((dir & IN_RIGHT) && cur_x < file.own.w - 1)
+            cur_x++;
+        if ((dir & IN_UP) && cur_y)
+            cur_y--;
+        if ((dir & IN_DOWN) && cur_y < file.own.h - 1)
+            cur_y++;
+    }
+    if (++*rep > 15)
+        *rep = 12;
+    return now;
+}
+
+#ifndef FLOWTEST  // which never opens the editor: room in bank 0
+// The editor's map (M): the whole cave at once, each cell a character in
+// the colour of its tile (mkgfx.py's tile_colours), the cursor a blinking
+// white cell that moves as in the editor. The view has 38 columns: a wider
+// cave moves under the cursor at its right edge.
+#define MAP_COLS (VIEW_W / 8)
+static uint8_t map_col, map_row, map_off;  // where cell map_off, 0 is shown
+
+static EDITOR void map_cell(uint8_t x, uint8_t y, bool cursor) {
+    video_cell(map_col + x - map_off, (map_row + y) * 8,
+               cursor ? T_CURSOR : elem_tile(file.own.map[y * CAVE_W + x]));
+}
+
+#define MAP_OFF() (cur_x >= MAP_COLS ? cur_x - (MAP_COLS - 1) : 0)
+
+static EDITOR void map_draw(void) {
+    map_off = MAP_OFF();
+    uint8_t w = file.own.w < MAP_COLS ? file.own.w : MAP_COLS;
+    for (uint8_t y = 0; y < file.own.h; y++)
+        for (uint8_t x = map_off; x < map_off + w; x++)
+            map_cell(x, y, false);
+}
+
+__attribute__((noinline)) static void edit_map(void) {
+    map_col = 1 + (file.own.w < MAP_COLS ? (MAP_COLS - file.own.w) / 2 : 0);
+    map_row = (VIEW_H / 8 - file.own.h) / 2;
+    video_clear();
+    status_center("THE WHOLE CAVE  M OR FIRE: BACK");
+    map_draw();
+    uint8_t rep = 0;
+    bool armed = false;
+    for (;;) {
+        title_frame();
+        uint8_t x = cur_x, y = cur_y;
+        if (cursor_move(&rep)) {
+            if (MAP_OFF() != map_off)
+                map_draw();
+            else
+                map_cell(x, y, false);
+            map_cell(cur_x, cur_y, true);
+        } else if ((frame & 15) == 0) {
+            map_cell(cur_x, cur_y, frame & 16);
+        }
+        if (get_key() || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
+            break;
+        if (!(held & IN_BUTTON))
+            armed = true;
+    }
+    video_clear();
+    edit_shown = false;
+    note = 0;
+}
+#endif
+
 static EDITOR void edit_help(void) {
     static const char *const lines[9] = {
         "MOVE     CURSOR KEYS OR JOYSTICK",
@@ -2753,7 +2877,7 @@ static EDITOR void edit_help(void) {
         "R        THE WAY WHAT WALKS STARTS",
         "V        NAME AND VALUES   T  TRY IT",
         "S        SAVE   + -  NEXT, LAST SLOT",
-        "C NEW CAVE  D EMPTY  RUN/STOP TITLE",
+        "C NEW  D EMPTY  M MAP  RUN/STOP TITLE",
     };
     video_clear();
     status_center("ANY KEY: BACK");
@@ -2969,25 +3093,8 @@ static EDITOR void editor(void) {
         if (key && key != again)
             again = 0;
 
-        // move: at once, then on and on while held
-        uint8_t dir = held & (IN_UP | IN_DOWN | IN_LEFT | IN_RIGHT);
-        if (!dir) {
-            rep = 0;
-        } else {
-            if (rep == 0 || (rep >= 12 && (rep & 3) == 0)) {
-                if ((dir & IN_LEFT) && cur_x)
-                    cur_x--;
-                if ((dir & IN_RIGHT) && cur_x < file.own.w - 1)
-                    cur_x++;
-                if ((dir & IN_UP) && cur_y)
-                    cur_y--;
-                if ((dir & IN_DOWN) && cur_y < file.own.h - 1)
-                    cur_y++;
-                edit_shown = false;
-            }
-            if (++rep > 15)
-                rep = 12;
-        }
+        if (cursor_move(&rep))
+            edit_shown = false;
         if (!(held & IN_BUTTON))
             armed = true;
         else if (armed)
@@ -3025,6 +3132,13 @@ static EDITOR void editor(void) {
             edit_values();
             armed = false;
             break;
+#ifndef FLOWTEST
+        case 'M':
+            edit_map();
+            edit_camera(true);
+            armed = false;
+            break;
+#endif
         case 'T':
             edit_try();
             armed = false;

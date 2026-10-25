@@ -118,7 +118,10 @@ _Static_assert(SCREEN_B + (uint32_t)SCREEN_SIZE <= 0x10000, "screen B leaves ban
 #define PAL_BANK    FB_BANK_B
 #define PAL_OFF     0xF000u
 _Static_assert(SCREEN_B + (uint32_t)SCREEN_SIZE <= PAL_OFF, "screen B reaches the palettes");
-_Static_assert(PAL_OFF + 6 * 256ul <= 0x10000, "the palettes leave bank 5");
+// and behind them a palette entry for each tile: its colour in the
+// editor's map (video_cell)
+#define TILE_COLOURS (PAL_OFF + 6 * 256u)
+_Static_assert(TILE_COLOURS + (uint32_t)TILE_COUNT <= 0x10000, "the palettes leave bank 5");
 
 // ---------------------------------------------------------------- colour RAM
 
