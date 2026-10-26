@@ -60,6 +60,14 @@ must leave `build/<folder>.prg` behind. If it also leaves a disk image
 `build/<folder>.d81` (made with `toolchain/tools/bin/mkd81.py`), F5 starts
 that instead: in drive 8, with its first program run (`-autoload`).
 
+Every build is also copied into [RetroDeck](../RetroDeck)'s games folder,
+`~/Games/Retro/MEGA65`: the disk image if there is one, else the `.prg`,
+replacing the one before - so the latest build can be played and compared
+there next to the rest (*Bibliothek neu einlesen* in RetroDeck's menu if it
+is already running). Not a screencast build, and not a program with a file
+`.no-retrodeck` in its folder (`main/`); `RETRO_GAMES=<dir>` copies
+elsewhere, `RETRO_GAMES=` (empty) not at all.
+
 ### Screencasts
 
 *Terminal → Run Task… → MEGA65: Record screencast (active program)* builds

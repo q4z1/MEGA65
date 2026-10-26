@@ -15,6 +15,14 @@
 #                      video, build/<name>.mp4, instead of starting Xemu
 #                      (toolchain/tools/bin/mega65-cast; MEGA65_CAST_OPTS
 #                      are passed on to it, e.g. "-t 60 -s 2")
+#   RETRO_GAMES=<dir>  where a build is copied for RetroDeck (below);
+#                      RETRO_GAMES= (empty): not at all
+#
+# Every build is copied into RetroDeck's games folder for the MEGA65
+# (~/Games/Retro/MEGA65), its disk image if there is one, else the .prg,
+# replacing the one before: there it can be played and compared with the
+# rest. Not a screencast build, and not a program with a file
+# .no-retrodeck in its folder (main/, the template).
 
 set -e
 
@@ -98,6 +106,23 @@ else
 fi
 merge_cdb
 trap - EXIT
+
+# Into RetroDeck's games folder (see the top)
+publish() {
+    dest=${RETRO_GAMES-$HOME/Games/Retro/MEGA65}
+    [ -n "$dest" ] && [ "$MEGA65_CAST" != 1 ] && [ ! -f "$DIR/.no-retrodeck" ] || return 0
+    file="$OUT/$NAME.prg" other="$NAME.d81"
+    if [ -f "$OUT/$NAME.d81" ]; then
+        file="$OUT/$NAME.d81" other="$NAME.prg"
+    fi
+    [ -f "$file" ] || return 0
+    mkdir -p "$dest"
+    cp "$file" "$dest/.$NAME.part" && mv "$dest/.$NAME.part" "$dest/$(basename "$file")"
+    # what an earlier build of it left there in the other form
+    rm -f "$dest/$other"
+    echo "RetroDeck: $dest/$(basename "$file")"
+}
+publish
 
 START=${MEGA65_PRG:-$NAME}
 if [ -f "$OUT/$START.d81" ]; then
