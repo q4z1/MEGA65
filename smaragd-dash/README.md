@@ -613,8 +613,10 @@ their own that the title screen cycles for the shine.
 The caves are CWS Boulder Dash 1, 2 and 3 by clarkkent, who made them on
 the C64 and gave them to the game: GDash's files as he sent them,
 `caves/1-cws-boulder-dash-1.bd` (15 caves), `caves/2-cws-boulder-dash-2.bd`
-(16; the file had CWS Boulder Dash 1 after them again, which is left out)
-and `caves/3-cws-boulder-dash-3.bd` (25), played one file after the other.
+(16, his file of 26 October 2026, with `RandSeed=0 0 0 0 0` and
+`TimeValue=1 1 1 1 1` put back into each cave: the C64's Construction Kit
+had no levels) and `caves/3-cws-boulder-dash-3.bd` (25), played one file
+after the other.
 The first is closest to Boulder Dash 1, the second goes further, the third
 uses GDash's newer elements a lot: acid, nitro, bombs, keys, switches,
 gravity. Each has small intermissions (20x12 cells), which stand still in
@@ -638,6 +640,6 @@ python3 tools/democave.py moves caves/1-cws-boulder-dash-1.bd build/c.bin --cave
 
 At every build the solver plays the first level of all 56 caves from their
 moves and names those it finds no way through; at present it gets through
-26 of them. Many of these caves are puzzles - fireflies
+25 of them. Many of these caves are puzzles - fireflies
 to blow up next to a wall, boulders to drop on purpose - which it does not
 find; moves written by hand bring more of them into the screencast.
