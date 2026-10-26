@@ -193,32 +193,30 @@ def norm(v):
     return tuple(c / l for c in v)
 
 
+BOULDER = [".....ABBCCA.....",
+           "....BDEEFFGC....",
+           "...DEHEEEEEGCA..",
+           ".ADEHHEEEFIGDC..",
+           ".DHEHHEHEGGDDBC.",
+           ".JHEHHHEIGDDDDB.",
+           "BEHHHJHEGDDBDBCK",
+           "BGHJHEHIDDDBBCCC",
+           "BGGEEGEGDDBBLCCC",
+           "CIDDDMDGDDBLLCCC",
+           "CDDBDDLBBCLLCCCC",
+           ".BDBDDLCLCCCCCCN",
+           ".CDBDDLCLLCCCCN.",
+           "..CBBLLCCCCCCN..",
+           "...CCCCCCCCCN...",
+           "....ONCCCNNA...."]
+BOULDER_COLS = {"A": "08080c", "B": "594f46", "C": "3b3530", "D": "78685a", "E": "b8a79b", "F": "a8968a",
+                "G": "98877a", "H": "d8cabc", "I": "a09484", "J": "f4ece0", "K": "2a2224", "L": "4a423c",
+                "M": "5c5050", "N": "1e1a18", "O": "1c1414"}
+
+
 def draw_boulder():
-    t = new_tile()
-    cx, cy, r = 7.5, 8.0, 7.6
-    n = Noise(31, 4)
-    n2 = Noise(32, 8)
-    L = norm(LIGHT)
-    stops = [hexc("1e1a18"), hexc("4a423c"), hexc("78685a"), hexc("a8968a"), hexc("d8cabc")]
-    for y in range(T):
-        for x in range(T):
-            dx, dy = (x + 0.5 - cx) / r, (y + 0.5 - cy) / r * 1.05
-            d2 = dx * dx + dy * dy
-            if d2 > 1:
-                continue
-            nz = math.sqrt(1 - d2)
-            lam = max(0, dx * L[0] + dy * L[1] + nz * L[2])
-            v = 0.12 + 0.78 * lam + 0.22 * (n(x, y) - 0.5) + 0.1 * (n2(x, y) - 0.5)
-            if d2 > 0.78:
-                v *= 0.55  # dark rim
-            t[y][x] = steps(stops, v, 7)
-    # a crack and a highlight
-    for (x, y) in ((9, 9), (10, 10), (10, 11), (11, 12)):
-        t[y][x] = hexc("1e1a18")
-    t[4][5] = hexc("f4ece0")
-    t[4][4] = hexc("d8cabc")
-    t[5][4] = hexc("d8cabc")
-    return t
+    """Lit from the top left, a rough surface"""
+    return from_pic(BOULDER, {k: hexc(v) for k, v in BOULDER_COLS.items()})
 
 
 def gem_shape():
@@ -705,22 +703,27 @@ def draw_door(lit, inbox):
     return t
 
 
-def draw_amoeba(frame):
+# The amoeba's six shades from dark to light, and its bubbles' colour
+AMOEBA_SHADES = (["082010", "195119", "166e16", "258925", "41a330", "8cd84c"], "288c28")
+AMOEBA2_SHADES = (["4c0e1d", "a83c3c", "a83c3c", "ff3060", "ff3060", "d8cabc"], "ff3060")
+
+
+def draw_amoeba(frame, shades=AMOEBA_SHADES):
     t = new_tile()
     n = Noise(60, 4)
-    stops = [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"), hexc("f4c0ff")]
+    cols = [hexc(c) for c in shades[0]]
     for y in range(T):
         for x in range(T):
             ph = frame * math.pi / 2
             v = n(x, y) + 0.18 * math.sin(ph + (x + y) * 0.7) + 0.12 * math.sin(ph * 2 + x * 1.3 - y)
-            t[y][x] = steps(stops, v, 6)
+            t[y][x] = cols[round(max(0.0, min(1.0, v)) * 5)]
     # bubbles that move with the frames
     for (bx, by, rr) in ((4, 4, 2), (11, 9, 1), (6, 12, 1)):
         by = (by - frame * 2) % T
         for y in range(by - rr, by + rr + 1):
             for x in range(bx - rr, bx + rr + 1):
                 if math.hypot(x - bx, y - by) <= rr:
-                    t[y % T][x % T] = hexc("f4c0ff") if (x - bx) + (y - by) < 0 else hexc("c868d8")
+                    t[y % T][x % T] = cols[5] if (x - bx) + (y - by) < 0 else hexc(shades[1])
     return t
 
 
@@ -991,10 +994,10 @@ def liquid(seed, stops, frame, bubbles=True, frames=2):
 
 
 def draw_slime(frame):
-    t = liquid(70, [hexc("0c2410"), hexc("1c5a1c"), hexc("3c9a2c"), hexc("8cd84c"), hexc("e0ffa0")], frame)
+    t = liquid(70, [hexc("200828"), hexc("501860"), hexc("8c30a0"), hexc("c868d8"), hexc("f4c0ff")], frame)
     # a gooey edge on the top, dripping
     for x in range(T):
-        plot(t, [(x, 0)], hexc("e0ffa0") if (x + frame) % 5 else hexc("3c9a2c"))
+        plot(t, [(x, 0)], hexc("f4c0ff") if (x + frame) % 5 else hexc("8c30a0"))
     return t
 
 
@@ -1141,13 +1144,19 @@ def draw_bladder_spender():
     return t
 
 
-def draw_switch(col, on=False):
-    """A lever on a steel plate, the plate in the switch's colour; switched
-    on, the lever leans the other way"""
+def draw_switch(col, on=False, symbol=None):
+    """A lever on a steel plate, the plate in the switch's colour with a
+    symbol of what it switches; switched on, the lever leans the other way"""
     t = draw_steel()
+    light = hexc(symbol[1]["light"]) if symbol and "light" in symbol[1] else mix(col, hexc("ffffff"), 0.5)
     for y in range(9, 14):
         for x in range(3, 13):
-            t[y][x] = col if y > 9 else mix(col, hexc("ffffff"), 0.5)
+            t[y][x] = col if y > 9 else light
+    if symbol:
+        rows, cols = symbol
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                t[10 + y][3 + x] = hexc(cols[ch])
     lever = new_tile()
     for i in range(6):
         plot(lever, [(5 + i, 9 - i)], hexc("e8f0ff"))
@@ -1165,6 +1174,46 @@ SWITCH_COLOURS = {"CREATURE_SWITCH": hexc("f06414"), "EXPANDING_WALL_SWITCH": he
                   "BITER_SWITCH": hexc("8c30a0"), "REPLICATOR_SWITCH": hexc("3cc870"),
                   "CONVEYOR_SWITCH": hexc("ffd040"), "CONVEYOR_DIR_SWITCH": hexc("30b0f0"),
                   "GRAVITY_SWITCH": hexc("2850c8")}
+# what is on each switch's plate (10x4, under its light top row; "light":
+# that row's colour if not the switch's colour half white)
+SWITCH_SYMBOLS = {
+    "CREATURE_SWITCH": (["ABBBBACDCA",   # a firefly's and a butterfly's colours
+                         "ABEEBCFAFC",
+                         "ABEEBACFDA",
+                         "ABBBBAACAA"],
+                        {"A": "f06414", "B": "2850c8", "C": "400804", "D": "a01c08", "E": "30b0f0", "F": "ffb030"}),
+    "EXPANDING_WALL_SWITCH": (["ABBBBBBBBB",   # bricks
+                              "CDDDDDDDDD",
+                              "EFFFFFFFFF",
+                              "GHHHHHHHHH"],
+                             {"A": "b26146", "B": "bb6a4b", "C": "aa583a", "D": "9c4a2c", "E": "9d4b33",
+                              "F": "8c3a24", "G": "763a29", "H": "5b2417"}),
+    "BITER_SWITCH": (["AAAABBAAAA",   # a biter
+                      "AAABCBDAAA",
+                      "AAABBBEAAA",
+                      "AAAABBAAAA"],
+                     {"A": "8c30a0", "B": "501860", "C": "101010", "D": "f4c0ff", "E": "ffffff",
+                      "light": "c868d8"}),
+    "REPLICATOR_SWITCH": (["ABBBBBBBBA",   # a replicator
+                           "ABACACACBA",
+                           "ABCACACABA",
+                           "ABBBBBBBBA"],
+                          {"A": "3cc870", "B": "1c2030", "C": "16904a"}),
+    "CONVEYOR_SWITCH": (["AAAAAAAAAA",   # a belt
+                         "ABCBCBCBCA",
+                         "ABCBCBCBCA",
+                         "AAAAAAAAAA"],
+                        {"A": "ffd040", "B": "3c4456", "C": "a8b4c8"}),
+    "CONVEYOR_DIR_SWITCH": (["AAAAAAAAAA",   # a belt the other way
+                             "ABCBCBCBCA",
+                             "ABCBCBCBCA",
+                             "AAAAAAAAAA"],
+                            {"A": "30b0f0", "B": "a8b4c8", "C": "3c4456"}),
+    "GRAVITY_SWITCH": (["AAAAAAAAAA",   # up and down
+                        "AABAAAABAA",
+                        "ABBCCCCBBA",
+                        "AABAAAABAA"],
+                       {"A": "2850c8", "B": "a8b4c8", "C": "e8f0ff"})}
 # the switches that show whether they are on (GDash's caverendered.cpp)
 SWITCHES_ON = ("CREATURE_SWITCH", "EXPANDING_WALL_SWITCH", "REPLICATOR_SWITCH", "CONVEYOR_SWITCH",
                "CONVEYOR_DIR_SWITCH", "GRAVITY_SWITCH")
@@ -1186,8 +1235,7 @@ def draw_biter(frame):
 
 
 def draw_amoeba_2(frame):
-    return by_lum(draw_amoeba(frame), [hexc("0c2410"), hexc("1c5a1c"), hexc("3c9a2c"), hexc("8cd84c"),
-                                       hexc("e0ffa0")], 5)
+    return draw_amoeba(frame, AMOEBA2_SHADES)
 
 
 def draw_falling_wall():
@@ -1228,11 +1276,28 @@ def draw_dragonfly(frame):
     return t
 
 
+MEGA_BOULDER = [".....ABBBBA.....",
+                "....BBCCCCCD....",
+                "...BCECCCCCCDA..",
+                ".ABCEEEEECCCBD..",
+                ".BECEEEECCCBBBD.",
+                ".FECEEEECCBBBBB.",
+                "BCEEEFECCBBBBBDD",
+                "BCEFECECBBBBBDDD",
+                "BCCCCCCCBBBBBDDD",
+                "BCBBBBBCBBBBBDDD",
+                "BBBBBBBBBBBBDDDD",
+                ".BBBBBBBBDDDDDDD",
+                ".BBBBBBDBBDDDDD.",
+                "..BBBBBDDDDDDD..",
+                "...DDDDDDDDDD...",
+                "....DDDDDDDA...."]
+
+
 def draw_mega_boulder():
-    t = draw_boulder()
-    t = by_lum(t, [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0"), hexc("a8b4c8")], 6)
-    plot(t, [(5, 6), (6, 7), (7, 7), (10, 4), (11, 5)], hexc("08080c"))
-    return t
+    """A boulder of dark blue iron"""
+    return from_pic(MEGA_BOULDER, {"A": hexc("08080c"), "B": hexc("2f3647"), "C": hexc("5c606a"),
+                                   "D": hexc("181b29"), "E": hexc("8c98b0"), "F": hexc("a8b4c8")})
 
 
 def draw_nut():
@@ -1252,7 +1317,10 @@ def draw_teleporter(frame):
         for x in range(T):
             dx, dy = x + 0.5 - 8, y + 0.5 - 8
             d = math.hypot(dx, dy)
+            if d > 8.4:
+                continue
             if d > 7.4:
+                t[y][x] = stops[2]  # the rim
                 continue
             a = math.atan2(dy, dx) + d * 0.6 + frame * math.pi / 4  # four frames: a quarter turn of the pattern
             t[y][x] = steps(stops, 0.5 + 0.45 * math.sin(a * 2) * (1 - d / 9), 5)
@@ -1275,7 +1343,7 @@ def eyes(t, shut):
         if shut:
             plot(t, [(ex, 7), (ex + 1, 7)], hexc("101010"))
         else:
-            plot(t, [(ex, 6), (ex + 1, 6), (ex, 7), (ex + 1, 7)], hexc("ffffff"))
+            plot(t, [(ex, 5), (ex + 1, 5), (ex, 6), (ex + 1, 6), (ex, 7)], hexc("ffffff"))
             plot(t, [(ex + 1, 7)], hexc("101010"))
     return t
 
@@ -1370,30 +1438,43 @@ def draw_gravestone():
     return t
 
 
-# A wing for what flies (the left one; the right one is its mirror), from
-# row WING_Y on: o outline, w white, b light blue
-WING_Y = 4
-WING = ["oo....",
-        "wwo...",
-        "wbwo..",
-        "bwbwo.",
-        "obobo."]
+# What flies up: a white arc over its top. The boulder's arc, put over it,
+# lights the rim under it
+FLYING_ARC = [".....wwwwww.....",
+              "...wwl.....ww...",
+              "..wl........mw..",
+              ".wl..........dw.",
+              "wl............dw",
+              "w..............w"]
 
 
-def winged(t):
-    """Flies up: the thing smaller (12x12, at the bottom), a wing at each
-    side of it, outlined so that it shows on any ground"""
-    w = new_tile()
-    for y in range(12):
-        for x in range(12):
-            w[4 + y][2 + x] = t[y * 16 // 12][x * 16 // 12]
-    col = {"o": hexc("1c2030"), "w": hexc("fff8f0"), "b": hexc("a0d8ff")}
-    for y, row in enumerate(WING):
-        for x, ch in enumerate(row):
-            if ch in col:
-                w[WING_Y + y][x] = col[ch]
-                w[WING_Y + y][T - 1 - x] = col[ch]
-    return w
+def draw_flying_boulder():
+    return from_pic(FLYING_ARC + ["." * T] * (T - len(FLYING_ARC)), {"w": hexc("ffffff"), "l": hexc("98877a"), "m": hexc("78685a"),
+                                 "d": hexc("594f46")}, draw_boulder())
+
+
+FLYING_EMERALD = ["................",
+                  "....AAAAAAAA....",
+                  "...ABBBBBBBBA...",
+                  "..ABCCCCCCCCBA..",
+                  ".ABDCCCCCCCCEFA.",
+                  ".BDDDDDDDDDEGDF.",
+                  ".BDDDDDDDDDGDGF.",
+                  ".BDDDDDDDDCDGEF.",
+                  ".BDDDDDDDCCGEBF.",
+                  ".BDDDDDDCCDEBBF.",
+                  ".BDDDDDCCDGBBBF.",
+                  "..BDFBEGEBFFBF..",
+                  "...HBEGEBFFFH...",
+                  "....FFFHHHHH....",
+                  "................",
+                  "................"]
+
+
+def draw_flying_emerald():
+    return from_pic(FLYING_EMERALD, {"A": hexc("ffffff"), "B": hexc("158947"), "C": hexc("adf6c8"),
+                                     "D": hexc("78e6a0"), "E": hexc("29ac5d"), "F": hexc("0e6836"),
+                                     "G": hexc("46cd78"), "H": hexc("094728")})
 
 
 def draw_nitro():
@@ -1580,8 +1661,9 @@ def gd_tiles():
     out += [("SWEET", draw_sweet())]
     out += [(f"BLADDER{i}", draw_bladder(i)) for i in range(2)]
     out += [("BLADDER_SPENDER", draw_bladder_spender())]
-    out += [(name, draw_switch(c)) for name, c in SWITCH_COLOURS.items()]
-    out += [(name + "_ON", draw_switch(c, True)) for name, c in SWITCH_COLOURS.items() if name in SWITCHES_ON]
+    out += [(name, draw_switch(c, False, SWITCH_SYMBOLS[name])) for name, c in SWITCH_COLOURS.items()]
+    out += [(name + "_ON", draw_switch(c, True, SWITCH_SYMBOLS[name])) for name, c in SWITCH_COLOURS.items()
+            if name in SWITCHES_ON]
     out += [(f"BITER{i}", draw_biter(i)) for i in range(2)]
     out += [(f"AMOEBA2_{i}", draw_amoeba_2(i)) for i in range(4)]
     out += [(f"ALT_FIREFLY{i}", draw_alt_firefly(i)) for i in range(4)]
@@ -1595,7 +1677,7 @@ def gd_tiles():
             ("BOULDER_WAITING", eyes(draw_boulder(), True)), ("BOULDER_CHASING", eyes(draw_boulder(), False))]
     out += [(f"REPLICATOR{i}", draw_replicator(i)) for i in range(2)]
     out += [("POT", draw_pot()), ("SKELETON", draw_skeleton()), ("GRAVESTONE", draw_gravestone()),
-            ("BOULDER_FLYING", winged(draw_boulder())), ("DIAMOND_FLYING", winged(draw_emerald(0))),
+            ("BOULDER_FLYING", draw_flying_boulder()), ("DIAMOND_FLYING", draw_flying_emerald()),
             ("NITRO", draw_nitro())]
     out += [(f"GHOST{i}", draw_ghost(i)) for i in range(2)]
     out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(4)]
