@@ -193,7 +193,7 @@ def norm(v):
     return tuple(c / l for c in v)
 
 
-BOULDER = [".....ABBCCA.....",
+BOULDER = [".....ALLCCA.....",
            "....BDEEFFGC....",
            "...DEHEEEEEGCA..",
            ".ADEHHEEEFIGDC..",
@@ -704,7 +704,7 @@ def draw_door(lit, inbox):
 
 
 # The amoeba's six shades from dark to light, and its bubbles' colour
-AMOEBA_SHADES = (["082010", "195119", "166e16", "258925", "41a330", "8cd84c"], "288c28")
+AMOEBA_SHADES = (["082010", "166e16", "166e16", "41a330", "41a330", "8cd84c"], "41a330")
 AMOEBA2_SHADES = (["4c0e1d", "a83c3c", "a83c3c", "ff3060", "ff3060", "d8cabc"], "ff3060")
 
 
@@ -1118,6 +1118,7 @@ def draw_sweet():
                 t[y][x] = stops[2] if (x + y) % 2 else stops[1]
                 t[y][15 - x] = stops[2] if (x + y) % 2 else stops[1]
     plot(t, [(x, 7) for x in range(5, 11, 2)], stops[3])
+    plot(t, [(10, 4)], hexc("4c0e1d"))  # rounder
     return t
 
 
@@ -1389,8 +1390,9 @@ def draw_pot():
     return t
 
 
-def draw_stirring():
-    """Rockford behind the pot, stirring it (GDash's player stirring)"""
+def draw_stirring(frame):
+    """Rockford behind the pot, stirring it (GDash's player stirring); the
+    second frame is the first mirrored"""
     t = [list(row) for row in draw_rockford_set()["RF_VIEW4"]]
     p = new_tile()
     stops = [hexc("08080c"), hexc("1c2030"), hexc("3c4456"), hexc("7c88a0")]
@@ -1405,7 +1407,7 @@ def draw_stirring():
     plot(t, [(14, 5), (13, 6), (13, 7), (12, 8), (12, 9), (11, 10)], hexc("f0d090"))  # the spoon
     plot(t, [(15, 5), (14, 6), (14, 7), (13, 8), (13, 9)], hexc("6a4020"))
     plot(t, [(1, 9), (2, 8), (0, 7)], hexc("c8d4e8"))  # steam
-    return t
+    return [row[::-1] for row in t] if frame else t
 
 
 def draw_skeleton():
@@ -1445,12 +1447,12 @@ FLYING_ARC = [".....wwwwww.....",
               "..wl........mw..",
               ".wl..........dw.",
               "wl............dw",
-              "w..............w"]
+              "d..............k"]
 
 
 def draw_flying_boulder():
     return from_pic(FLYING_ARC + ["." * T] * (T - len(FLYING_ARC)), {"w": hexc("ffffff"), "l": hexc("98877a"), "m": hexc("78685a"),
-                                 "d": hexc("594f46")}, draw_boulder())
+                                 "d": hexc("594f46"), "k": hexc("2a2224")}, draw_boulder())
 
 
 FLYING_EMERALD = ["................",
@@ -1485,7 +1487,8 @@ def draw_nitro():
             t[y][x] = red[0] if x in (3, 12) else red[1] if (x + y) % 6 else red[2]
     for x in range(3, 13):
         t[5][x] = t[11][x] = hexc("ffd040")
-    plot(t, [(8, 0), (8, 1), (9, 0)], hexc("fff8c0"))
+    plot(t, [(8, 1), (9, 0)], hexc("fff8c0"))  # the fuse
+    plot(t, [(8, 0)], hexc("3b3530"))
     return t
 
 
@@ -1592,13 +1595,14 @@ def sloped(base, corner):
     return t
 
 
-def draw_conveyor(left, frame):
+def draw_conveyor(frame):
+    """A belt; its two frames are the same whichever way it runs"""
     t = new_tile()
     for y in range(4, 12):
         for x in range(T):
             t[y][x] = hexc("1c2030") if y in (4, 11) else hexc("3c4456")
     for x in range(T):
-        if (x + (frame if left else -frame) * 2) % 4 == 0:
+        if (x + frame * 2) % 4 == 0:
             for y in range(5, 11):
                 t[y][x] = hexc("a8b4c8")
     for x in (2, 13):
@@ -1685,10 +1689,9 @@ def gd_tiles():
     out += [(f"ROCKET{i}", draw_rocket(i)) for i in range(4)]
     out += [("WALLED_DIAMOND", walled(draw_emerald(0)))]
     out += [(f"WALLED_KEY{i + 1}", walled(draw_key(c))) for i, c in enumerate(KEY_COLOURS)]
-    out += [(f"CONVEYOR_L{i}", draw_conveyor(True, i)) for i in range(2)]
-    out += [(f"CONVEYOR_R{i}", draw_conveyor(False, i)) for i in range(2)]
+    out += [(f"CONVEYOR{i}", draw_conveyor(i)) for i in range(2)]
     out += [(f"COW{i}", draw_cow(i)) for i in range(2)]
-    out += [("VOODOO", draw_voodoo()), ("RF_STIR", draw_stirring())]
+    out += [("VOODOO", draw_voodoo())] + [(f"RF_STIR{i}", draw_stirring(i)) for i in range(2)]
     return out
 
 
@@ -1745,8 +1748,7 @@ GD_TILES = [
     (r"AMOEBA", "AMOEBA0"),
     (r"AMOEBA_2", "AMOEBA2_0", 4, 3),
     (r"REPLICATOR", "REPLICATOR0", 2, 3),
-    (r"CONVEYOR_LEFT", "CONVEYOR_L0", 2, 2),
-    (r"CONVEYOR_RIGHT", "CONVEYOR_R0", 2, 2),
+    (r"CONVEYOR_LEFT|CONVEYOR_RIGHT", "CONVEYOR0", 2, 2),
     (r"LAVA", "LAVA0", 2, 3),
     (r"SWEET", "SWEET"),
     (r"VOODOO", "VOODOO"),
@@ -1762,7 +1764,7 @@ GD_TILES = [
     (r"BITER_\d", "BITER0", 2, 2),
     (r"DRAGONFLY_\d", "DRAGONFLY0", 2, 1),
     (r"PLAYER_GLUED", "RF_GLUED"),
-    (r"PLAYER_STIRRING", "RF_STIR"),
+    (r"PLAYER_STIRRING", "RF_STIR0", 2, 3),
     (r"PLAYER.*", "RF_VIEW4"),
     (r"ROCKET_LAUNCHER", "ROCKET_LAUNCHER"),
     (r"ROCKET_(\d)", "ROCKET"),

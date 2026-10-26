@@ -678,19 +678,14 @@ static void update_gtiles(void) {
         gtile[O_REPLICATOR_SWITCH] = T_REPLICATOR_SWITCH_ON;
     else
         gtile[O_REPLICATOR] = T_REPLICATOR0;
-    uint8_t left = T_CONVEYOR_L0, right = T_CONVEYOR_R0;
-    if (fl & GDF_CONVEYOR_BELTS_DIRECTION_CHANGED) {
-        left = T_CONVEYOR_R0;
-        right = T_CONVEYOR_L0;
+    uint8_t belt = T_CONVEYOR0;  // the same both ways
+    if (fl & GDF_CONVEYOR_BELTS_DIRECTION_CHANGED)
         gtile[O_CONVEYOR_DIR_SWITCH] = T_CONVEYOR_DIR_SWITCH_ON;
-    }
     if (fl & GDF_CONVEYOR_BELTS_ACTIVE) {  // running: both frames
         gtile[O_CONVEYOR_SWITCH] = T_CONVEYOR_SWITCH_ON;
-        left += (f >> 2) & 1;
-        right += (f >> 2) & 1;
+        belt += (f >> 2) & 1;
     }
-    gtile[O_CONVEYOR_LEFT] = left;
-    gtile[O_CONVEYOR_RIGHT] = right;
+    gtile[O_CONVEYOR_LEFT] = gtile[O_CONVEYOR_RIGHT] = belt;
     gtile[O_DIRT] = gtile[file.own.dirt_looks_like];
     gtile[O_EXPANDING_WALL] = gtile[O_V_EXPANDING_WALL] = gtile[O_H_EXPANDING_WALL] =
         gtile[file.own.expanding_wall_looks_like];
