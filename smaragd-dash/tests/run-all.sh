@@ -11,7 +11,7 @@
 # it (tests/test_mechanics.py), the build with the solver. Xemu: the engine
 # as the MEGA65 runs it against the host (tests/test_gdmega65.py, with the
 # mechanics' scenarios), the DMA jobs of render.s against the C loop over
-# all 25 caves of level 1 (tests/test_render.sh, which also has the
+# 12 caves of level 1 (tests/test_render.sh, which also has the
 # screencast build solve them), the same for 6 caves with a floppy
 # controller that fails every third try (-DDISK_FLAKY: the loader must ask
 # again) and an NMI in every frame (-DNMI_STORM, as Restore gives), the
@@ -47,7 +47,7 @@ run gdengine tests/test_gdengine.sh
 run mechanics python3 tests/test_mechanics.py
 if [ "$1" != --host ]; then
     run gdmega65 python3 tests/test_gdmega65.py
-    run render tests/test_render.sh 25
+    run render tests/test_render.sh 12
     run flakydisk env RENDER_CFLAGS="-DDISK_FLAKY -DNMI_STORM" tests/test_render.sh 6
     run asm tests/test_asm.sh
     run editor tests/test_editor.sh

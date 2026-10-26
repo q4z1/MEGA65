@@ -8,8 +8,7 @@
 #
 #   tests/test_gdengine.sh           a few of them, level 1, 300 steps, and
 #                                    the game's own caves (caves/*.bd), all
-#                                    four levels (as drawn: the game
-#                                    shuffles the higher ones, GDash cannot)
+#                                    five levels
 #   tests/test_gdengine.sh --all     all 200 files, all five levels (an hour)
 #   tests/test_gdengine.sh --gds     the ~1850 C64 games (.gds) GDash imports,
 #                                    as GDash saves them as .bd, level 1,
@@ -39,5 +38,5 @@ else
         $CAVES/Thomas_Mauritz/Emerald_Dash_1.bd $CAVES/Marek_Roth/Crazy_Dream/Crazy_Dream_8.bd \
         $CAVES/Marek_Roth/Crazy_Dream/Crazy_Dream_9.bd $CAVES/Sendy/Crli_Caves.bd \
         $CAVES/Dustin/Rock_Fort_3_-_Rockford_s_Dream.bd tests/cavekit/objects.bd
-    python3 tests/gdcompare.py $ORACLE build/gdplay 1,2,3,4 300 caves/*.bd
+    python3 tests/gdcompare.py $ORACLE build/gdplay 1,2,3,4,5 300 caves/*.bd
 fi

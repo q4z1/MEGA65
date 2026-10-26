@@ -15,6 +15,9 @@ build starts it: seed 0), step by step as on the MEGA65.
       from where the moves of FILE end (if given): what the search cannot
       find by itself - dropping boulders on purpose, say - FILE shows it
       the way (tools/record-solutions.sh)
+  democave.py moves <cave.bd | disk.d81> <demo.bin> [--cave N]
+      a demo file (as solve writes it) as moves, from where Rockford stands,
+      checked by playing them: for a .moves file (tools/mkcave.py)
 
 The moves: U R D L walk, u r d l the same with fire (snap; place a bomb,
 fire a rocket, use the hammer), . wait a step, X give up (Run/Stop:
@@ -333,6 +336,44 @@ def pack(inputs):
     return bytes(out)
 
 
+def unpack(data):
+    """The inputs of a demo file"""
+    out, i = [], 2
+    while data[i]:
+        out += [data[i + 1]] * data[i]
+        i += 2
+    return out
+
+
+def moves_of(path, demo_path, cave=1):
+    """The moves of a demo file, from where Rockford stands, in lines"""
+    p = Play(path, None, cave)
+    p.born()
+    born = len(p.inputs)
+    inputs = unpack(open(demo_path, "rb").read())
+    if inputs[:born] != p.inputs:
+        sys.exit(f"democave: {demo_path} does not start as Rockford is born")
+    words, i = [], born
+    while i < len(inputs):
+        n = 1
+        while i + n < len(inputs) and inputs[i + n] == inputs[i]:
+            n += 1
+        inp = inputs[i]
+        c = "." if inp == DIR_NONE else ("urdl" if inp & IN_FIRE else "URDL")[inp & 3]
+        words.append(f"{n if n > 1 else ''}{c}")
+        i += n
+    lines = [""]
+    for w in words:
+        if len(lines[-1]) + len(w) + 1 > 72:
+            lines.append("")
+        lines[-1] += (" " if lines[-1] else "") + w
+    for inp in inputs[born:]:
+        p.step(inp)
+    if p.st()[0] != 4:
+        sys.exit(f"democave: Rockford does not get out with {demo_path}")
+    return lines
+
+
 def solve(path, out_path, cave=1, moves_path=None):
     """tools/solve.c's way through the cave, from where the moves end"""
     solver = os.path.join(ROOT, "build", "solve")
@@ -379,6 +420,10 @@ def main():
         cave = int(args[args.index("--cave") + 1]) if "--cave" in args else 1
         moves = args[args.index("--moves") + 1] if "--moves" in args else None
         return 0 if solve(args[1], args[2], cave, moves) else 1
+    if len(args) >= 3 and args[0] == "moves":
+        cave = int(args[args.index("--cave") + 1]) if "--cave" in args else 1
+        print("\n".join(moves_of(args[1], args[2], cave)))
+        return 0
     sys.exit(__doc__)
 
 

@@ -60,18 +60,29 @@ OBJCOPY=${MEGA65_OBJCOPY:-../toolchain/llvm-mos/bin/llvm-objcopy}
 "$CC" -Os -g -Wall -DGD_FAR $SMARAGD_CFLAGS -Isrc -Ibuild/gen -nostartfiles -T gdengine.ld \
     -Wl,-Map=build/gdengine.map -o build/gdengine.bin src/gdengine.c src/gdjump.s src/gdscan.s src/gdcell.s build/gen/gdcave.c
 { printf '\000\000'; cat build/gdengine.bin; } > build/gen/gd.prg
-# The caves; the moves only for the screencast build, which loads them, and
-# those of the demo caves for its -DTOUR build (tools/record-tour.sh)
+# The caves; the moves only for the screencast build, which loads them -
+# those of the caves it plays, -DDEMO_FIRST to -DDEMO_LAST of the caves with
+# moves (the disk has no room for all) -, and those of the demo caves for its
+# -DTOUR build (tools/record-tour.sh)
 case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
     *" -DSCREENCAST "*) DEMOS=yes ;;
     *) DEMOS=no ;;
 esac
+DEMO_FIRST=$(echo " $MEGA65_CFLAGS $SMARAGD_CFLAGS " | sed -n 's/.* -DDEMO_FIRST=\([0-9]*\) .*/\1/p')
+DEMO_LAST=$(echo " $MEGA65_CFLAGS $SMARAGD_CFLAGS " | sed -n 's/.* -DDEMO_LAST=\([0-9]*\) .*/\1/p')
+DEMO_N=0
 set --
 case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
     *" -DTOUR "*)
         for f in build/tour/tour*.bin; do
             [ -f "$f" ] && set -- "$@" "$f=$(basename "$f" .bin)"
         done ;;
+esac
+# The builds that play the slots only (-DTOUR, -DGDCHECK) leave the game's
+# caves out: the disk has room for their files then
+CAVES=yes
+case " $MEGA65_CFLAGS $SMARAGD_CFLAGS " in
+    *" -DTOUR "* | *" -DGDCHECK "*) CAVES=no ;;
 esac
 # The check build (-DGDCHECK, tests/test_gdmega65.py): a file of moves for
 # each slot, CHECK01 ..., empty (3 blocks), which the test fills
@@ -90,8 +101,11 @@ KEEP="--keep SMARAGD.SCORES"
 for f in build/caves/*.bin; do
     name=$(basename "$f" .bin)
     case "$f" in
-        build/caves/demo*) [ $DEMOS = yes ] && set -- "$@" "$f=$name" ;;
-        build/caves/cave*) set -- "$@" "$f=CAVES/$name" ;;
+        build/caves/demo*)
+            DEMO_N=$((DEMO_N + 1))
+            [ $DEMOS = yes ] && [ $DEMO_N -ge "${DEMO_FIRST:-1}" ] && [ $DEMO_N -le "${DEMO_LAST:-99}" ] &&
+                set -- "$@" "$f=$name" ;;
+        build/caves/cave*) [ $CAVES = yes ] && set -- "$@" "$f=CAVES/$name" ;;
         build/caves/own*)
             for g in $(seq 1 $GAMES); do
                 KEEP="$KEEP --keep OWN$g/$name"

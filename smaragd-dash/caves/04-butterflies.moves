@@ -1,4 +1,0 @@
-# The moves the solver (tools/solve.c) starts every level of the cave with:
-# what it cannot find by itself. U R D L walk, u r d l snap, . wait, a
-# number repeats what follows.
-7D 35R

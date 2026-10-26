@@ -1,0 +1,4 @@
+# the solver's way through (tools/solve.c, beam search), as democave.py moves gives it
+2D R d 2R u R r 2D 3R U 2R D R 2D L D d U R D r d 2U 2R U 3R D 2R U u 3R
+D 3R U 2R D R r D R 3D L U L D L D L 4D 2R D r L D L l 2D 3R r 3U R 2U
+2R D 2R U 3R 3D 3R D R

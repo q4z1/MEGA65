@@ -8,12 +8,13 @@ The game built with -DFLOWTEST takes its keys and joystick from a script
 alive, out of time, the name entry - rather than for a number of frames, and
 at its checkpoints writes what the game knows into memory (main.c's
 flow_check, after the status line), which Xemu dumps at the end. The disk has caves of its own in
-place of some of the game's: caves 21-25 of level 1 are a step from an
-emerald and the exit (each emerald 100 points), cave 1 of level 2 is a box
-Rockford cannot leave, with 10 seconds.
+place of some of the game's: caves 51-56 of level 1 are a step from an
+emerald and the exit (each emerald 100 points), cave 1 is a box Rockford
+cannot leave, with 10 seconds - in level 2 too, which has no file of its
+own for it.
 
-The script: on the title, cave 21 is picked (right four times) and played;
-Rockford gets out of caves 21-25, which brings an extra life (500 points);
+The script: on the title, cave 51 is picked (right ten times) and played;
+Rockford gets out of caves 51-56, which brings an extra life (500 points);
 after the last cave of level 1 comes cave 1 of level 2. There the game is
 paused (the time stands) and goes on, the time runs out (fire: a life
 less), Rockford gives up three times (Run/Stop) - game over. The score gets
@@ -99,9 +100,9 @@ def main():
         shutil.copyfile(os.path.join(ROOT, "build", "smaragd-dash.d81"), disk_path)
         disk = ck.Disk(disk_path)
         exit_cave, box_cave = cave_file(EXIT_CAVE, tmp), cave_file(BOX_CAVE, tmp)
-        for n in range(21, 26):
+        for n in range(51, 57):
             disk.rewrite(f"CAVES/CAVE{n}-1", disk.read(f"CAVES/CAVE{n}-1")[:2] + exit_cave)
-        disk.rewrite("CAVES/CAVE01-2", disk.read("CAVES/CAVE01-2")[:2] + box_cave)
+        disk.rewrite("CAVES/CAVE01-1", disk.read("CAVES/CAVE01-1")[:2] + box_cave)
         disk.rewrite("SMARAGD.SCORES", bytes(len(disk.read("SMARAGD.SCORES"))))  # the default table
         own = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE, tmp)))
         own3 = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE.replace("time = 20", "time = 30"), tmp)))
@@ -133,32 +134,33 @@ def main():
 
         check("no wait timed out", not any(r["timed_out"] for r in rec))
         check("the title comes up", at(1, screen="title"))
-        check("right four times picks cave 21", at(2, start_cave=20, start_level=0))
-        check("Rockford gets through caves 21-25, one after the other",
-              all(at(3 + i, screen="cave", cave=20 + i, level=0, state=PS_ALIVE) for i in range(5)))
-        check("an extra life at 500 points", at(8, lives=4) and by[8]["score"] >= 500)
-        check("after the last cave of level 1: cave 1 of level 2", at(8, cave=0, level=1))
-        check("paused, the time stands still", at(9) and at(10) and by[9]["time"] == by[10]["time"])
-        check("and goes on after the pause", at(11) and by[11]["time"] < by[10]["time"])
-        check("out of time", at(12, state=PS_TIMEOUT))
-        check("fire after the time ran out: a life less, the cave again", at(13, lives=3, cave=0, level=1,
+        check("right ten times picks cave 51", at(2, start_cave=50, start_level=0))
+        check("Rockford gets through caves 51-56, one after the other",
+              all(at(3 + i, screen="cave", cave=50 + i, level=0, state=PS_ALIVE) for i in range(6)))
+        check("an extra life at 500 points", at(9, lives=4) and by[9]["score"] >= 500)
+        check("after the last cave of level 1: cave 1 of level 2, from the first level's file",
+              at(9, cave=0, level=1) and by[9]["time"] <= 10)
+        check("paused, the time stands still", at(10) and at(11) and by[10]["time"] == by[11]["time"])
+        check("and goes on after the pause", at(12) and by[12]["time"] < by[11]["time"])
+        check("out of time", at(13, state=PS_TIMEOUT))
+        check("fire after the time ran out: a life less, the cave again", at(14, lives=3, cave=0, level=1,
                                                                             state=PS_ALIVE))
-        check("Run/Stop: a life less", at(14, lives=2, state=PS_ALIVE))
-        check("and again", at(15, lives=1, state=PS_ALIVE))
-        rank = by[16]["hs_new"] if 16 in by else HS_COUNT
-        check("game over: the score gets into the table", at(16, screen="name") and rank < HS_COUNT)
-        check("then the title, the table first", at(17, screen="title", hs_new=rank))
-        check("the title runs on for a minute", at(18, screen="title"))
+        check("Run/Stop: a life less", at(15, lives=2, state=PS_ALIVE))
+        check("and again", at(16, lives=1, state=PS_ALIVE))
+        rank = by[17]["hs_new"] if 17 in by else HS_COUNT
+        check("game over: the score gets into the table", at(17, screen="name") and rank < HS_COUNT)
+        check("then the title, the table first", at(18, screen="title", hs_new=rank))
+        check("the title runs on for a minute", at(19, screen="title"))
         check("own caves in level 3: slot 1 from its file of level 3",
-              at(19, screen="cave", cave=0, level=2, state=PS_ALIVE) and by[19]["time"] > 20)
+              at(20, screen="cave", cave=0, level=2, state=PS_ALIVE) and by[20]["time"] > 20)
         check("after the last slot the next level, the first level's file where it has none",
-              at(20, screen="cave", cave=0, level=3, state=PS_ALIVE) and by[20]["time"] <= 20)
-        check("the script got to its end", 21 in by)
+              at(21, screen="cave", cave=0, level=3, state=PS_ALIVE) and by[21]["time"] <= 20)
+        check("the script got to its end", 22 in by)
 
         raw = ck.Disk(disk_path).read("SMARAGD.SCORES")[2:]
         table = [(raw[4 + 9 * i:7 + 9 * i].decode("latin-1"), int.from_bytes(raw[9 + 9 * i:13 + 9 * i], "little"))
                  for i in range(HS_COUNT)]
-        final = by[16]["score"] if 16 in by else -1
+        final = by[17]["score"] if 17 in by else -1
         check("the table on the disk has ZQX with the score", raw[:4] == b"SDH1" and rank < HS_COUNT and
               table[rank] == ("ZQX", final))
     finally:

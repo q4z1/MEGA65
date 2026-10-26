@@ -1,7 +1,7 @@
 #!/bin/sh
 # Takes the pictures of the README: screenshots/title.png (the title),
 # cave.png (the screencast in the first cave) and explosion.png (a boulder
-# falls onto Rockford in the first cave: the moves of tools/shots/, played
+# falls onto Rockford in the cave of tools/shots/, by its moves, played
 # by the -DTOUR build). Each is Xemu's -screenshot at the moment the game,
 # built with -DSHOT_AT=n, tells it to stop: after n frames. The pictures of
 # EDITOR.md come from tools/record-editor.sh --shots. The normal build is
@@ -44,9 +44,9 @@ python3 -c "
 import sys
 sys.path.insert(0, 'tools')
 import democave as dc
-p, _, _ = dc.play('caves/01-first-steps.bd', 'tools/shots/explosion.moves', quiet=True)
+p, _, _ = dc.play('tools/shots/first-steps.bd', 'tools/shots/explosion.moves', quiet=True)
 open('build/tour/tour01.bin', 'wb').write(dc.pack(p.inputs))
 "
-shot explosion 566 "-DSCREENCAST -DTOUR" caves/01-first-steps.bd
+shot explosion 566 "-DSCREENCAST -DTOUR" tools/shots/first-steps.bd
 rm -rf build/tour
 ./build.sh >$OUT/build.log 2>&1

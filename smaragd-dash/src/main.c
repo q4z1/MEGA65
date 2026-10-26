@@ -16,9 +16,9 @@
 //
 // Built with -DSCREENCAST (toolchain/tools/bin/mega65-cast), the game plays
 // itself: the title runs for a while, then the caves play the moves that
-// tools/solve.c found for them (DEMO01, DEMO02, ... on the disk, loaded with
-// each cave), and after the last one the emulator is told to stop, which
-// ends the recording.
+// tools/solve.c found for them (DEMOnn on the disk, nn the cave's number,
+// loaded with each cave; the caves without are left out), and after the
+// last one the emulator is told to stop, which ends the recording.
 // With -DTOUR as well (tools/record-tour.sh) it plays the demo caves in
 // the slots instead, with their moves (TOUR01, ...).
 
@@ -46,9 +46,13 @@
 #include "demo.h"
 #ifndef DEMO_LAST
 #define DEMO_LAST DEMO_CAVES  // the caves it plays; -DDEMO_LAST=6: the first six
-#endif
+#endif                        // of them (DEMO_LIST: the caves with moves)
 #ifndef DEMO_FIRST
-#define DEMO_FIRST 1          // -DDEMO_FIRST=9 -DDEMO_LAST=9: cave 9 alone
+#define DEMO_FIRST 1          // -DDEMO_FIRST=9 -DDEMO_LAST=9: the ninth alone
+#endif
+#ifndef TOUR
+static const uint8_t demo_list[] = DEMO_LIST;
+static uint8_t demo_at = DEMO_FIRST - 1;  // in demo_list
 #endif
 #endif
 
@@ -230,35 +234,37 @@ enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
 #define WAIT(w, in) {0, w, in}
 #define CAVE_OUT    WAIT(W_ALIVE, 0), SHOT, {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0)
 #define GIVE_UP     {2, 0, IN_RESTART}, WAIT(W_DEAD, 0), {80, 0, 0}, {2, 0, IN_BUTTON}
+#define NEXT_START  {2, 0, IN_RIGHT}, {10, 0, 0}
+_Static_assert(CAVE_COUNT == 56 && START_STEP == 5, "the flow script picks cave 51 and plays it to the last");
 #endif
 static const uint8_t test_script[][3] = {
 #ifdef FLOWTEST
     WAIT(W_TITLE, 0), SHOT,                               // 1: the title
-    {100, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
-    SHOT,                                                 // 2: cave 21 picked
+    {100, 0, 0}, NEXT_START, NEXT_START, NEXT_START, NEXT_START, NEXT_START,
+    NEXT_START, NEXT_START, NEXT_START, NEXT_START, NEXT_START,
+    SHOT,                                                 // 2: cave 51 picked
     {2, 0, IN_BUTTON},
-    CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,     // 3-7: caves 21-25
-    WAIT(W_ALIVE, 0), SHOT,                               // 8: level 2, cave 1
-    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 9, 10: paused
-    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 11: on again
-    WAIT(W_TIMEOUT, 0), SHOT,                             // 12: out of time
-    {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 13: a life less
-    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 14: Run/Stop
-    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: again
-    GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 16: game over, a high score
+    CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,  // 3-8: caves 51-56
+    WAIT(W_ALIVE, 0), SHOT,                               // 9: level 2, cave 1
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 10, 11: paused
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 12: on again
+    WAIT(W_TIMEOUT, 0), SHOT,                             // 13: out of time
+    {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 14: a life less
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: Run/Stop
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 16: again
+    GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 17: game over, a high score
     {1, 'Z', 0}, {10, 0, 0}, {1, 'Q', 0}, {10, 0, 0}, {1, 'X', 0}, {10, 0, 0},
-    WAIT(W_TITLE, 0), SHOT,                               // 17: the table first
+    WAIT(W_TITLE, 0), SHOT,                               // 18: the table first
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
-    SHOT,                                                 // 18: a minute later
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
+    SHOT,                                                 // 19: a minute later
+    NEXT_START, NEXT_START, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
     {2, 0, IN_BUTTON},                                    // the own caves in level 3
-    WAIT(W_ALIVE, 0), SHOT,                               // 19: slot 1, level 3's own file
+    WAIT(W_ALIVE, 0), SHOT,                               // 20: slot 1, level 3's own file
     {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0),
-    WAIT(W_ALIVE, 0), SHOT,                               // 20: the next level, the first's file
+    WAIT(W_ALIVE, 0), SHOT,                               // 21: the next level, the first's file
     {1, KEY_F1, 0}, WAIT(W_TITLE, 0),
-    SHOT, WAIT(FLOW_END, 0),                              // 21: the end
+    SHOT, WAIT(FLOW_END, 0),                              // 22: the end
 #elif defined(EDITDEMO)
     {150, 0, 0}, {1, 'E', 0}, {120, 0, 0},                // the title, E: the editor on slot 1
     SHOT,                                                 // 1: editor-cave
@@ -1284,8 +1290,13 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
 
 static void use_own_cave(void);
 
-// Cave n of the level from the disk (CAVEnn-l), unless it is there already
+// Cave n of the level from the disk (CAVEnn-l; a level the same as the
+// first has no file, the first's is played), unless it is there already;
+// false after the last cave
 static bool load_cave(uint8_t n) {
+    static const uint8_t cave_levels[CAVE_COUNT] = CAVE_LEVELS;
+    if (n >= CAVE_COUNT)
+        return false;
     if (n == loaded && level == loaded_level)
         return true;
     static char name[] = "CAVES/CAVE00-0";
@@ -1293,7 +1304,7 @@ static bool load_cave(uint8_t n) {
     uint8_t tens = (n + 1) / 10, ones = (n + 1) % 10;
     name[10] = '0' + tens;
     name[11] = '0' + ones;
-    name[13] = '1' + level;
+    name[13] = '1' + ((cave_levels[n] >> level) & 1 ? level : 0);
     char *num = what + 13;
     if (tens)
         *num++ = '0' + tens;
@@ -3227,9 +3238,10 @@ static void play_game(void) {
         use_own_cave();
 #else
 #ifdef SCREENCAST
-        // after the last cave with moves
-        if (cave_no >= DEMO_LAST || cave_no >= DEMO_CAVES)
+        // after the last cave with moves; the next one with moves
+        if (demo_at >= DEMO_LAST || demo_at >= DEMO_CAVES)
             demo_end();
+        cave_no = demo_list[demo_at] - 1;
 #endif
         if (!(have_cave = play_mode == PLAY_OWN ? next_own() : next_cave()))
             break;
@@ -3251,6 +3263,9 @@ static void play_game(void) {
 #ifdef SCREENCAST
         if (end != END_EXITED)  // something went wrong
             demo_end();
+#ifndef TOUR
+        demo_at++;
+#endif
 #endif
     }
     status_center(have_cave ? "GAME OVER" : play_mode == PLAY_OWN ? "NO OWN CAVES ON THE DISK" : "NO CAVES ON THE DISK");
@@ -3440,7 +3455,7 @@ int main(void) {
 #ifdef TOUR
     start_cave = CAVE_COUNT;  // the own caves: the demo caves
 #elif defined(SCREENCAST)
-    start_cave = DEMO_FIRST - 1;
+    start_cave = DEMO_CAVES ? demo_list[DEMO_FIRST - 1] - 1 : 0;
 #endif
 #ifdef GDCHECK
     gd_check();

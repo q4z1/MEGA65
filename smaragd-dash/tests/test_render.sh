@@ -7,7 +7,7 @@
 # caves (it stops at the first one Rockford does not get out of). The
 # normal build is made again afterwards.
 #
-#   tests/test_render.sh [caves]      (default: the first 6)
+#   tests/test_render.sh [caves]      (default: the first 6 with moves)
 #
 # $RENDER_CFLAGS goes into the build as well (tests/run-all.sh: -DDISK_FLAKY,
 # the loader with a controller that fails every third try, and -DNMI_STORM,
@@ -31,7 +31,7 @@ at = {l.split()[2]: int(l.split()[0], 16) for l in nm.splitlines() if len(l.spli
 m = open(sys.argv[1], "rb").read()
 word = lambda n: m[at[n]] | m[at[n] + 1] << 8
 bad, frames = word("render_bad"), word("render_frames")
-done, caves = m[at["cave_no"]], int(sys.argv[2])
+done, caves = m[at["demo_at"]], int(sys.argv[2])
 print(f"{done} of {caves} caves solved, {frames} frames, {bad} with other jobs than the C loop's")
 sys.exit(1 if bad or not frames or done != caves else 0)
 PY

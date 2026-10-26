@@ -4,9 +4,10 @@
 // screencast build starts the same as here: seed 0), so what works here
 // works the same in the game, step by step.
 //
-// Usage: solve <gendir> <diskdir>
+// Usage: solve <gendir> <diskdir> [--levels]
 //   writes <gendir>/demo.h and a file per cave, <diskdir>/demoNN.bin, which
-//   build.sh puts on the disk as DEMONN for the screencast build to load
+//   build.sh puts on the disk as DEMONN for the screencast build to load;
+//   with --levels it checks the higher levels too
 //        solve --own <cave> <opening> <out.bin>
 //   an own cave (a slot's contents without load address, tools/cavekit.py)
 //   from the input of its first steps on (<opening>: a byte per step from
@@ -15,7 +16,7 @@
 //   solve, tools/record-solutions.sh); the way above first, then a beam
 //   search (beam_search)
 //
-// A cave can bring opening moves (the .moves file beside its .bd) for what
+// A cave can bring opening moves (a .moves file, see tools/mkcave.py) for what
 // the search cannot do: dropping boulders on purpose, pushing. They are
 // played first, then the search goes on from there.
 //
@@ -24,15 +25,15 @@
 // creatures, over clocks), and so on until the exit (or the hidden one) is
 // open, then walk out. A choice that gets Rockford
 // killed or stuck is taken back and the next one tried. The caves of level 1
-// are solved in order for the screencast; the first one without a solution
-// ends its list. The higher levels are only checked: each cave in each of
-// them is solved too, and the ones without a way through are named.
+// are solved for the screencast, which plays the ones with a solution. The higher levels are only checked (--levels): each cave
+// in each of them that differs from its first level is solved too, and the
+// ones without a way through are named.
 //
 // A demo file holds the input of every step from the start of a cave: two
 // bytes of load address (not used), then pairs of (count, input) with input
 // as main.c's rules_tick takes it (DIR_* | IN_FIRE), closed by a count of 0;
 // at most DEMO_MAX bytes after the load address, the game's buffer for them.
-// A cave whose moves do not fit ends the list as well.
+// A cave whose moves do not fit is left out as well.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -649,34 +650,38 @@ static int solve_own(const char *cave_path, const char *opening_path, const char
 int main(int argc, char **argv) {
     if (argc == 5 && !strcmp(argv[1], "--own"))
         return solve_own(argv[2], argv[3], argv[4]);
-    if (argc != 3) {
-        fprintf(stderr, "usage: solve <gendir> <diskdir>\n       solve --own <cave> <opening> <out.bin>\n");
+    if (argc != 3 && !(argc == 4 && !strcmp(argv[3], "--levels"))) {
+        fprintf(stderr, "usage: solve <gendir> <diskdir> [--levels]\n"
+                        "       solve --own <cave> <opening> <out.bin>\n");
         return 1;
     }
     char path[1024];
-    int solved = 0;
-    for (; solved < CAVE_COUNT; solved++) {
-        const char *name = caves[0][solved]->name;
-        if (!solve(caves[0][solved], cave_demo[solved])) {
-            printf("solve: no way found through cave %d (%s)\n", solved + 1, name);
-            break;
+    int solved = 0, list[CAVE_COUNT];
+    for (int i = 0; i < CAVE_COUNT; i++) {
+        const char *name = caves[0][i]->name;
+        if (!solve(caves[0][i], cave_demo[i])) {
+            printf("solve: no way found through cave %d (%s)\n", i + 1, name);
+            continue;
         }
-        snprintf(path, sizeof path, "%s/demo%02d.bin", argv[2], solved + 1);
+        snprintf(path, sizeof path, "%s/demo%02d.bin", argv[2], i + 1);
         if (!write_demo(path)) {
-            printf("solve: the moves through cave %d (%s) take more than %d bytes\n",
-                   solved + 1, name, DEMO_MAX);
-            break;
+            printf("solve: the moves through cave %d (%s) take more than %d bytes\n", i + 1, name, DEMO_MAX);
+            continue;
         }
-        printf("solve: cave %d (%s): %d steps, %d emeralds, %d s left\n", solved + 1, name,
+        list[solved++] = i + 1;
+        printf("solve: cave %d (%s): %d steps, %d emeralds, %d s left\n", i + 1, name,
                ticks, gd.diamonds_collected, gd_time_visible());
     }
 
     // The higher levels: is there a way through, and how much time is left?
-    for (int lv = 1; lv < LEVELS; lv++) {
-        int ok = 0, least = -1;
+    for (int lv = 1; lv < (argc == 4 ? LEVELS : 1); lv++) {
+        int ok = 0, tried = 0, least = -1;
         double spare = 0;
         for (int i = 0; i < CAVE_COUNT; i++) {
             const GdCaveFile *c = caves[lv][i];
+            if (c == caves[0][i])
+                continue;  // the first level's
+            tried++;
             if (!solve(c, cave_demo[i])) {
                 printf("solve: level %d: no way found through cave %d (%s)\n", lv + 1, i + 1,
                        c->name);
@@ -690,7 +695,7 @@ int main(int argc, char **argv) {
                 spare = f;
             }
         }
-        printf("solve: level %d: %d of %d caves solved", lv + 1, ok, CAVE_COUNT);
+        printf("solve: level %d: %d of %d caves solved", lv + 1, ok, tried);
         if (least >= 0)
             printf(", the least time to spare in cave %d (%s): %.1f times the time needed",
                    least + 1, caves[lv][least]->name, spare);
@@ -704,9 +709,13 @@ int main(int argc, char **argv) {
         return 1;
     }
     fprintf(h, "// Generated by tools/solve.c - do not edit\n#ifndef DEMO_H\n#define DEMO_H\n\n"
-               "#define DEMO_CAVES %d  // caves with moves on the disk (DEMO01, ...)\n"
-               "#define DEMO_MAX   %d  // bytes of moves per cave at most\n\n#endif\n",
+               "#define DEMO_CAVES %d  // caves with moves on the disk (DEMOnn, nn their number)\n"
+               "#define DEMO_MAX   %d  // bytes of moves per cave at most\n"
+               "#define DEMO_LIST  {",
             solved, DEMO_MAX);
+    for (int i = 0; i < solved; i++)
+        fprintf(h, "%s%d", i ? ", " : "", list[i]);
+    fprintf(h, "%s}  // their numbers, from 1\n\n#endif\n", solved ? "" : "0");
     fclose(h);
     return 0;
 }
