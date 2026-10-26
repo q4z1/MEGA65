@@ -235,6 +235,7 @@ enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
 #define CAVE_OUT    WAIT(W_ALIVE, 0), SHOT, {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0)
 #define GIVE_UP     {2, 0, IN_RESTART}, WAIT(W_DEAD, 0), {80, 0, 0}, {2, 0, IN_BUTTON}
 #define NEXT_START  {2, 0, IN_RIGHT}, {10, 0, 0}
+#define CAVE_FAILS  WAIT(W_ALIVE, 0), SHOT, WAIT(W_TIMEOUT, 0), {60, 0, 0}, {2, 0, IN_BUTTON}
 _Static_assert(CAVE_COUNT == 56 && START_STEP == 5, "the flow script picks cave 51 and plays it to the last");
 #endif
 static const uint8_t test_script[][3] = {
@@ -244,7 +245,7 @@ static const uint8_t test_script[][3] = {
     NEXT_START, NEXT_START, NEXT_START, NEXT_START, NEXT_START,
     SHOT,                                                 // 2: cave 51 picked
     {2, 0, IN_BUTTON},
-    CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,  // 3-8: caves 51-56
+    CAVE_FAILS, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,  // 3-8: caves 51-56
     WAIT(W_ALIVE, 0), SHOT,                               // 9: level 2, cave 1
     {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 10, 11: paused
     {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 12: on again
@@ -252,6 +253,7 @@ static const uint8_t test_script[][3] = {
     {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 14: a life less
     GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: Run/Stop
     GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 16: again
+    GIVE_UP, WAIT(W_ALIVE, 0), GIVE_UP, WAIT(W_ALIVE, 0),  // the intermissions' lives
     GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 17: game over, a high score
     {1, 'Z', 0}, {10, 0, 0}, {1, 'Q', 0}, {10, 0, 0}, {1, 'X', 0}, {10, 0, 0},
     WAIT(W_TITLE, 0), SHOT,                               // 18: the table first
@@ -678,14 +680,22 @@ static void update_gtiles(void) {
         gtile[O_REPLICATOR_SWITCH] = T_REPLICATOR_SWITCH_ON;
     else
         gtile[O_REPLICATOR] = T_REPLICATOR0;
-    uint8_t belt = T_CONVEYOR0;  // the same both ways
-    if (fl & GDF_CONVEYOR_BELTS_DIRECTION_CHANGED)
-        gtile[O_CONVEYOR_DIR_SWITCH] = T_CONVEYOR_DIR_SWITCH_ON;
-    if (fl & GDF_CONVEYOR_BELTS_ACTIVE) {  // running: both frames
+    // running, the belts' stripes move the way they carry: the four frames
+    // forwards to the left, backwards to the right
+    uint8_t left = 0, right = 0;
+    if (fl & GDF_CONVEYOR_BELTS_ACTIVE) {
         gtile[O_CONVEYOR_SWITCH] = T_CONVEYOR_SWITCH_ON;
-        belt += (f >> 2) & 1;
+        left = (f >> 1) & 3;
+        right = -left & 3;
     }
-    gtile[O_CONVEYOR_LEFT] = gtile[O_CONVEYOR_RIGHT] = belt;
+    if (fl & GDF_CONVEYOR_BELTS_DIRECTION_CHANGED) {
+        uint8_t t = left;
+        left = right;
+        right = t;
+        gtile[O_CONVEYOR_DIR_SWITCH] = T_CONVEYOR_DIR_SWITCH_ON;
+    }
+    gtile[O_CONVEYOR_LEFT] = T_CONVEYOR0 + left;
+    gtile[O_CONVEYOR_RIGHT] = T_CONVEYOR0 + right;
     gtile[O_DIRT] = gtile[file.own.dirt_looks_like];
     gtile[O_EXPANDING_WALL] = gtile[O_V_EXPANDING_WALL] = gtile[O_H_EXPANDING_WALL] =
         gtile[file.own.expanding_wall_looks_like];
@@ -3245,16 +3255,28 @@ static void play_game(void) {
         demo_p = demo_moves;
         demo_left = 0;
 #endif
+        // An intermission is played once, as in GDash: a life for it at its
+        // start (instantlife) or at its exit; not got out, no life is lost
+        // and the next cave comes
+        bool inter = file.own.flags & GDF_INTERMISSION;
+        bool instant = file.own.flags & GDF_INTERMISSION_INSTANTLIFE;
+        if (inter && instant && lives < 9)
+            lives++;
         uint8_t end = play_cave();
         if (end == END_QUIT) {  // straight back to the title
             hs_new = HS_COUNT;
             return;
         }
         score += game.score;
-        if (end == END_EXITED)
+        if (end == END_EXITED) {
             cave_no++;
-        else
+            if (inter && !instant && lives < 9)
+                lives++;
+        } else if (inter) {
+            cave_no++;
+        } else {
             lives--;
+        }
 #ifdef SCREENCAST
         if (end != END_EXITED)  // something went wrong
             demo_end();

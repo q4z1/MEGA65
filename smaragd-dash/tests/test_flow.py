@@ -8,13 +8,15 @@ The game built with -DFLOWTEST takes its keys and joystick from a script
 alive, out of time, the name entry - rather than for a number of frames, and
 at its checkpoints writes what the game knows into memory (main.c's
 flow_check, after the status line), which Xemu dumps at the end. The disk has caves of its own in
-place of some of the game's: caves 51-56 of level 1 are a step from an
+place of some of the game's: caves 52-56 of level 1 are a step from an
 emerald and the exit (each emerald 100 points), cave 1 is a box Rockford
 cannot leave, with 10 seconds - in level 2 too, which has no file of its
-own for it.
+own for it -, and three are intermissions: cave 51 such a box, cave 52 one
+with a life at its exit, cave 53 one with a life at its start.
 
 The script: on the title, cave 51 is picked (right ten times) and played;
-Rockford gets out of caves 51-56, which brings an extra life (500 points);
+its time runs out, which costs no life, and cave 52 comes; Rockford gets
+out of caves 52-56 - two lives for the intermissions, one for 500 points;
 after the last cave of level 1 comes cave 1 of level 2. There the game is
 paused (the time stands) and goes on, the time runs out (fire: a life
 less), Rockford gives up three times (Run/Stop) - game over. The score gets
@@ -72,8 +74,10 @@ def write_cave(text, tmp):
     return path
 
 
-def cave_file(text, tmp):
-    return ck.gd_from_cave(ck.read_cave_file(write_cave(text, tmp))).tobytes()
+def cave_file(text, tmp, inter=False, instant=False):
+    g = ck.gd_from_cave(ck.read_cave_file(write_cave(text, tmp)))
+    g.v.update(intermission=int(inter), intermission_instantlife=int(instant))
+    return g.tobytes()
 
 
 def records(mem):
@@ -100,8 +104,10 @@ def main():
         shutil.copyfile(os.path.join(ROOT, "build", "smaragd-dash.d81"), disk_path)
         disk = ck.Disk(disk_path)
         exit_cave, box_cave = cave_file(EXIT_CAVE, tmp), cave_file(BOX_CAVE, tmp)
+        ours = {51: cave_file(BOX_CAVE, tmp, True), 52: cave_file(EXIT_CAVE, tmp, True),
+                53: cave_file(EXIT_CAVE, tmp, True, True)}
         for n in range(51, 57):
-            disk.rewrite(f"CAVES/CAVE{n}-1", disk.read(f"CAVES/CAVE{n}-1")[:2] + exit_cave)
+            disk.rewrite(f"CAVES/CAVE{n}-1", disk.read(f"CAVES/CAVE{n}-1")[:2] + ours.get(n, exit_cave))
         disk.rewrite("CAVES/CAVE01-1", disk.read("CAVES/CAVE01-1")[:2] + box_cave)
         disk.rewrite("SMARAGD.SCORES", bytes(len(disk.read("SMARAGD.SCORES"))))  # the default table
         own = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE, tmp)))
@@ -135,18 +141,21 @@ def main():
         check("no wait timed out", not any(r["timed_out"] for r in rec))
         check("the title comes up", at(1, screen="title"))
         check("right ten times picks cave 51", at(2, start_cave=50, start_level=0))
-        check("Rockford gets through caves 51-56, one after the other",
-              all(at(3 + i, screen="cave", cave=50 + i, level=0, state=PS_ALIVE) for i in range(6)))
-        check("an extra life at 500 points", at(9, lives=4) and by[9]["score"] >= 500)
+        check("the intermission Rockford does not get out of costs no life, the next cave comes",
+              at(3, cave=50, lives=3) and at(4, screen="cave", cave=51, lives=3))
+        check("a life at an intermission's exit, or at its start", at(5, cave=52, lives=5))
+        check("Rockford gets through caves 52-56, one after the other",
+              all(at(4 + i, screen="cave", cave=51 + i, level=0, state=PS_ALIVE) for i in range(5)))
+        check("an extra life at 500 points", at(9, lives=6) and by[9]["score"] >= 500)
         check("after the last cave of level 1: cave 1 of level 2, from the first level's file",
               at(9, cave=0, level=1) and by[9]["time"] <= 10)
         check("paused, the time stands still", at(10) and at(11) and by[10]["time"] == by[11]["time"])
         check("and goes on after the pause", at(12) and by[12]["time"] < by[11]["time"])
         check("out of time", at(13, state=PS_TIMEOUT))
-        check("fire after the time ran out: a life less, the cave again", at(14, lives=3, cave=0, level=1,
+        check("fire after the time ran out: a life less, the cave again", at(14, lives=5, cave=0, level=1,
                                                                             state=PS_ALIVE))
-        check("Run/Stop: a life less", at(15, lives=2, state=PS_ALIVE))
-        check("and again", at(16, lives=1, state=PS_ALIVE))
+        check("Run/Stop: a life less", at(15, lives=4, state=PS_ALIVE))
+        check("and again", at(16, lives=3, state=PS_ALIVE))
         rank = by[17]["hs_new"] if 17 in by else HS_COUNT
         check("game over: the score gets into the table", at(17, screen="name") and rank < HS_COUNT)
         check("then the title, the table first", at(18, screen="title", hs_new=rank))

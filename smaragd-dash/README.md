@@ -24,6 +24,11 @@ levels. On the title screen the joystick picks the level (up and down) and
 the cave to start with (left and right: 1, 6, 11, ... 56). After the last
 cave the game goes on with the first one of the next level.
 
+An **intermission** (`Intermission=true` in its file) is played once, as
+in GDash: Rockford not getting out of it costs no life, and the next cave
+comes; it brings a life, at its exit, or at its start if the cave says so
+(`IntermissionProperties.instantlife`, as CWS Boulder Dash 1's do).
+
 Right of cave 56 come the **own caves**: three games on the disk, OWN1,
 OWN2 and OWN3 (renamed in the editor), each with twenty slots for caves
 made with the game's [cave editor](#cave-editor) (E on the title), or

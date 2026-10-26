@@ -294,6 +294,9 @@ rules. Worth knowing:
   cannot grow any more turns into emeralds.
 - Caves from GDash bring their own rules along (C64 engines, timing,
   effects); the editor keeps them.
+- A cave GDash calls an intermission is played once in a game: not getting
+  out of it costs no life, and the next cave comes; getting out (or, if it
+  says so, getting there) brings a life.
 
 ## Caves on the PC: GDash and cavekit.py
 

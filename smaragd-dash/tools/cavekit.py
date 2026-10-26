@@ -1445,6 +1445,9 @@ GD_ELEMENT_FIELDS = [
     "butterfly_explode_to", "alt_butterfly_explode_to", "stonefly_explode_to", "dragonfly_explode_to",
     "explosion_effect", "explosion_3_effect", "diamond_birth_effect", "bomb_explosion_effect",
     "nitro_explosion_effect", "expanding_wall_looks_like", "dirt_looks_like"]
+# the flags, 32 at most; the last one, intermission_instantlife: the life
+# for an intermission at its start, else at its exit (rewardlife: GDash's
+# engines set one of the two)
 GD_FLAG_FIELDS = [
     "diagonal_movements", "active_is_first_found", "mega_stones_pushable_with_sweet", "infinite_rockets",
     "hammered_walls_reappear", "voodoo_collects_diamonds", "voodoo_dies_by_stone",
@@ -1454,7 +1457,8 @@ GD_FLAG_FIELDS = [
     "expanding_wall_changed", "replicators_active", "conveyor_belts_active",
     "conveyor_belts_direction_changed", "water_does_not_flow_down", "creatures_backwards",
     "creatures_direction_auto_change_on_start", "gravity_switch_active", "lineshift",
-    "border_scan_first_and_last", "short_explosions", "gravity_affects_all", "pal_timing", "intermission"]
+    "border_scan_first_and_last", "short_explosions", "gravity_affects_all", "pal_timing", "intermission",
+    "intermission_instantlife"]
 GD_FORMAT = "<" + "".join(f for _, _, f in GD_FIELDS) + "I" * len(GD_PROB_FIELDS) + \
     "B" * len(GD_ELEMENT_FIELDS) + "I" + f"{NAME_FIELD}s{W * H}s"
 GD_SIZE = struct.calcsize(GD_FORMAT)
@@ -1637,6 +1641,7 @@ def write_bd(path, caves, title, levels=None, extra=None, head=""):
             else:
                 vals[p.member] = [v[n]] * p.count if p.member in level_of else ([v[n]] if n in v else None)
         vals["level_slime_seed_c64"] = [v["c64_seed_1"] * 256 + v["c64_seed_2"]] * 5
+        vals["intermission_rewardlife"] = [int(not v["intermission_instantlife"])]
         lines = [f"Name={cave.name}", f"Size={v['w']} {v['h']} {v['x1']} {v['y1']} {v['x2']} {v['y2']}"]
         # what says how the slime takes its random numbers, and the timing:
         # always, as GDash reads them in this order

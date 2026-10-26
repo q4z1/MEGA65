@@ -99,6 +99,13 @@ for a, (_, _, b) in zip((c1, c2, c3, c4), back):
     diff = [k for k in a.v if a.v[k] != b.v.get(k)]
     check(f"'{a.name}' written as .bd and read again: the same", not diff and a.cells == b.cells,
           [(k, a.v[k], b.v.get(k)) for k in diff][:5])
+c3.v["intermission_instantlife"] = 1  # the life at the start, none at the exit
+ck.write_bd(out_bd, [c3], "test")
+text = open(out_bd, encoding="latin-1").read()
+check("an intermission's life at its start: written as instantlife, and no rewardlife",
+      "IntermissionProperties.instantlife=true" in text and "IntermissionProperties.rewardlife=false" in text and
+      ck.read_bd(out_bd, 0)[1][0][2].v["intermission_instantlife"] == 1)
+c3.v["intermission_instantlife"] = 0
 raw = c1.tobytes()
 again = ck.GdCave.frombytes(raw)
 check("the disk's file layout, and back", len(raw) == ck.GD_SIZE and again.v == c1.v and again.cells == c1.cells

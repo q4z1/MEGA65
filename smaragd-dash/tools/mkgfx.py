@@ -1596,13 +1596,14 @@ def sloped(base, corner):
 
 
 def draw_conveyor(frame):
-    """A belt; its two frames are the same whichever way it runs"""
+    """A belt: its stripes a pixel further left in each of the four frames
+    (backwards: running right)"""
     t = new_tile()
     for y in range(4, 12):
         for x in range(T):
             t[y][x] = hexc("1c2030") if y in (4, 11) else hexc("3c4456")
     for x in range(T):
-        if (x + frame * 2) % 4 == 0:
+        if (x + frame) % 4 == 0:
             for y in range(5, 11):
                 t[y][x] = hexc("a8b4c8")
     for x in (2, 13):
@@ -1684,12 +1685,13 @@ def gd_tiles():
             ("BOULDER_FLYING", draw_flying_boulder()), ("DIAMOND_FLYING", draw_flying_emerald()),
             ("NITRO", draw_nitro())]
     out += [(f"GHOST{i}", draw_ghost(i)) for i in range(2)]
-    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(4)]
+    # the hammer at work: HAMMER (its first frame) and three more
+    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(1, 4)]
     out += [("ROCKET_LAUNCHER", draw_rocket_launcher())]
     out += [(f"ROCKET{i}", draw_rocket(i)) for i in range(4)]
     out += [("WALLED_DIAMOND", walled(draw_emerald(0)))]
     out += [(f"WALLED_KEY{i + 1}", walled(draw_key(c))) for i, c in enumerate(KEY_COLOURS)]
-    out += [(f"CONVEYOR{i}", draw_conveyor(i)) for i in range(2)]
+    out += [(f"CONVEYOR{i}", draw_conveyor(i)) for i in range(4)]
     out += [(f"COW{i}", draw_cow(i)) for i in range(2)]
     out += [("VOODOO", draw_voodoo())] + [(f"RF_STIR{i}", draw_stirring(i)) for i in range(2)]
     return out
@@ -1740,7 +1742,7 @@ GD_TILES = [
     (r"WALLED_KEY_(\d)", "WALLED_KEY"),
     (r"POT", "POT"),
     (r"PNEUMATIC_HAMMER", "HAMMER"),
-    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER_ACTIVE0", 4, 2),
+    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER", 4, 2),
     (r"TELEPORTER", "TELEPORTER0", 4, 3),
     (r"SKELETON", "SKELETON"),
     (r"WATER(_\d+)?", "WATER0", 4, 3),
@@ -1748,7 +1750,7 @@ GD_TILES = [
     (r"AMOEBA", "AMOEBA0"),
     (r"AMOEBA_2", "AMOEBA2_0", 4, 3),
     (r"REPLICATOR", "REPLICATOR0", 2, 3),
-    (r"CONVEYOR_LEFT|CONVEYOR_RIGHT", "CONVEYOR0", 2, 2),
+    (r"CONVEYOR_LEFT|CONVEYOR_RIGHT", "CONVEYOR0"),  # main.c runs them
     (r"LAVA", "LAVA0", 2, 3),
     (r"SWEET", "SWEET"),
     (r"VOODOO", "VOODOO"),
