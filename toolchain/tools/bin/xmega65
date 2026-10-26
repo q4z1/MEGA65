@@ -20,20 +20,15 @@ if [ -n "$DISPLAY" ] && [ -z "$GDK_BACKEND" ]; then
 fi
 
 # Gamepads: Xemu reads every SDL joystick as the one joystick of its port
-# (default 2): left stick and D-pad move, any button fires. On the Steam Deck
-# its built-in controller (28de:1205) is a joystick too and would fight an
-# external gamepad over that port, so it is hidden from SDL as soon as
-# another joystick is connected. MEGA65_PAD_IGNORE overrides the list
-# (vendor/product, comma separated; empty hides nothing).
-other_pad() {
-    awk 'BEGIN { RS = "" } /Handlers=[^\n]*js[0-9]/ && !/Vendor=28de/ { found = 1 } END { exit !found }' \
-        /proc/bus/input/devices 2>/dev/null
-}
-if [ -n "${MEGA65_PAD_IGNORE+x}" ]; then
-    export SDL_GAMECONTROLLER_IGNORE_DEVICES="$MEGA65_PAD_IGNORE"
-elif other_pad; then
-    export SDL_GAMECONTROLLER_IGNORE_DEVICES=0x28de/0x1205
-fi
+# (default 2): left stick and D-pad move, any button fires. All of them
+# share that one state, so a joystick that is not used still clears what
+# the other one holds - the Steam Deck's controller (28de:1205) and its
+# motion sensors send events all the time. They are always hidden from
+# SDL, also when no other gamepad is connected yet when Xemu starts (a
+# Bluetooth controller that sleeps comes later). MEGA65_PAD_IGNORE
+# overrides the list (vendor/product, comma separated; empty hides
+# nothing).
+export SDL_GAMECONTROLLER_IGNORE_DEVICES="${MEGA65_PAD_IGNORE-0x28de/0x1205}"
 
 TC=$(cd "$(dirname "$0")/../.." && pwd)
 XEMU="$TC/xemu/build/bin/xmega65.native"
