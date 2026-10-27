@@ -45,6 +45,7 @@ from cavekit import GD_SIZE, CaveError, write_c
 NAME_LEN = 21  # "CAVE 12/3 " before it in the status line
 LEVELS = ck.LEVELS  # GDash's
 OWN_SLOTS = 20  # the editor's slots on the disk: as many caves as Boulder Dash 1
+START_STEP = 5  # the title offers every fifth cave to start with - an intermission's next one
 
 
 def fail(path, msg):
@@ -85,7 +86,7 @@ def load_bd(path):
         demo = read_moves(f"{os.path.splitext(path)[0]}-{i + 1:02d}.moves")
         files = [gd.tobytes() for gd in gds]
         assert all(len(data) == GD_SIZE for data in files)
-        out.append((name, demo, files))
+        out.append((name, demo, files, gds[0].v["intermission"]))
     return out
 
 
@@ -94,7 +95,12 @@ def main():
     caves = [cave for p in paths for cave in load_bd(p)]
     if len(caves) > 99:
         sys.exit("mkcave: more than 99 caves (CAVE01 ... CAVE99)")
-    files = [data for _, _, data in caves]  # [cave][level]
+    files = [data for _, _, data, _ in caves]  # [cave][level]
+    # the caves to start with: every START_STEP-th, or the first after it
+    # that is not an intermission (none if there is none before the next)
+    starts = [next(i for i in range(k, min(k + START_STEP, len(caves))) if not caves[i][3])
+              for k in range(0, len(caves), START_STEP)
+              if any(not c[3] for c in caves[k:k + START_STEP])]
     # the levels each cave has a file of its own for: bit L for level L + 1
     have = [sum(1 << lv for lv, data in enumerate(cave) if lv == 0 or data != cave[0]) for cave in files]
     for i, cave in enumerate(files):
@@ -115,6 +121,8 @@ def main():
         f.write(f"#define OWN_LEVELS {LEVELS}  // their levels (OWN01-2, ...)\n")
         f.write("// the levels each cave has a file for (bit L: CAVENN-(L+1)); the\n"
                 "// others play the first level's\n")
+        f.write(f"#define START_COUNT {len(starts)}  // the caves to start with (from 0)\n")
+        f.write("#define CAVE_STARTS {" + ", ".join(str(n) for n in starts) + "}\n")
         f.write("#define CAVE_LEVELS { \\\n")
         for i in range(0, len(have), 16):
             f.write("    " + ", ".join(f"0x{h:02x}" for h in have[i:i + 16]) + ", \\\n")
@@ -140,7 +148,7 @@ def main():
             f.write("    {" + ", ".join(f"(const GdCaveFile *)file{i}_{lv if have[i] >> lv & 1 else 0}"
                                         for i in range(len(files))) + "},\n")
         f.write("};\n\nconst char *const cave_demo[CAVE_COUNT] = {\n")
-        for _, demo, _ in caves:
+        for _, demo, _, _ in caves:
             f.write(f'    "{demo}",\n')
         f.write("};\n")
     print(f"mkcave: {len(caves)} cave(s) in {LEVELS} levels, {sum(bin(h).count('1') for h in have)} files")

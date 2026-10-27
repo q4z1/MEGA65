@@ -21,7 +21,8 @@ GDash. `tools/make-release.sh` makes the ZIP.
 There are 56 caves: CWS Boulder Dash 1, 2 and 3 one after the other (15,
 16 and 25 caves, small intermissions among them), each in GDash's five
 levels. On the title screen the joystick picks the level (up and down) and
-the cave to start with (left and right: 1, 6, 11, ... 56). After the last
+the cave to start with (left and right: every fifth, but an intermission's
+next one - 1, 6, 11, 16, 21, 26, 32, 37, 42, 47, 52). After the last
 cave the game goes on with the first one of the next level.
 
 An **intermission** (`Intermission=true` in its file) is played once, as
@@ -29,7 +30,7 @@ in GDash: Rockford not getting out of it costs no life, and the next cave
 comes; it brings a life, at its exit, or at its start if the cave says so
 (`IntermissionProperties.instantlife`, as CWS Boulder Dash 1's do).
 
-Right of cave 56 come the **own caves**: three games on the disk, OWN1,
+Right of cave 52 come the **own caves**: three games on the disk, OWN1,
 OWN2 and OWN3 (renamed in the editor), each with twenty slots for caves
 made with the game's [cave editor](#cave-editor) (E on the title), or
 brought over from GDash with `tools/cavekit.py`, with all of its
@@ -134,7 +135,7 @@ it is changed.
 
 ![The editor](screenshots/editor-changed.png)
 
-The own caves are played from the title (right of cave 56: the games, each
+The own caves are played from the title (right of cave 52: the games, each
 with its slots 1 to 20 - OWN1 1 ... OWN1 20, OWN2 1, ...; left and right
 pick the one to start with): one after the other in the game, empty slots
 left out, with three lives as usual; after the last one
@@ -220,8 +221,9 @@ step, `src/gddigest.h`, into bank 4; a scenario's moves in the slot's file
 `CHECKnn`) and compares each step with `tests/gdplay.c` on the host; if
 Xemu hangs, it names the cave. `python3 tests/test_flow.py` plays the
 game's flow in Xemu from a script (built with `-DFLOWTEST`) that waits for
-what happens rather than for frames: a cave picked on the title, six caves
-one after the other with an extra life at 500 points, on into the next
+what happens rather than for frames: a cave picked on the title (past an
+intermission), five caves one after the other - three intermissions, one
+lost, two with a life - with an extra life at 500 points, on into the next
 level, pause, the time running out, Run/Stop, game over, the name typed
 into the high score table, the table on the disk and on the title, which
 then runs for a minute, and at last the own caves from level 3 on (a level

@@ -269,7 +269,7 @@ slots of the old disk by itself.
 ## Playing your caves
 
 On the title screen, left and right choose the cave to start with (1, 6,
-11, ... 56). Right of cave 56 come the own caves, game by game: OWN1 1 to
+11, ... 52). Right of cave 52 come the own caves, game by game: OWN1 1 to
 20, then OWN2 1 to 20, ... (with the games' names): left and right choose
 the game and the slot to start with, up and down the level, 1 to 5. Fire
 starts them: from the slot chosen on, all slots of the game that are not
@@ -344,7 +344,7 @@ takes a game by its name or number (1-3).
   named after the file (`Boulder_Dash_1.bd`: BD1; `--name` gives another),
   20 caves a game (a bigger one goes on in a second game, BD1-2), three
   games a disk, the rest empty: `a.d81`, or `a-1.d81`, `a-2.d81`, ... for
-  more. Start one and choose the game on the title, right of cave 56: after
+  more. Start one and choose the game on the title, right of cave 52: after
   its last cave it goes on with the first in the next level, as the
   original does. The options of `import` work here too, e.g. `--level 3`
   for the games' third level alone. The caves of the game itself stay on

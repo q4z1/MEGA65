@@ -58,7 +58,6 @@ static uint8_t demo_at = DEMO_FIRST - 1;  // in demo_list
 
 #define LIVES       3
 #define LIFE_POINTS 500   // an extra life every so many points
-#define START_STEP  5     // the title offers caves 1, 6, 11, ... to start with
 #define MAX_X       (CAVE_W * 16 - VIEW_W)
 #define MAX_Y       (CAVE_H * 16 - VIEW_H)
 
@@ -227,6 +226,11 @@ _Static_assert(DEMO_MAX <= EDIT_SIZE, "the moves in the editor's place");
 #define MOVE(in)   {2, 0, in}, {10, 0, 0}   // the cursor one cell on
 #define PUT        {3, 0, IN_BUTTON}, {16, 0, 0}
 #define SHOT       {0, 0, 0}
+// on the title, from cave 1 right past the caves to start with: the own caves
+#define NEXT_PICK  {2, 0, IN_RIGHT}, {4, 0, 0}
+#define TO_OWN     NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, \
+                   NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK
+_Static_assert(START_COUNT == 11, "TO_OWN: a step right for each cave to start with");
 #ifdef FLOWTEST
 enum { SCR_NONE, SCR_TITLE, SCR_CAVE, SCR_NAME };  // where the game is
 enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
@@ -234,39 +238,38 @@ enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
 #define WAIT(w, in) {0, w, in}
 #define CAVE_OUT    WAIT(W_ALIVE, 0), SHOT, {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0)
 #define GIVE_UP     {2, 0, IN_RESTART}, WAIT(W_DEAD, 0), {80, 0, 0}, {2, 0, IN_BUTTON}
-#define NEXT_START  {2, 0, IN_RIGHT}, {10, 0, 0}
 #define CAVE_FAILS  WAIT(W_ALIVE, 0), SHOT, WAIT(W_TIMEOUT, 0), {60, 0, 0}, {2, 0, IN_BUTTON}
-_Static_assert(CAVE_COUNT == 56 && START_STEP == 5, "the flow script picks cave 51 and plays it to the last");
+_Static_assert(CAVE_COUNT == 56 && START_COUNT == 11, "the flow script picks cave 52 and plays it to the last");
 #endif
 static const uint8_t test_script[][3] = {
 #ifdef FLOWTEST
     WAIT(W_TITLE, 0), SHOT,                               // 1: the title
-    {100, 0, 0}, NEXT_START, NEXT_START, NEXT_START, NEXT_START, NEXT_START,
-    NEXT_START, NEXT_START, NEXT_START, NEXT_START, NEXT_START,
-    SHOT,                                                 // 2: cave 51 picked
+    {100, 0, 0}, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK,
+    NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK,
+    SHOT,                                                 // 2: cave 52 picked
     {2, 0, IN_BUTTON},
-    CAVE_FAILS, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,  // 3-8: caves 51-56
-    WAIT(W_ALIVE, 0), SHOT,                               // 9: level 2, cave 1
-    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 10, 11: paused
-    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 12: on again
-    WAIT(W_TIMEOUT, 0), SHOT,                             // 13: out of time
-    {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 14: a life less
-    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: Run/Stop
-    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 16: again
+    CAVE_FAILS, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,   // 3-7: caves 52-56
+    WAIT(W_ALIVE, 0), SHOT,                               // 8: level 2, cave 1
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT, {100, 0, 0}, SHOT,  // 9, 10: paused
+    {2, 0, IN_PAUSE}, {100, 0, 0}, SHOT,                  // 11: on again
+    WAIT(W_TIMEOUT, 0), SHOT,                             // 12: out of time
+    {60, 0, 0}, {2, 0, IN_BUTTON}, WAIT(W_ALIVE, 0), SHOT,  // 13: a life less
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 14: Run/Stop
+    GIVE_UP, WAIT(W_ALIVE, 0), SHOT,                      // 15: again
     GIVE_UP, WAIT(W_ALIVE, 0), GIVE_UP, WAIT(W_ALIVE, 0),  // the intermissions' lives
-    GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 17: game over, a high score
+    GIVE_UP, WAIT(W_NAME, 0), {30, 0, 0}, SHOT,           // 16: game over, a high score
     {1, 'Z', 0}, {10, 0, 0}, {1, 'Q', 0}, {10, 0, 0}, {1, 'X', 0}, {10, 0, 0},
-    WAIT(W_TITLE, 0), SHOT,                               // 18: the table first
+    WAIT(W_TITLE, 0), SHOT,                               // 17: the table first
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
     {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0}, {250, 0, 0},
-    SHOT,                                                 // 19: a minute later
-    NEXT_START, NEXT_START, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
+    SHOT,                                                 // 18: a minute later
+    NEXT_PICK, {2, 0, IN_UP}, {10, 0, 0}, {2, 0, IN_UP}, {10, 0, 0},
     {2, 0, IN_BUTTON},                                    // the own caves in level 3
-    WAIT(W_ALIVE, 0), SHOT,                               // 20: slot 1, level 3's own file
+    WAIT(W_ALIVE, 0), SHOT,                               // 19: slot 1, level 3's own file
     {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0),
-    WAIT(W_ALIVE, 0), SHOT,                               // 21: the next level, the first's file
+    WAIT(W_ALIVE, 0), SHOT,                               // 20: the next level, the first's file
     {1, KEY_F1, 0}, WAIT(W_TITLE, 0),
-    SHOT, WAIT(FLOW_END, 0),                              // 22: the end
+    SHOT, WAIT(FLOW_END, 0),                              // 21: the end
 #elif defined(EDITDEMO)
     {150, 0, 0}, {1, 'E', 0}, {120, 0, 0},                // the title, E: the editor on slot 1
     SHOT,                                                 // 1: editor-cave
@@ -312,8 +315,7 @@ static const uint8_t test_script[][3] = {
     {60, 0, 0},
     {1, '+', 0}, {80, 0, 0}, {1, '-', 0}, {150, 0, 0},    // loaded again: as saved
     {2, 0, IN_RESTART}, {100, 0, 0},                      // the title, the own caves
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
-    {2, 0, IN_RIGHT}, {10, 0, 0}, {2, 0, IN_RIGHT}, {20, 0, 0},  // the line under the logo whole
+    TO_OWN, {20, 0, 0},                                   // the line under the logo whole
     SHOT,                                                 // 10: editor-title
     {90, 0, 0},
     {0, 0, 0},
@@ -345,8 +347,7 @@ static const uint8_t test_script[][3] = {
     {2, 0, IN_RESTART}, {250, 0, 0}, {2, 0, IN_BUTTON}, {150, 0, 0},
     {1, '-', 0}, {100, 0, 0}, {0, 0, 0},                  // 10: slot 1 again
     {2, 0, IN_RESTART}, {120, 0, 0},                      // the title, own caves
-    {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
-    {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {10, 0, 0},
+    TO_OWN, {10, 0, 0},
     {0, 0, 0},                                            // 11: the title
     {2, 0, IN_BUTTON}, {250, 0, 0}, {200, 0, 0}, {0, 0, 0},  // 12: playing own cave 1
     {1, KEY_F1, 0}, {150, 0, 0}, {0, 0, 0},               // 13: F1, the title again
@@ -1528,16 +1529,19 @@ static void title_status(void) {
     status_end();
 }
 
-// Up and down pick the level, left and right the cave to start with; right
-// of the last one come the own caves, one by one, game after game, with
-// GDash's levels (an empty slot starts with the next own cave)
-#define LAST_START ((CAVE_COUNT - 1) / START_STEP * START_STEP)
-
+// Up and down pick the level, left and right the cave to start with (every
+// fifth, not an intermission: CAVE_STARTS, tools/mkcave.py); right of the
+// last one come the own caves, one by one, game after game, with GDash's
+// levels (an empty slot starts with the next own cave)
 static void title_pick(void) {
+    static const uint8_t cave_starts[START_COUNT] = CAVE_STARTS;
     uint8_t l = start_level, c = start_cave, g = start_game, o = start_own;
+    uint8_t s = 0;  // c in cave_starts; START_COUNT: the own caves
+    while (s < START_COUNT && cave_starts[s] != c)
+        s++;
     if (pressed & IN_RIGHT) {
         if (c < CAVE_COUNT) {
-            c = c == LAST_START ? CAVE_COUNT : c + START_STEP;
+            c = ++s < START_COUNT ? cave_starts[s] : CAVE_COUNT;
         } else if (o < OWN_SLOTS - 1) {
             o++;
         } else if (g < games - 1) {
@@ -1552,7 +1556,7 @@ static void title_pick(void) {
             g--;
             o = OWN_SLOTS - 1;
         } else if (c) {
-            c = c == CAVE_COUNT ? LAST_START : c - START_STEP;
+            c = cave_starts[s - 1];
         }
     }
     uint8_t top = (c == CAVE_COUNT ? OWN_LEVELS : LEVELS) - 1;
