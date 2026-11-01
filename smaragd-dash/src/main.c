@@ -520,6 +520,10 @@ static uint8_t rockford_tile(void) {
     }
     if (rf_view != VIEW_FRONT)
         return T_RF_VIEW0 + rf_view;
+    // With a bomb he holds it up and has no time to blink (GDash's player
+    // with bomb)
+    if (cave[game.player] == O_PLAYER_BOMB)
+        return T_RF_BOMB;
     // From the front: now and then blink or tap a foot
     if ((frame & 15) == 0) {
         uint8_t r = rnd();
@@ -706,6 +710,7 @@ static void update_gtiles(void) {
 }
 
 static void update_tiles(void) {
+    static const uint8_t wings[4] = {0, 1, 2, 1};  // open, half, shut, half
     uint8_t f = frame;
     etile[E_DIAMOND_F] = T_DIAMOND0 + ((f >> 2) & 7);
     etile[E_INBOX] = (f & 8) ? T_INBOX1 : T_INBOX0;
@@ -714,7 +719,7 @@ static void update_tiles(void) {
     etile[E_AMOEBA] = T_AMOEBA0 + ((f >> 3) & 3);
     for (uint8_t d = 0; d < 4; d++) {
         etile[E_FIREFLY + d] = T_FIREFLY0 + ((f >> 1) & 3);
-        etile[E_BUTTERFLY + d] = T_BUTTERFLY0 + ((f >> 2) & 3);
+        etile[E_BUTTERFLY + d] = T_BUTTERFLY0 + wings[(f >> 2) & 3];
     }
     etile[E_ROCKFORD] = rockford_tile();
     update_gtiles();  // GDash's elements: some take the tiles just set
