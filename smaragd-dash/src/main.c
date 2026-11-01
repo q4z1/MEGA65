@@ -594,6 +594,7 @@ static void draw_trails(void) {
 volatile uint16_t sp_frames[4];   // 1, 2, 3, more
 volatile uint16_t sp_step[17];    // |dx| + |dy| of the view, 0-16
 volatile uint16_t sp_jerk[2];     // frames the view moved by another step than in the frame before (x, y)
+volatile uint16_t sp_out[DEMO_CAVES];  // frames the view was outside its bounds, by cave of the demo
 volatile uint16_t sp_drop[DEMO_CAVES];  // frames dropped, by cave of the demo
 volatile uint16_t sp_step_lines;  // the most raster lines a step took
 volatile uint16_t sp_cave_lines[DEMO_CAVES];  // ... by cave of the demo
@@ -889,9 +890,11 @@ static Scroll scroll_x_axis, scroll_y_axis;
 // p: Rockford's middle in the cave
 __attribute__((noinline)) static void track(Scroll *s, uint16_t *cam, uint16_t p, uint16_t view, uint16_t lo,
                                             uint16_t hi) {
-    uint16_t c = *cam, mid = p - view / 2;  // the view with him in the middle
+    // the view with him in the middle: left of or above the cave when he is
+    // near its edge, so compared with sign (a view is at most 0x7FFF)
+    uint16_t c = *cam, mid = p - view / 2;
     // how far he is from the middle (unsigned, for the compiler's sake)
-    bool ahead = mid > c;
+    bool ahead = (int16_t)mid > (int16_t)c;
     uint16_t off = ahead ? mid - c : c - mid, half = view / 2;
     if (off > half - 3 * 16)  // within 3 cells of the edge
         s->to = ahead ? mid - 16 : mid + 16;
@@ -901,10 +904,10 @@ __attribute__((noinline)) static void track(Scroll *s, uint16_t *cam, uint16_t p
         s->fast = false;
     uint16_t to = within(s->to, lo, hi), v = off > half ? TRACK_MAX : scroll_speed + s->fast;
     s->to = to;
-    if (c < to)
-        c = c + v > to ? to : c + v;
+    if (c < to)  // (by the distance: c - v would wrap round below 0)
+        c = to - c < v ? to : c + v;
     else if (c > to)
-        c = c - v < to ? to : c - v;
+        c = c - to < v ? to : c - v;
     *cam = c;
 }
 
@@ -2444,6 +2447,8 @@ static uint8_t play_cave(void) {
 #ifdef SCROLLPROF
             uint8_t st = (cam_x > ox ? cam_x - ox : ox - cam_x) + (cam_y > oy ? cam_y - oy : oy - cam_y);
             sp_step[st > 16 ? 16 : st]++;
+            if (cam_x < cam_lo_x || cam_x > cam_hi_x || cam_y < cam_lo_y || cam_y > cam_hi_y)
+                sp_out[demo_at]++;
             {
                 static int16_t last_dx, last_dy;
                 int16_t dx = (int16_t)(cam_x - ox), dy = (int16_t)(cam_y - oy);

@@ -41,6 +41,8 @@ demo = dump[syms["demo_list"]:syms["demo_list"] + 64]  # the demo's caves (numbe
 print("frames dropped while Rockford lives, by cave:",
       {demo[i]: v for i, v in enumerate(words("sp_drop", 25)) if v} or "none")
 print("the view's steps (pixels: frames):", {i: v for i, v in enumerate(words("sp_step", 17)) if v})
+print("frames the view was outside its bounds, by cave:",
+      {demo[i]: v for i, v in enumerate(words("sp_out", 25)) if v} or "none")
 print("frames the view changed its step (x, y; a start or a stop counts):", words("sp_jerk", 2))
 print("the game before video_sync (1 ms each):", words("sp_logic", 20), "too late:", words("sp_sync_late", 1)[0])
 print("the drawing before video_show (1 ms each):", words("sp_draw", 20), "too late:", words("sp_show_late", 1)[0])
