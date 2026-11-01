@@ -593,6 +593,7 @@ static void draw_trails(void) {
 // per frame
 volatile uint16_t sp_frames[4];   // 1, 2, 3, more
 volatile uint16_t sp_step[17];    // |dx| + |dy| of the view, 0-16
+volatile uint16_t sp_jerk[2];     // frames the view moved by another step than in the frame before (x, y)
 volatile uint16_t sp_drop[DEMO_CAVES];  // frames dropped, by cave of the demo
 volatile uint16_t sp_step_lines;  // the most raster lines a step took
 volatile uint16_t sp_cave_lines[DEMO_CAVES];  // ... by cave of the demo
@@ -807,12 +808,16 @@ static void camera_at(uint16_t px, uint16_t py, bool jump) {
     follow(&cam_y, &scroll_y, py, VIEW_H, MAX_Y, 48);
 }
 
-// Playing, the view moves with Rockford: inside a box round the middle he
-// walks on a still cave; at its edge the cave moves under him exactly as
-// far as he goes, frame by frame, as smooth as his own steps. What jumps
-// farther (a teleporter, round the edge of the cave) is followed by at
-// most 8 pixels a frame.
+// Playing, the view scrolls as GDash's does (gamerender.cpp, cave_scroll):
+// when Rockford comes within 3 cells of an edge, it scrolls until he is a
+// cell short of the middle, by the same whole pixels each frame - his speed
+// rounded down (scroll_speed: 16 pixels a step of 7 frames give 2, not 2
+// and 3 in turn, which jerks). Lagging behind until he is a cell from the
+// edge, it goes a pixel faster until he is near the middle again. What
+// jumps farther (a teleporter, round the edge of the cave) is followed by
+// TRACK_MAX pixels a frame.
 #define TRACK_MAX 8
+static uint8_t scroll_speed = 2;  // pixels a frame (play_cave sets it by the step's length)
 
 // The view stays inside the part of the cave that is shown (GDash's x1-x2,
 // y1-y2): cam_lo to cam_hi. A part at most a cell larger than the view (an
@@ -875,32 +880,45 @@ __attribute__((noinline)) static int16_t within(int16_t v, uint16_t lo, uint16_t
     return v > (int16_t)hi ? hi : v;
 }
 
-static void track(uint16_t *cam, uint16_t p, uint16_t view, uint16_t lo, uint16_t hi, uint16_t margin) {
-    int16_t low = (int16_t)p - (int16_t)(view - margin);  // the view's least position for p
-    int16_t high = (int16_t)p - (int16_t)margin;          // its greatest
-    int16_t c = *cam, to = c;
-    if (to < low)
-        to = low;
-    if (to > high)
-        to = high;
-    to = within(to, lo, hi);
-    if (to > c + TRACK_MAX)
-        to = c + TRACK_MAX;
-    if (to < c - TRACK_MAX)
-        to = c - TRACK_MAX;
-    *cam = to;
+typedef struct {
+    int16_t to;   // where the view goes (GDash's scroll_desired; within its bounds)
+    bool fast;    // a pixel faster: it lags
+} Scroll;
+static Scroll scroll_x_axis, scroll_y_axis;
+
+// p: Rockford's middle in the cave
+__attribute__((noinline)) static void track(Scroll *s, uint16_t *cam, uint16_t p, uint16_t view, uint16_t lo,
+                                            uint16_t hi) {
+    uint16_t c = *cam, mid = p - view / 2;  // the view with him in the middle
+    // how far he is from the middle (unsigned, for the compiler's sake)
+    bool ahead = mid > c;
+    uint16_t off = ahead ? mid - c : c - mid, half = view / 2;
+    if (off > half - 3 * 16)  // within 3 cells of the edge
+        s->to = ahead ? mid - 16 : mid + 16;
+    if (off > half - 16)
+        s->fast = true;
+    else if (off <= 3 * 16)
+        s->fast = false;
+    uint16_t to = within(s->to, lo, hi), v = off > half ? TRACK_MAX : scroll_speed + s->fast;
+    s->to = to;
+    if (c < to)
+        c = c + v > to ? to : c + v;
+    else if (c > to)
+        c = c - v < to ? to : c - v;
+    *cam = c;
 }
 
 static void camera(bool jump) {
     uint16_t px, py;
     cell_pos(game.player, &px, &py);
     if (jump) {
-        cam_x = within((int16_t)px + 8 - VIEW_W / 2, cam_lo_x, cam_hi_x);
-        cam_y = within((int16_t)py + 8 - VIEW_H / 2, cam_lo_y, cam_hi_y);
+        scroll_x_axis.to = cam_x = within((int16_t)px + 8 - VIEW_W / 2, cam_lo_x, cam_hi_x);
+        scroll_y_axis.to = cam_y = within((int16_t)py + 8 - VIEW_H / 2, cam_lo_y, cam_hi_y);
+        scroll_x_axis.fast = scroll_y_axis.fast = false;
         return;
     }
-    track(&cam_x, px + 8, VIEW_W, cam_lo_x, cam_hi_x, VIEW_W / 2 - 32);  // a box of 64 x 32 pixels
-    track(&cam_y, py + 8, VIEW_H, cam_lo_y, cam_hi_y, VIEW_H / 2 - 16);
+    track(&scroll_x_axis, &cam_x, px + 8, VIEW_W, cam_lo_x, cam_hi_x);
+    track(&scroll_y_axis, &cam_y, py + 8, VIEW_H, cam_lo_y, cam_hi_y);
 }
 
 // ---------------------------------------------------------------- status
@@ -1941,6 +1959,7 @@ __attribute__((noinline)) static void page_wait(void) {
 }
 
 #ifndef SCREENCAST  // which plays the caves: no help, no BASIC (room in bank 0)
+#ifndef FLOWTEST    // nor the flow's test, which shows no help
 // The title's help (Help or H): how to play, then the elements of the
 // game's caves
 // The help pages, SMARAGD.HELP (tools/mkhelp.py from help.txt) in HELP_BANK:
@@ -1982,6 +2001,7 @@ static void help_pages(void) {
         page_wait();
     }
 }
+#endif
 
 // ---------------------------------------------------------------- back to BASIC
 
@@ -2132,6 +2152,7 @@ static bool title_screen(bool scores) {
             break;
         }
 #ifndef SCREENCAST
+#ifndef FLOWTEST
         if (key == 'H' || key == KEY_HELP) {
             help_pages();
             scores = false;
@@ -2142,6 +2163,7 @@ static bool title_screen(bool scores) {
             basic = 0;
             continue;
         }
+#endif
         // Run/Stop twice: back to BASIC, unless the ROM is gone
         if (pressed & IN_RESTART) {
             bool can = !rom_ram || rom_saved;
@@ -2211,6 +2233,13 @@ static uint16_t gd_step_ms(void) {
 // C64: every step then moves alike - 16 pixels in 8 frames of 2 - where
 // GDash's 155 ms would give a 1 or a 3 now and then, at other places each
 // time
+// The view's pixels a frame: Rockford's 16 a step, rounded down (GDash's
+// scroll_speed_normal), at least 1
+static uint8_t scroll_pixels(uint8_t frame_len, uint16_t tick_len) {
+    uint8_t v = (uint16_t)(16 * frame_len) / tick_len;
+    return v ? v : 1;
+}
+
 static uint16_t step_len(uint8_t frame_len) {
     return (gd_step_ms() * 3 + frame_len / 2) / frame_len * frame_len;
 }
@@ -2283,6 +2312,7 @@ static uint8_t play_cave(void) {
     rules_start();
     FLOW_SCREEN(SCR_CAVE);
     tick_len = step_len(frame_len);
+    scroll_speed = scroll_pixels(frame_len, tick_len);
     memset(trail_kind, TR_NONE, sizeof trail_kind);
     slide = 0;
     rf_view = VIEW_FRONT;
@@ -2367,6 +2397,7 @@ static uint8_t play_cave(void) {
             tick_acc -= tick_len;
             rules_tick();
             tick_len = step_len(frame_len);  // GDash's steps take as long as it says
+            scroll_speed = scroll_pixels(frame_len, tick_len);
             add_trails();
             if (moved[game.player] != DIR_NONE)
                 rf_foot ^= 1;
@@ -2413,6 +2444,16 @@ static uint8_t play_cave(void) {
 #ifdef SCROLLPROF
             uint8_t st = (cam_x > ox ? cam_x - ox : ox - cam_x) + (cam_y > oy ? cam_y - oy : oy - cam_y);
             sp_step[st > 16 ? 16 : st]++;
+            {
+                static int16_t last_dx, last_dy;
+                int16_t dx = (int16_t)(cam_x - ox), dy = (int16_t)(cam_y - oy);
+                if (dx != last_dx && (dx || last_dx))
+                    sp_jerk[0]++;
+                if (dy != last_dy && (dy || last_dy))
+                    sp_jerk[1]++;
+                last_dx = dx;
+                last_dy = dy;
+            }
 #endif
             break;
         }
@@ -3636,7 +3677,7 @@ int main(void) {
     disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
     rom_ram = rom_writable();
     have_logo = rom_ram && load("LOADING", "SMARAGD.LOGO", LOGO_BANK, LOGO_OFF);
-#ifndef SCREENCAST
+#if !defined(SCREENCAST) && !defined(FLOWTEST)
     if (rom_ram && disk_load("SMARAGD.HELP", HELP_BANK, HELP_OFF))
         dma_once(HELP_OFF, HELP_BANK, (uint16_t)&help_count, 0, 1);
 #endif

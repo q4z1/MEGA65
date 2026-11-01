@@ -540,10 +540,16 @@ in 1.3.2). Meanwhile the screen shows
 the last step: between the parts the step's state (cave, moves and the
 engine's variables at $C000, 2K) waits in bank 3 and the shown one is put
 back, three DMA copies of 0.1 ms. The player's input goes into the step
-until the engine has come to his cell. The view moves
-with Rockford: inside a box of 64 x 32 pixels round the middle he walks on
-a still cave, beyond it the cave moves under him exactly as far as he goes,
-frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).
+until the engine has come to his cell. The view scrolls
+as GDash's does: when Rockford comes within 3 cells of an edge it scrolls
+until he is a cell short of the middle, by the same whole pixels in every
+frame - his speed rounded down, 2 pixels where a step of 16 takes 7 frames
+(following him exactly gave 2 and 3 in turn, a jerk in every other frame).
+When it lags until he is a cell from the edge, it goes a pixel faster until
+he is near the middle again (a jump, as through a teleporter: 8 pixels a
+frame). `tools/scroll-profile.sh` counts the frames in which the view
+changes its step: 455 in the first twelve caves with moves, where following
+him gave 3235.
 It stays inside the part of the cave that is shown (GDash's visible area);
 a part at most a cell larger than the view, as an intermission of 20 x 12,
 stands still in its middle, whole, with half a cell of its border on each
