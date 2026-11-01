@@ -333,7 +333,8 @@ static const uint8_t test_script[][3] = {
     {1, 'T', 0}, {1, 0, 0}, {1, 'E', 0}, {1, 0, 0}, {1, 'S', 0}, {1, 0, 0}, {1, 'T', 0}, {10, 0, 0},
     {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
     {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
-    {1, 'X', 0}, {10, 0, 0},                              // the game: OWN1X
+    {2, 0, IN_DOWN}, {2, 0, 0},
+    {1, 'X', 0}, {10, 0, 0},                              // the game (VAL_GAME): OWN1X
     {0, 0, 0},                                            // 3: values
     {1, '\r', 0}, {1, 'S', 0}, {30, 0, 0}, {0, 0, 0},     // 4: saved
     {1, 'T', 0}, {250, 0, 0}, {150, 0, 0}, {0, 0, 0},     // 5: trying it, Rockford out
@@ -2631,6 +2632,8 @@ static EDITOR void edit_status(void) {
     const char *g = game_name[own_game][0] ? game_name[own_game] : "OWN";
     uint8_t n4 = strlen(g);
     memcpy(line + 27, g, n4 < 4 ? n4 : 4);  // the game, its first 4 letters
+    if (file.own.flags & GDF_INTERMISSION)
+        line[31] = 'I';
     digits2(line + 32, slot + 1);
     line[34] = dirty ? '*' : ' ';
     status_tile(2, elem_tile(pen));
@@ -2648,6 +2651,23 @@ static EDITOR void edit_note(const char *text) {
 static EDITOR void set_dirty(void) {
     dirty = true;
     edit_shown = false;
+}
+
+// Undo (U): the cave as it was before each of the last UNDO_LEVELS changes
+// (a line drawn with the button held is one), in UNDO_BANK; not without
+// the ROM's banks as RAM. Another slot starts afresh. (Some of it is in
+// bank 0: the overlay is full.)
+static uint8_t undo_n, undo_at;  // how many are kept, where the next goes
+static bool undo_kept;           // ... for the line being drawn
+_Static_assert(sizeof file <= FILE_SIZE, "a kept cave");
+
+__attribute__((noinline)) static void undo_keep(void) {
+    if (!rom_ram)
+        return;
+    dma_once((uint16_t)&file, 0, UNDO_OFF + undo_at * FILE_SIZE, UNDO_BANK, sizeof file);
+    undo_at = undo_at == UNDO_LEVELS - 1 ? 0 : undo_at + 1;
+    if (undo_n < UNDO_LEVELS)
+        undo_n++;
 }
 
 // A new cave: steel frame, dirt, the inbox top left, the exit bottom right
@@ -2692,8 +2712,22 @@ static EDITOR void edit_load(void) {
     if (cur_y >= file.own.h)
         cur_y = file.own.h - 1;
     dirty = false;
+    undo_n = 0;
     edit_view();
 }
+
+static EDITOR void edit_undo(void) {
+    if (!undo_n) {
+        edit_note("NOTHING TO UNDO");
+        return;
+    }
+    undo_at = undo_at ? undo_at - 1 : UNDO_LEVELS - 1;
+    undo_n--;
+    dma_once(UNDO_OFF + undo_at * FILE_SIZE, UNDO_BANK, (uint16_t)&file, 0, sizeof file);
+    edit_view();
+    set_dirty();
+}
+
 
 // What keeps the cave from being played, or 0
 static EDITOR const char *edit_check(void) {
@@ -2721,11 +2755,35 @@ static EDITOR void edit_put(void) {
     uint8_t e = pen_element();
     if (file.own.map[i] == e)
         return;
+    if (!undo_kept) {
+        undo_keep();
+        undo_kept = true;
+    }
     if (e == O_INBOX)
         for (uint16_t j = 0; j < CAVE_SIZE; j++)
             if (file.own.map[j] == O_INBOX)
                 file.own.map[j] = cave[j] = O_DIRT;
     file.own.map[i] = cave[i] = e;
+    set_dirty();
+    sound_crackle();
+}
+
+// A: the element chosen scattered over the cave's dirt, a cell in 16 of it
+// at random (again: more), once and for all as in Boulder Dash's
+// Construction Kit; not what there is one of
+__attribute__((noinline)) static void edit_scatter(void) {
+    uint8_t e = pen_element();
+    if (e == O_INBOX || (e >= O_PRE_OUTBOX && e <= O_INVIS_OUTBOX) || (e >= O_PLAYER && e <= O_PLAYER_STIRRING)) {
+        edit_note("ONE OF THESE IS ENOUGH");
+        return;
+    }
+    undo_keep();
+    for (uint8_t y = 0; y < file.own.h; y++)
+        for (uint8_t x = 0; x < file.own.w; x++) {
+            uint16_t i = y * CAVE_W + x;
+            if (file.own.map[i] == O_DIRT && !(rnd() & 15))
+                file.own.map[i] = cave[i] = e;
+        }
     set_dirty();
     sound_crackle();
 }
@@ -2862,6 +2920,7 @@ static EDITOR void edit_save(void) {
 // The slot empty again on the disk (its cave is no longer played)
 static EDITOR void edit_empty(void) {
     memset(&file.own, 0, sizeof file.own);
+    undo_n = 0;
     busy("SAVING");
     bool ok = have_slot && disk_save(own_name(slot, 0), &file.own, sizeof file.own);
     edit_levels_empty();
@@ -2964,10 +3023,10 @@ static EDITOR void edit_help(void) {
     static const char *const lines[9] = {
         "MOVE     CURSOR KEYS OR JOYSTICK",
         "PUT      FIRE OR SPACE, HELD: DRAW",
-        "E        CHOOSE AMONG ALL ELEMENTS",
+        "E ALL ELEMENTS  G WHAT CURSOR IS ON",
         "1-0 I X  CHOOSE ONE OF THESE BELOW",
-        "G        CHOOSE WHAT THE CURSOR IS ON",
         "R        THE WAY WHAT WALKS STARTS",
+        "A SCATTER IT  U UNDO  B INTERMISSION",
         "V        NAME AND VALUES   T  TRY IT",
         "S        SAVE   + -  NEXT, LAST SLOT",
         "C NEW  D EMPTY  M MAP  RUN/STOP TITLE",
@@ -2992,15 +3051,33 @@ static EDITOR void edit_help(void) {
 }
 
 // The values page: a line each, the one chosen shining
-#define VALUES 9
-#define VAL_GAME 8  // the game's name (the slot's partition), not the cave's
+#define VALUES 10
+#define VAL_SLIME 8
+#define VAL_GAME 9  // the game's name (the slot's partition), not the cave's
 #define VAL_Y0 4
+#define VAL_DY 15   // one line below the other
 static const char *const val_text[VALUES] = {
     "NAME", "TIME          SECONDS", "EMERALDS      TO OPEN THE EXIT", "VALUE         POINTS EACH",
     "EXTRA         EACH AFTER THAT", "SPEED         MS PER STEP", "AMOEBA        SECONDS SLOW",
-    "MAGIC         SECONDS, 0: NO END", "GAME"};
-static const uint8_t val_min[VALUES] = {0, 1, 0, 0, 0, 50, 0, 0, 0};
-static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 999, 999, 0};
+    "MAGIC         SECONDS, 0: NO END", "SLIME         STEPS TO DROP THROUGH", "GAME"};
+static const uint8_t val_min[VALUES] = {0, 1, 0, 0, 0, 50, 0, 0, 1, 0};
+static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 999, 999, 256, 0};
+
+// The slime: how many steps it holds what lies on it, on the average - a
+// power of two, as the C64's games have it (GDash's predictable slime: a
+// thing drops through when the random bits of the mask are 0); a cave of
+// GDash's probability shows the power nearest it
+static EDITOR uint8_t slime_bits(void) {
+    GdCaveFile *f = &file.own;
+    uint8_t k = 0;
+    if (f->flags & GDF_SLIME_PREDICTABLE)
+        for (uint8_t m = f->slime_permeability_c64; m; m >>= 1)
+            k += m & 1;
+    else  // of a million; in 16ths, which fit 16 bits
+        for (uint16_t p = (uint16_t)(f->slime_permeability >> 4); k < 8 && (62500u >> (k + 1)) >= p;)
+            k++;
+    return k;
+}
 static char game_edit[9];  // the game's name as it is typed
 static uint16_t c64_speed;  // a C64 cave's speed (GDash's scheduling) as it starts
 
@@ -3019,6 +3096,8 @@ static EDITOR uint16_t val_get(uint8_t i) {
         return f->scheduling ? c64_speed : f->speed;
     case 6:
         return f->amoeba_time;
+    case VAL_SLIME:
+        return 1 << slime_bits();
     }
     return f->magic_wall_time;
 }
@@ -3046,6 +3125,16 @@ static EDITOR void val_set(uint8_t i, uint16_t v) {
     case 6:
         f->amoeba_time = v;
         break;
+    case VAL_SLIME: {  // the next power of two up or down
+        uint8_t k = slime_bits();
+        if (v > 1u << k && k < 8)
+            k++;
+        else if (v < 1u << k && k)
+            k--;
+        f->slime_permeability_c64 = (1 << k) - 1;
+        f->flags |= GDF_SLIME_PREDICTABLE;
+        break;
+    }
     default:
         f->magic_wall_time = v;
     }
@@ -3060,11 +3149,11 @@ static EDITOR void val_line(uint8_t i, bool chosen) {
         memcpy(line + 10, text, strlen(text));
     else
         digits3(line + 9, val_get(i));
-    video_text_in(2, VAL_Y0 + i * 16, line, chosen ? title_row : font_row);
+    video_text_in(2, VAL_Y0 + i * VAL_DY, line, chosen ? title_row : font_row);
 }
 
 // Up and down choose a line, left and right change its value (held: on and
-// on, faster after a while), letters and Del the names - the cave's, and
+// on, in steps of 10 after a while), letters and Del the names - the cave's, and
 // the game's (renamed on the disk as the page is left; not on an older
 // disk, whose slots have no game). Return, V, Run/Stop or the button (but
 // not on a name, where Space is a space) go back.
@@ -3079,6 +3168,7 @@ static EDITOR void edit_values(void) {
     video_text(CENTRE(33), 156, "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE");
     uint8_t sel = 1, rep = 0;
     bool armed = false;
+    undo_kept = false;  // a visit is one change
     strcpy(game_edit, game_name[own_game]);
     for (uint8_t i = 0; i < VALUES; i++)
         val_line(i, i == sel);
@@ -3100,8 +3190,12 @@ static EDITOR void edit_values(void) {
         uint8_t lr = held & (IN_LEFT | IN_RIGHT);
         if (!lr)
             rep = 0;
-        else if (!field && sel != VAL_GAME && (rep == 0 || (rep >= 20 && (rep & 1)))) {
-            uint16_t v = val_get(sel), d = rep >= 100 ? 10 : 1;
+        else if (!field && sel != VAL_GAME && (rep == 0 || (rep >= 24 && (rep & 3) == 3))) {
+            if (!undo_kept) {
+                undo_keep();
+                undo_kept = true;
+            }
+            uint16_t v = val_get(sel), d = rep >= 120 && sel != VAL_SLIME ? 10 : 1;
             if (lr & IN_RIGHT)
                 v = v + d > val_max[sel] ? val_max[sel] : v + d;
             else
@@ -3172,7 +3266,7 @@ static EDITOR void editor(void) {
     memset(covered, 0xFF, sizeof covered);
     cover_cave(0);
     bool armed = false;  // fire from the title must be let go first
-    uint8_t rep = 0;
+    uint8_t rep = 0, slot_frame = frame - 16;
     for (;;) {
         if (note && !--note)
             edit_shown = false;
@@ -3189,7 +3283,7 @@ static EDITOR void editor(void) {
         if (cursor_move(&rep))
             edit_shown = false;
         if (!(held & IN_BUTTON))
-            armed = true;
+            armed = true, undo_kept = false;
         else if (armed)
             edit_put();
 
@@ -3237,8 +3331,21 @@ static EDITOR void editor(void) {
         case 'S':
             edit_save();
             break;
+        case 'U':
+            edit_undo();
+            break;
+        case 'A':
+            edit_scatter();
+            break;
+        case 'B':  // a bonus cave: played once, as GDash does
+            undo_keep();
+            file.own.flags ^= GDF_INTERMISSION;
+            set_dirty();
+            edit_note(file.own.flags & GDF_INTERMISSION ? "AN INTERMISSION: PLAYED ONCE" : "A CAVE, NO INTERMISSION");
+            break;
         case 'C':
             if (twice(key, true, "C AGAIN: A NEW CAVE")) {
+                undo_keep();
                 new_cave();
                 edit_view();
                 set_dirty();
@@ -3250,6 +3357,10 @@ static EDITOR void editor(void) {
             break;
         case '+':
         case '-':
+            // held, the keyboard repeats them: a slot every third of a second
+            if ((uint8_t)(frame - slot_frame) < 16)
+                break;
+            slot_frame = frame;
             if (twice(key, false, key == '+' ? "NOT SAVED - + AGAIN: NEXT SLOT" : "NOT SAVED - - AGAIN: LAST SLOT")) {
                 // the slots of all games one after the other
                 if (key == '+' && ++slot == OWN_SLOTS) {

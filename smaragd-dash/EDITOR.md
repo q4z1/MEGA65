@@ -110,10 +110,23 @@ keys. Any key (or fire) goes back.
 | fire, Space, Return | put the chosen element under the cursor |
 | fire held while moving | draw: every cell the cursor passes gets the element |
 | G | choose the element the cursor is on |
+| A | scatter the chosen element over the cave's dirt at random: about one cell of dirt in 16 (again: more) |
+| U | undo the last change |
 | M | the whole cave on one screen, each cell in the colour of its element: the cursor (a blinking frame) moves on it as well, M, fire or any key goes back to the editor there |
 
 Putting the element a cell already has does nothing. There is only one
 inbox in a cave: putting a new one turns the old one into dirt.
+
+**A** scatters the chosen element over the dirt of the cave, once and for
+all, as the Boulder Dash Construction Kit did: where it lands is decided now
+and saved with the cave, the same in every level. Pressed again, it
+scatters more. It is not for the inbox, the exit or Rockford (one is
+enough).
+
+**U** undoes the last change - a cell put, a line drawn with fire held, a
+scattering, a visit to the values page, C, B - and again the one before,
+up to 14 of them. Loading another slot starts afresh; nothing is undone on
+the disk (S saved what it saved). NOTHING TO UNDO: there is no more.
 
 ## The elements
 
@@ -185,6 +198,7 @@ had last). A game gets its name on the values page (see
 | - | the last slot (before 1: the last game's 20) |
 | C, C again | a new cave in place of this one (not saved yet) |
 | D, D again | empty the slot on the disk |
+| B | the cave is an intermission, or no longer one |
 
 **+** and **-** load the slot from the disk. An empty slot shows a new cave:
 a frame of steel wall, dirt, the inbox top left, the exit bottom right, 150
@@ -192,6 +206,12 @@ seconds, 10 emeralds needed, Boulder Dash 1's rules. That is the start for a
 cave of your own. Nothing is written to the disk until you save.
 
 ![An empty slot: a new cave](screenshots/editor-new.png)
+
+**B** makes the cave an intermission, as in GDash: it is played once - who
+gets out gets a life, who does not loses none, and the next cave comes. The
+status line shows an `I` before the slot number (`OWN1I03`); B again makes it
+a cave like the others. Saved with the cave, and GDash reads it too.
+Holding **+** or **-** goes on, a slot every third of a second.
 
 **C** makes the same new cave in the slot you are on, **D** empties the slot
 on the disk (an empty slot is left out when the own caves are played). Both
@@ -216,10 +236,12 @@ game the slot belongs to.
 | SPEED | 50-250 | milliseconds per step: smaller is faster (the game's caves: about 150) |
 | AMOEBA | 0-999 | seconds the amoeba grows slowly, then it grows fast |
 | MAGIC | 0-999 | seconds the magic wall runs once started; 0: it does not stop |
+| SLIME | 1-256 | how many steps the slime holds what lies on it, on the average: 1, 2, 4, ... 256 |
 | GAME | up to 8 letters | the game's name (as NAME, without `/`): renamed on the disk when you leave the page; the title shows it |
 
 Up and down choose a line (it shines). Left and right change the number;
-held, it runs on, and after a while in steps of ten. On the NAME line the
+held, it runs on (some eight steps a second), and after a while in steps
+of ten. On the NAME line the
 keys type the name and **Del** takes the last letter back - so on the GAME
 line, which keeps at least one letter. **Return**,
 **V**, **Run/Stop** or fire (not on the NAME line, where Space is a space)
@@ -227,7 +249,10 @@ go back to the cave.
 
 A cave from GDash may have the C64's timing, where the speed comes from the
 cave itself. SPEED then shows the speed it starts with; once you change it,
-the cave runs in milliseconds like the others.
+the cave runs in milliseconds like the others. SLIME is the C64's: a thing
+on the slime drops through when some random bits are all 0 - one bit in
+two steps, three bits in eight. A cave from GDash with a probability shows
+the nearest of these and has them once SLIME is changed.
 
 ## Trying a cave
 
@@ -384,6 +409,10 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | D AGAIN: EMPTY THE SLOT | D again empties the slot on the disk |
 | THE SLOT IS EMPTY | done; the editor shows a new cave |
 | NOT AMONG THE ELEMENTS | G on something a cave does not start with (part of an explosion, ...) |
+| AN INTERMISSION: PLAYED ONCE | B made the cave an intermission |
+| A CAVE, NO INTERMISSION | B made it a cave like the others again |
+| NOTHING TO UNDO | U: no change left to undo |
+| ONE OF THESE IS ENOUGH | A with the inbox, the exit or Rockford |
 | NO GDASH ENGINE ON THE DISK | the disk lacks `SMARAGD.GD`: own caves cannot be played |
 
 ## All keys
@@ -394,6 +423,9 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | fire, Space, Return | put the element; held while moving: draw |
 | 1-9, 0, I, X | choose the element (again for a firefly or butterfly: its direction) |
 | G | choose the element under the cursor |
+| A | scatter the element over the dirt |
+| U | undo |
+| B | intermission on / off |
 | M | map: the whole cave at once |
 | V | name and values |
 | T | try the cave |
