@@ -2225,6 +2225,7 @@ static uint8_t play_cave(void) {
     uint16_t tick_acc = 0;
     uint16_t shown_time = 0;  // for the clock's tick under ten seconds (GDash's)
     uint8_t last_dir = DIR_NONE;  // the direction held in the frame before
+    bool last_fire = false;       // ... and the button
     bool paused = false;
     uint8_t after = 0;  // frames since Rockford died
     uint8_t last_frame = PEEK(0xD7FA);  // the MEGA65's frame counter
@@ -2268,13 +2269,16 @@ static uint8_t play_cave(void) {
 
         // A direction or the button pressed only briefly between two ticks
         // still counts in the next tick. Only a new press is kept: one that
-        // was still held at the last tick has had its step.
+        // was still held at the last tick has had its step (GDash takes what
+        // is held at the step: fire let go after a snap must not snap again).
         uint8_t dir = joy_dir(held);
         if (dir != DIR_NONE && dir != last_dir)
             latched = dir;
         last_dir = dir;
-        if (held & IN_BUTTON)
+        bool fire = (held & IN_BUTTON) != 0;
+        if (fire && !last_fire)
             fire_latched = true;
+        last_fire = fire;
 
         // The time goes by the frames shown: a step that takes longer than
         // a frame (GDash's engine in a full cave) does not slow the cave down
@@ -2305,9 +2309,9 @@ static uint8_t play_cave(void) {
         }
 #ifndef SCREENCAST
         if (step_state == ST_MAKING && !step_taken)
-            step_in = (dir != DIR_NONE ? dir : latched) | (fire_latched ? IN_FIRE : 0);
+            step_in = (dir != DIR_NONE ? dir : latched) | (fire || fire_latched ? IN_FIRE : 0);
 #else
-        (void)(latched | fire_latched);  // the moves come from the disk
+        (void)(latched | fire_latched | fire);  // the moves come from the disk
 #endif
         if (tick_acc >= tick_len && ticks) {
             tick_acc -= tick_len;
