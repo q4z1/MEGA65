@@ -590,9 +590,12 @@ static void draw_trails(void) {
 // per frame
 volatile uint16_t sp_frames[4];   // 1, 2, 3, more
 volatile uint16_t sp_step[17];    // |dx| + |dy| of the view, 0-16
-volatile uint16_t sp_drop[26];    // frames dropped, by cave
+volatile uint16_t sp_drop[DEMO_CAVES];  // frames dropped, by cave of the demo
 volatile uint16_t sp_step_lines;  // the most raster lines a step took
-volatile uint16_t sp_cave_lines[26];  // ... by cave
+volatile uint16_t sp_cave_lines[DEMO_CAVES];  // ... by cave of the demo
+volatile uint16_t sp_render[20];  // what follows video_sync until video_render is done, 1 ms each
+volatile uint16_t sp_wait;        // ticks that waited for their step
+volatile uint16_t sp_update[2];   // frames whose tiles were set after video_sync, before it
 #endif
 
 #ifdef GDPROF
@@ -1078,13 +1081,12 @@ static uint8_t latched = DIR_NONE;  // a direction pressed since the last step t
 static bool fire_latched;     // ... and fire
 _Static_assert(2 * CAVE_SIZE + GD_STATE_SIZE == STEP_SIZE, "what lies at $C000 (shared.ld)");
 
+// (between video_build and video_render: with a list of its own)
 static void step_dma(uint16_t off, bool in) {
-    dma_begin(0, 0);
     if (in)
-        dma_copy(off, STEP_BANK, STEP_AT, 0, STEP_SIZE);
+        dma_once(off, STEP_BANK, STEP_AT, 0, STEP_SIZE);
     else
-        dma_copy(STEP_AT, 0, off, STEP_BANK, STEP_SIZE);
-    dma_run();
+        dma_once(STEP_AT, 0, off, STEP_BANK, STEP_SIZE);
 }
 
 // GDash's directions for IN_*
@@ -1098,7 +1100,15 @@ static void step_work(uint16_t end) {
     if (step_state != ST_MAKING)
         return;
     uint16_t r0 = video_raster();
-    end = (end + video_lines - 12) % video_lines;  // the copies below
+    // Room for the copies below; before video_sync more: a row may end a
+    // little later than the engine thinks, which that window cannot take
+    end = (end + video_lines - (end == video_sync_line ? 64 : 12)) % video_lines;
+    // Not without the time for the copies and a row, or for the step's
+    // beginning (which takes what it takes): the window would be missed.
+    // Past the end, left is nearly a frame (the engine's lines_left).
+    uint16_t left = end >= r0 ? end - r0 : end + video_lines - r0;
+    if (left > video_lines - 64 || left < (step_begun ? 24 : 64))
+        return;
     if (!step_begun) {
         step_dma(STEP_SHOWN, false);
         gd_step_begin(step_move(step_in) & 0x7F, (step_in & IN_FIRE) != 0, gd_suicide);
@@ -1121,18 +1131,8 @@ static void step_work(uint16_t end) {
     step_cost += r1 >= r0 ? r1 - r0 : r1 + video_lines - r0;
 }
 
-static void next_frame(void) {
-#ifdef GDPROF
-    if (!show_cursor) {
-        uint16_t busy = (uint16_t)(prof_synced - prof_timer()) / 2000;
-        prof_busy[busy > 15 ? 15 : busy]++;
-    }
-#endif
-    step_work(video_sync_line);
-    video_sync();
-#ifdef GDPROF
-    prof_synced = prof_timer();
-#endif
+// The tiles of the frame and its sprites
+static void frame_tiles(void) {
     update_tiles();
     if (show_cursor && (frame & 31) < 24 && nsprites < MAX_SPRITES) {
         Sprite *s = &sprites[nsprites++];
@@ -1140,7 +1140,46 @@ static void next_frame(void) {
         s->y = cur_y * 16;
         s->tile = T_CURSOR;
     }
-    video_render(tiles, cam_x, cam_y, sprites, nsprites);
+}
+
+// A frame. Its tiles are set before video_sync when there is time for it
+// (TILES_LINES raster lines), else after it with the drawing: the window
+// before video_sync is the one that is missed, the drawing has time to
+// spare.
+#define TILES_LINES 176
+
+static void next_frame(void) {
+#ifdef GDPROF
+    if (!show_cursor) {
+        uint16_t busy = (uint16_t)(prof_synced - prof_timer()) / 2000;
+        prof_busy[busy > 15 ? 15 : busy]++;
+    }
+#endif
+    uint16_t r = video_raster(), sync = video_sync_line;
+    bool early = (sync >= r ? sync - r : sync + video_lines - r) >= TILES_LINES;
+    if (early)
+        frame_tiles();
+#ifdef SCROLLPROF
+    sp_update[early]++;
+#endif
+    step_work(video_sync_line);
+    video_sync();
+#ifdef GDPROF
+    prof_synced = prof_timer();
+#endif
+#ifdef SCROLLPROF
+    uint16_t sp_r0 = video_raster();
+#endif
+    if (!early)
+        frame_tiles();
+    video_build(tiles, cam_x, cam_y);
+    video_render(sprites, nsprites);
+#ifdef SCROLLPROF
+    {
+        uint16_t r1 = video_raster(), n = (r1 >= sp_r0 ? r1 - sp_r0 : r1 + video_lines - sp_r0) / 32;
+        sp_render[n > 19 ? 19 : n]++;
+    }
+#endif
     step_work(video_show_line);
     video_show();
     SHOT_TICK();
@@ -2198,6 +2237,10 @@ static void rules_start(void) {
 // The step made at its tick: shown from now on. One not made yet is made at
 // once (the frames wait for it then).
 static void rules_tick(void) {
+#ifdef SCROLLPROF
+    if (step_state == ST_MAKING)
+        sp_wait++;
+#endif
     while (step_state == ST_MAKING)  // a whole frame
         step_work((video_raster() + video_lines - 70) % video_lines);
     step_dma(STEP_WORK, true);
@@ -2297,7 +2340,7 @@ static uint8_t play_cave(void) {
         // player has taken it
         if (ticks && step_state == ST_IDLE) {
             uint16_t left = tick_acc >= tick_len ? 0 : (tick_len - tick_acc + frame_len - 1) / frame_len;
-            uint16_t ahead = 1 + step_lines / (video_lines * 2 / 5);
+            uint16_t ahead = 1 + step_lines / (video_lines / 3);
             if (left <= ahead) {
                 step_state = ST_MAKING;
                 step_begun = step_taken = false;
@@ -2331,11 +2374,11 @@ static uint8_t play_cave(void) {
 #ifdef SCROLLPROF
         sp_frames[frames > 3 ? 3 : frames - 1]++;
         if (frames > 1 && game.state == PS_ALIVE)
-            sp_drop[cave_no < 25 ? cave_no : 25] += frames - 1;
+            sp_drop[demo_at] += frames - 1;
         if (step_lines > sp_step_lines)
             sp_step_lines = step_lines;
-        if (step_lines > sp_cave_lines[cave_no < 25 ? cave_no : 25])
-            sp_cave_lines[cave_no < 25 ? cave_no : 25] = step_lines;
+        if (step_lines > sp_cave_lines[demo_at])
+            sp_cave_lines[demo_at] = step_lines;
 #endif
         // How far the moves of the tick have come: they end with the next
         // one, so what stops always reaches its cell.

@@ -305,6 +305,11 @@ static uint16_t render_sum(const uint8_t *from, const uint8_t *to) {
 }
 #endif
 
+#ifdef GDPROF
+extern volatile uint32_t prof_render[3];
+extern uint16_t prof_timer(void);
+#endif
+
 // src/render.s
 extern uint8_t *rd_p;
 extern const uint8_t *rd_top;
@@ -312,7 +317,12 @@ extern int8_t rd_wc;
 extern uint8_t rd_yo8, rd_first8, rd_nfull, rd_last8, rd_bank, rd_gfx_bank, rd_space;
 void render_columns(void);
 
-void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sprite *sprites, uint8_t n) {
+// The frame's jobs, built by video_build and run by video_render: where its
+// view is, and the framebuffer they draw
+static uint16_t built_x, built_y;
+static uint8_t built_bank;
+
+void video_build(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y) {
     const uint8_t bank = back ? FB_BANK_B : FB_BANK_A;
     int8_t wc = (int8_t)(cam_x >> 3) - 1;  // cave character column of FB column 0
     const uint8_t yo = cam_y & 15;          // pixel rows of the top tiles above the view
@@ -323,9 +333,11 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
     uint8_t *p;
 
 #ifdef GDPROF
-    extern uint16_t prof_timer(void);
     uint16_t prof_t0 = prof_timer();
 #endif
+    built_x = cam_x;
+    built_y = cam_y;
+    built_bank = bank;
     drawn_fx = cam_x & 7;
     dma_begin(0, 0);
     p = dma_p;
@@ -380,8 +392,12 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
 #endif
     dma_last = p - 12;
 #ifdef GDPROF
-    extern volatile uint32_t prof_render[3];
-    extern uint16_t prof_timer(void);
+    prof_render[0] += (uint16_t)(prof_t0 - prof_timer());
+#endif
+}
+
+void video_render(const Sprite *sprites, uint8_t n) {
+#ifdef GDPROF
     uint16_t t1 = prof_timer();
 #endif
     dma_run();
@@ -389,9 +405,8 @@ void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sp
     uint16_t t2 = prof_timer();
 #endif
     if (n)
-        draw_sprites(sprites, n, cam_x, cam_y, bank);
+        draw_sprites(sprites, n, built_x, built_y, built_bank);
 #ifdef GDPROF
-    prof_render[0] += (uint16_t)(prof_t0 - t1);
     prof_render[1] += (uint16_t)(t1 - t2);
     prof_render[2] += (uint16_t)(t2 - prof_timer());
 #endif

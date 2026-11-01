@@ -2214,7 +2214,7 @@ static int32_t count_down(int32_t t) {
 // gd_iterate is all of them at once.
 static uint8_t st_y, st_ymax;   // the next row of the scan, and its last
 #ifdef GD_FAR
-// the most raster lines a row took in this step, and gd_step_end in any step
+// the most raster lines a row took (in the last steps, fading), and gd_step_end in any step
 static uint8_t st_most[2] = {0, 40};
 static uint16_t st_end, st_lines;  // gd_step_rows' end and lines
 #endif
@@ -2273,7 +2273,11 @@ __attribute__((noinline)) void gd_step_begin(uint8_t player_move, bool player_fi
         st_ymax = gd.h - 2;
     }
 #ifdef GD_FAR
-    st_most[0] = 4;
+    // what a row took in the last steps, fading: the first rows of a step
+    // are not taken for cheap (they would end past the window's end)
+    st_most[0] -= st_most[0] >> 2;
+    if (st_most[0] < 4)
+        st_most[0] = 4;
 #endif
     prof_mark(0);
 }

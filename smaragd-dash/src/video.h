@@ -24,10 +24,13 @@
 void video_init(void);
 void video_palettes(void);  // from the disk's SMARAGD.PAL, loaded at PAL_BANK:PAL_OFF (mem.h)
 
-// A frame: video_sync waits until the separator row is on screen and sets
-// the playfield's horizontal scroll; video_render then draws the hidden
-// framebuffer and video_show waits for the vertical blank and shows it.
-// Game logic runs between video_show and the next video_sync.
+// A frame: video_build writes the jobs that draw the hidden framebuffer
+// (the CPU's part, at any time after video_show), video_sync waits until
+// the separator row is on screen and sets the playfield's horizontal
+// scroll; video_render then runs the jobs and draws the sprites, and
+// video_show waits for the vertical blank and shows the framebuffer. Game
+// logic runs between video_show and the next video_sync. Between
+// video_build and video_render only dma_once may use the DMA.
 void video_sync(void);
 
 // A tile at any pixel position (cave pixels, its top left corner), drawn
@@ -39,9 +42,10 @@ typedef struct {
 } Sprite;
 
 // tiles[] holds a tile number per cave cell (only the cells in view are
-// read), (cam_x, cam_y) is the top left pixel of the view; then the n
-// sprites are drawn over them.
-void video_render(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y, const Sprite *sprites, uint8_t n);
+// read), (cam_x, cam_y) is the top left pixel of the view; video_render
+// draws them and then the n sprites over them.
+void video_build(const uint8_t *tiles, uint16_t cam_x, uint16_t cam_y);
+void video_render(const Sprite *sprites, uint8_t n);
 
 void video_show(void);
 

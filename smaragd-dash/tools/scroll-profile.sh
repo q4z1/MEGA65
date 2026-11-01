@@ -16,7 +16,7 @@ SMARAGD_CFLAGS="-DSCREENCAST -DSCROLLPROF $1" ./build.sh >$OUT/profile-build.log
     { tail $OUT/profile-build.log; exit 1; }
 cp build/smaragd-dash.d81 $OUT/profile.d81
 rm -f $OUT/profile.bin
-SDL_AUDIODRIVER=dummy timeout 1800 ../toolchain/tools/bin/xmega65 -headless -sleepless -testing -besure \
+SDL_AUDIODRIVER=dummy timeout ${PROFILE_TIMEOUT:-1800} ../toolchain/tools/bin/xmega65 -headless -sleepless -testing -besure \
     -8 $OUT/profile.d81 -autoload -dumpmem $OUT/profile.bin >$OUT/profile-xemu.log 2>&1 || true
 python3 - $OUT/profile.bin build/smaragd-dash.prg.elf ../toolchain/llvm-mos/bin/llvm-nm <<'PY'
 import struct
@@ -37,12 +37,16 @@ def words(name, n):
 
 
 print("loops by the frames they took (1, 2, 3, more):", words("sp_frames", 4))
+demo = dump[syms["demo_list"]:syms["demo_list"] + 64]  # the demo's caves (numbers from 1)
 print("frames dropped while Rockford lives, by cave:",
-      {i + 1: v for i, v in enumerate(words("sp_drop", 26)) if v} or "none")
+      {demo[i]: v for i, v in enumerate(words("sp_drop", 25)) if v} or "none")
 print("the view's steps (pixels: frames):", {i: v for i, v in enumerate(words("sp_step", 17)) if v})
 print("the game before video_sync (1 ms each):", words("sp_logic", 20), "too late:", words("sp_sync_late", 1)[0])
 print("the drawing before video_show (1 ms each):", words("sp_draw", 20), "too late:", words("sp_show_late", 1)[0])
 print("the most raster lines (32 us) a step of GDash's engine took:", words("sp_step_lines", 1)[0])
-print("... by cave:", {i + 1: v for i, v in enumerate(words("sp_cave_lines", 26)) if v})
+print("... by cave:", {demo[i]: v for i, v in enumerate(words("sp_cave_lines", 25)) if v})
+print("ticks that waited for their step:", words("sp_wait", 1)[0])
+print("from video_sync to the end of video_render (1 ms each):", words("sp_render", 20))
+print("frames whose tiles were set after video_sync, before it:", words("sp_update", 2))
 PY
 ./build.sh >$OUT/profile-build.log 2>&1

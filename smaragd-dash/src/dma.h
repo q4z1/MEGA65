@@ -14,6 +14,10 @@ void dma_begin(uint8_t src_mb, uint8_t dst_mb);
 void dma_job(uint8_t cmd, uint16_t src, uint8_t sbank, uint16_t dst, uint8_t dbank, uint16_t len);
 void dma_run(void);
 
+// One copy at once, from a list of its own: DMA_LIST may hold a frame's
+// jobs that wait for video_render (video.h)
+void dma_once(uint16_t src, uint8_t sbank, uint16_t dst, uint8_t dbank, uint16_t len);
+
 #define DMA_HOLD 0x10  // with a bank: the address stays (a copy from one byte fills)
 
 #define dma_copy(src, sbank, dst, dbank, len) dma_job(0, src, sbank, dst, dbank, len)

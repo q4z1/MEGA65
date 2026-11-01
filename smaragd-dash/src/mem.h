@@ -23,14 +23,18 @@
 // The DMA list (dma.c): below the program, where BASIC had its screen; the
 // game never goes back to BASIC. A frame takes up to 480 copy jobs.
 #define DMA_LIST      ((uint8_t *)0x0800)
-#define DMA_JOBS      500
+#define DMA_JOBS      498
 #define DMA_LIST_SIZE (6 + DMA_JOBS * 12)  // header and jobs of 12 bytes
-_Static_assert(0x0800 + DMA_LIST_SIZE <= 0x2000, "the DMA list reaches the program");
+// ... and behind it dma_once's list of one job (the DMA reads lists from
+// bank 0 as it is, which the CPU does not see everywhere)
+#define DMA_ONCE      (DMA_LIST + DMA_LIST_SIZE)
+#define DMA_ONCE_SIZE (6 + 12)
+_Static_assert(0x0800 + DMA_LIST_SIZE + DMA_ONCE_SIZE <= 0x2000, "the DMA list reaches the program");
 
 // The calls into GDash's engine (link.ld's .lowcode, src/gdfar.s), behind
 // the DMA list: SMARAGD.LOW, loaded at the start
 #define LOW_AT    0x1F80
-_Static_assert(0x0800 + DMA_LIST_SIZE <= LOW_AT, "the DMA list reaches the calls into GDash's engine");
+_Static_assert(0x0800 + DMA_LIST_SIZE + DMA_ONCE_SIZE <= LOW_AT, "the DMA lists reach the calls into GDash's engine");
 
 // What the program shares with GDash's engine lies at $C000, outside the
 // engine's $4000-$BFFF (shared.ld, which has these numbers): cave[] and
