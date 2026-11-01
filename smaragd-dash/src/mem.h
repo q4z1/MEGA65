@@ -89,6 +89,15 @@ _Static_assert(STEP_SHOWN + STEP_SIZE <= STEP_WORK && STEP_WORK + STEP_SIZE <= 0
 #define KEEP_BANK 2
 #define KEEP_OFF  0x0000u  // $20000, FILE_SIZE bytes
 _Static_assert(KEEP_OFF + FILE_SIZE <= GD_OFF, "the kept cave reaches GDash's engine");
+// Behind it the editor's undo (U): the cave before each of its last changes
+#define UNDO_BANK   2
+#define UNDO_OFF    (KEEP_OFF + FILE_SIZE)
+#define UNDO_LEVELS 14
+_Static_assert(UNDO_OFF + UNDO_LEVELS * FILE_SIZE <= GD_OFF, "the undo reaches GDash's engine");
+// Behind GDash's engine the help on its elements (SMARAGD.HELP, mkhelp.py)
+#define HELP_BANK 2
+#define HELP_OFF  0xC000u  // $2C000
+_Static_assert(GD_OFF + GD_SIZE <= HELP_OFF, "GDash's engine reaches the help");
 
 // ---------------------------------------------------------------- attic RAM
 

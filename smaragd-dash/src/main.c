@@ -353,6 +353,8 @@ static const uint8_t test_script[][3] = {
     {1, KEY_F1, 0}, {150, 0, 0}, {0, 0, 0},               // 13: F1, the title again
     {1, 'H', 0}, {60, 0, 0}, {0, 0, 0},                   // 14: help, how to play
     {1, ' ', 0}, {60, 0, 0}, {0, 0, 0},                   // 15: help, the elements
+    {1, ' ', 0}, {40, 0, 0}, {1, ' ', 0}, {40, 0, 0}, {1, ' ', 0}, {40, 0, 0},
+    {1, ' ', 0}, {40, 0, 0}, {1, ' ', 0}, {40, 0, 0},    // the five pages of more (help.txt)
     {1, ' ', 0}, {60, 0, 0}, {1, 'E', 0}, {120, 0, 0},    // the editor: slot 1 as it was left
     {1, '4', 0}, {4, 0, IN_BUTTON}, {10, 0, 0},           // steel at 3,3, not saved
     {1, 'E', 0}, {20, 0, 0}, {2, 0, IN_DOWN}, {10, 0, 0}, {2, 0, IN_DOWN}, {30, 0, 0},
@@ -1940,53 +1942,44 @@ __attribute__((noinline)) static void page_wait(void) {
 #ifndef SCREENCAST  // which plays the caves: no help, no BASIC (room in bank 0)
 // The title's help (Help or H): how to play, then the elements of the
 // game's caves
+// The help pages, SMARAGD.HELP (tools/mkhelp.py from help.txt) in HELP_BANK:
+// their number, then each: its title, and its lines, each an element of
+// GDash's whose tile goes before it (HELP_NONE: none) and its text,
+// characters padded with 0. Without the ROM's banks as RAM: no help.
+#define HELP_TITLE 20
+#define HELP_LINES 10
+#define HELP_TEXT  38
+#define HELP_NONE  0xFF
+#define HELP_PAGE  (HELP_TITLE + HELP_LINES * (1 + HELP_TEXT))
+static uint8_t help_count;
+
 static void help_pages(void) {
-    static const char *const keys[7] = {
-        "MOVE      JOYSTICK OR CURSOR KEYS",
-        "SNAP      FIRE AND A DIRECTION",
-        "P         PAUSE",
-        "RUN/STOP  GIVE UP THE LIFE",
-        "F1        END THE GAME",
-        "I         HELD: WHAT ROCKFORD CARRIES",
-        "TITLE     E EDITOR  RUN/STOP BASIC",
-    };
-    static const uint8_t tile[10] = {T_DIAMOND0, T_OUTBOX0, T_BOULDER, T_FIREFLY0, T_BUTTERFLY0,
-                                     T_AMOEBA0, T_MAGIC0, T_SLIME0, T_NUT, T_CLOCK};
-    static const char *const what[10] = {
-        "EMERALD    COLLECT THEM",
-        "EXIT       OPENS WITH ENOUGH",
-        "BOULDER    FALLS AND ROLLS",
-        "FIREFLY    DEADLY, EXPLODES",
-        "BUTTERFLY  EXPLODES INTO EMERALDS",
-        "AMOEBA     ENCLOSED: EMERALDS",
-        "MAGIC WALL BOULDERS INTO EMERALDS",
-        "SLIME      THINGS DROP THROUGH",
-        "NUT        A BOULDER CRACKS IT",
-        "CLOCK      MORE TIME",
-    };
+    static char line[1 + HELP_TEXT + 1];
     text_cancel();
-    video_clear();
-    music_catch_up();
     video_palette(0);
-    status_center("ANY KEY: THE ELEMENTS");
-    video_text_in(CENTRE(11), 0, "HOW TO PLAY", title_row);
-    video_text(1, 16, "DIG FOR EMERALDS: ENOUGH OF THEM OPEN");
-    video_text(1, 32, "THE EXIT. GET THERE BEFORE TIME IS UP.");
-    for (uint8_t i = 0; i < 7; i++) {
+    for (uint8_t p = 0; p < help_count; p++) {
+        uint16_t at = HELP_OFF + 1 + p * HELP_PAGE;
+        video_clear();
         music_catch_up();
-        video_text(2, 56 + i * 16, keys[i]);
+        status_center(p + 1 < help_count ? "ANY KEY: MORE" : "ANY KEY: BACK");
+        dma_once(at, HELP_BANK, (uint16_t)line, 0, HELP_TITLE);
+        line[HELP_TITLE] = 0;
+        video_text_in(CENTRE(strlen(line)), 0, line, title_row);
+        at += HELP_TITLE;
+        for (uint8_t y = 16; y < 16 + HELP_LINES * 16; y += 16, at += 1 + HELP_TEXT) {
+            music_catch_up();
+            dma_once(at, HELP_BANK, (uint16_t)line, 0, 1 + HELP_TEXT);
+            line[1 + HELP_TEXT] = 0;
+            if ((uint8_t)line[0] == HELP_NONE) {
+                video_text(1, y, line + 1);
+            } else {
+                uint8_t t = gd_tile[(uint8_t)line[0]];
+                video_tile(2, y, t == T_SPARKLE ? T_DIAMOND0 : t);
+                video_text(5, y, line + 1);
+            }
+        }
+        page_wait();
     }
-    page_wait();
-    video_clear();
-    music_catch_up();
-    status_center("ANY KEY: BACK");
-    video_text_in(CENTRE(12), 0, "THE ELEMENTS", title_row);
-    for (uint8_t i = 0; i < 10; i++) {
-        music_catch_up();
-        video_tile(2, 16 + i * 16, tile[i]);
-        video_text(5, 16 + i * 16, what[i]);
-    }
-    page_wait();
 }
 
 // ---------------------------------------------------------------- back to BASIC
@@ -3532,6 +3525,10 @@ int main(void) {
     disk_load("SMARAGD.TILES", GFX_BANK, TILES_OFF);
     rom_ram = rom_writable();
     have_logo = rom_ram && load("LOADING", "SMARAGD.LOGO", LOGO_BANK, LOGO_OFF);
+#ifndef SCREENCAST
+    if (rom_ram && disk_load("SMARAGD.HELP", HELP_BANK, HELP_OFF))
+        dma_once(HELP_OFF, HELP_BANK, (uint16_t)&help_count, 0, 1);
+#endif
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);
     games = disk_partitions(game_name, GAMES_MAX, "CAVES");

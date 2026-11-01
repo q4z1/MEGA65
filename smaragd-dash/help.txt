@@ -1,0 +1,90 @@
+# Smaragd Dash's help pages (tools/mkhelp.py makes SMARAGD.HELP of them;
+# Help or H on the title shows them, a key turns the page).
+#
+#   = TITLE                 a new page (up to 20 characters)
+#   - text                  a line of text (up to 38 characters, from the
+#                           screen's second column; more spaces: further in)
+#   -                       an empty line
+#   ELEMENT  NAME  WHAT     GDash's element (O_..., its tile as in the
+#                           editor), its name (up to 10 characters) and what
+#                           it does (up to 22), two or more spaces apart
+#
+# A page has 10 lines; more go on to a page of the same title. Only the
+# font's characters: letters, digits, space and / : . ! - , + * < > ^ _
+# What the elements do is GDash's engine (caverenderedengine.cpp).
+
+= HOW TO PLAY
+- DIG FOR EMERALDS: ENOUGH OF THEM OPEN
+- THE EXIT. GET THERE BEFORE TIME IS UP.
+-
+-  MOVE      JOYSTICK OR CURSOR KEYS
+-  SNAP      FIRE AND A DIRECTION
+-  P         PAUSE
+-  RUN/STOP  GIVE UP THE LIFE
+-  F1        END THE GAME
+-  I         HELD: WHAT ROCKFORD CARRIES
+-  TITLE     E EDITOR  RUN/STOP BASIC
+
+= THE ELEMENTS
+DIAMOND             EMERALD     COLLECT THEM
+OUTBOX              EXIT        OPENS WITH ENOUGH
+STONE               BOULDER     FALLS AND ROLLS
+FIREFLY_1           FIREFLY     DEADLY, EXPLODES
+BUTTER_1            BUTTERFLY   EXPLODES INTO EMERALDS
+AMOEBA              AMOEBA      ENCLOSED: EMERALDS
+MAGIC_WALL          MAGIC WALL  BOULDERS INTO EMERALDS
+SLIME               SLIME       THINGS DROP THROUGH
+NUT                 NUT         A BOULDER CRACKS IT
+CLOCK               CLOCK       MORE TIME
+
+= MORE ELEMENTS
+DIRT2               DIRT 2      DIRT IN ANOTHER COLOUR
+DIRT_GLUED          GLUED DIRT  CANNOT BE DUG
+BRICK_EATABLE       SOFT WALL   ROCKFORD DIGS THROUGH
+STEEL_EXPLODABLE    SOFT STEEL  EXPLOSIONS BREAK IT
+H_EXPANDING_WALL    GROWING     A WALL THAT GROWS ON
+EXPANDING_WALL_SWITCH  SWITCH  TURNS WHERE WALLS GROW
+FALLING_WALL        FALLING     DROPS ON ROCKFORD
+BOX                 BOX         PUSHED ANY WAY
+ACID                ACID        EATS DIRT, SPREADS
+LAVA                LAVA        WHAT FALLS IN IS GONE
+WATER               WATER       SPREADS INTO SPACE
+AMOEBA_2            AMOEBA 2    MEETS AMOEBA: EXPLODES
+ALT_FIREFLY_1       FIREFLY 2   TURNS RIGHT, DEADLY
+ALT_BUTTER_1        BUTTERFLY2  TURNS LEFT, EMERALDS
+STONEFLY_1          STONEFLY    EXPLODES INTO BOULDERS
+DRAGONFLY_1         DRAGONFLY   FLIES STRAIGHT, DEADLY
+GHOST               GHOST       BURSTS AT ROCKFORD
+BITER_1             BITER       EATS DIRT AND EMERALDS
+BITER_SWITCH        SWITCH      BITERS FASTER, SLOWER
+COW_1               COW         ENCLOSED: A SKELETON
+VOODOO              VOODOO      HURT IT: ROCKFORD DIES
+WAITING_STONE       WAITING     CHASES ONCE IT FALLS
+CHASING_STONE       CHASING     ROLLS AFTER ROCKFORD
+FLYING_STONE        FLYING      A BOULDER, FALLS UP
+MEGA_STONE          MEGA        PUSHED AFTER A SWEET
+SWEET               SWEET       MEGA BOULDERS MOVE NOW
+STONE_GLUED         GLUED       CANNOT BE PUSHED
+NITRO_PACK          NITRO       BLOWS UP WHEN DROPPED
+BLADDER             BLADDER     FLOATS UPWARDS
+BLADDER_SPENDER     MAKER       LETS OUT A BLADDER
+FLYING_DIAMOND      FLYING      AN EMERALD, FALLS UP
+DIAMOND_GLUED       GLUED       CANNOT BE MOVED
+DIAMOND_KEY         EM. KEY     FREES TRAPPED EMERALDS
+TRAPPED_DIAMOND     TRAPPED     EMERALD KEY FREES IT
+WALLED_DIAMOND      WALLED      THE HAMMER FREES IT
+PNEUMATIC_HAMMER    HAMMER      FIRE+SIDE: WALL BELOW
+KEY_1               KEYS        OPEN THEIR DOORS
+DOOR_1              DOORS       NEED THEIR KEY
+BOMB                BOMB        FIRE+WAY: PUT IT DOWN
+ROCKET_LAUNCHER     LAUNCHER    FIRE: SHOOTS A ROCKET
+REPLICATOR          REPLICATOR  COPIES WHAT IS ABOVE
+REPLICATOR_SWITCH   SWITCH      REPLICATORS ON, OFF
+CONVEYOR_LEFT       CONVEYOR    CARRIES WHAT IS ON IT
+CONVEYOR_SWITCH     SWITCH      CONVEYORS ON, OFF
+CONVEYOR_DIR_SWITCH  SWITCH     CONVEYORS TURN AROUND
+CREATURE_SWITCH     SWITCH      CREATURES TURN AROUND
+TELEPORTER          TELEPORTER  TO THE NEXT TELEPORTER
+GRAVITY_SWITCH      GRAVITY     SETS GRAVITY YOUR WAY
+SKELETON            SKELETON    COLLECT IT FOR THE POT
+POT                 POT         STIRRED WITH SKELETONS
