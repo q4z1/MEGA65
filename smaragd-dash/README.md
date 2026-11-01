@@ -44,7 +44,8 @@ SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
 melody on the right channel. Fire starts the game, E the cave editor, Help
 or H shows how to play and the elements of the caves - seven pages, all of
 GDash's elements among them (`help.txt`, which `tools/mkhelp.py` makes
-`SMARAGD.HELP` of) -, and Run/Stop, pressed
+`SMARAGD.HELP` of, with the editor's two pages); a key held turns them
+no faster than every half second -, and Run/Stop, pressed
 twice, goes back to BASIC (the game puts back the ROM and the screen it
 borrowed). The line under the logo takes turns: "press fire", the controls,
 and the version (the file `VERSION`, which is also in the disk's name).

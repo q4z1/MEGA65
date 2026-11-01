@@ -97,8 +97,9 @@ Below it is the cave, as it is at its start, with all its elements standing
 still. The view follows the cursor. For a few seconds the status line may
 show a message instead (see [Messages](#messages)).
 
-**H** or **Help** shows the help page with all keys and the twelve elements with their
-keys. Any key (or fire) goes back.
+**H** or **Help** shows the help: two pages with a key on each line, the
+second with the twelve elements and their keys. Any key (or fire) turns the
+page; a key held turns them no faster than every half second.
 
 ![The help page](screenshots/editor-help.png)
 
@@ -202,7 +203,8 @@ had last). A game gets its name on the values page (see
 
 **+** and **-** load the slot from the disk. An empty slot shows a new cave:
 a frame of steel wall, dirt, the inbox top left, the exit bottom right, 150
-seconds, 10 emeralds needed, Boulder Dash 1's rules. That is the start for a
+seconds, 10 emeralds needed, Boulder Dash 1's rules - and after a sweet
+Rockford pushes mega boulders too (in GDash that is off). That is the start for a
 cave of your own. Nothing is written to the disk until you save.
 
 ![An empty slot: a new cave](screenshots/editor-new.png)
@@ -435,5 +437,5 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | R | the next direction of what walks |
 | C (twice) | a new cave |
 | D (twice) | empty the slot |
-| H or Help | help page |
+| H or Help | the help, two pages |
 | Run/Stop | back to the title; the cave stays as it is for the next time |

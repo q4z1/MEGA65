@@ -280,7 +280,7 @@ static const uint8_t test_script[][3] = {
     {1, '-', 0}, {60, 0, 0}, {1, '-', 0}, {60, 0, 0}, {1, '-', 0}, {100, 0, 0},  // slot 1 again
     {1, 'H', 0}, {150, 0, 0},                             // the help page
     SHOT,                                                 // 4: editor-help
-    {100, 0, 0}, {1, ' ', 0}, {40, 0, 0},
+    {100, 0, 0}, {1, ' ', 0}, {40, 0, 0}, {1, ' ', 0}, {40, 0, 0},  // its second page, back
     {1, 'E', 0}, {60, 0, 0},                              // all elements: to the clock
     MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
     MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
@@ -326,7 +326,8 @@ static const uint8_t test_script[][3] = {
     {1, '7', 0}, {1, '7', 0}, {2, 0, IN_DOWN}, {2, 0, 0}, // a firefly (up) at 3,3
     {4, 0, IN_BUTTON}, {10, 0, 0},
     {0, 0, 0},                                            // 1: the editor
-    {1, 'H', 0}, {30, 0, 0}, {0, 0, 0},                   // 2: help
+    {1, 'H', 0}, {40, 0, 0}, {0, 0, 0},                   // 2: help
+    {1, ' ', 0}, {40, 0, 0},                              // its second page
     {1, 'Q', 0}, {1, 'V', 0}, {10, 0, 0},                 // values: time 153
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
     {2, 0, IN_UP}, {2, 0, 0},                             // the name: TEST
@@ -1949,12 +1950,18 @@ static uint8_t get_key(void) {
     return key;
 }
 
-// Wait on a page for a key or the button
+// Wait on a page for a key or the button: not in its first PAGE_HOLD
+// frames, which drop the keys typed, so a key held (the keyboard repeats
+// it) turns the pages no faster than that
+#define PAGE_HOLD 25
 __attribute__((noinline)) static void page_wait(void) {
     bool armed = false;
-    for (;;) {
+    for (uint8_t shown = 0;; shown++) {
         title_frame();
-        if (get_key() || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
+        uint8_t key = get_key();
+        if (shown < PAGE_HOLD)
+            continue;
+        if (key || (pressed & IN_RESTART) || (armed && (pressed & IN_BUTTON)))
             break;
         if (!(held & IN_BUTTON))
             armed = true;
@@ -1966,41 +1973,47 @@ __attribute__((noinline)) static void page_wait(void) {
 // The title's help (Help or H): how to play, then the elements of the
 // game's caves
 // The help pages, SMARAGD.HELP (tools/mkhelp.py from help.txt) in HELP_BANK:
-// their number, then each: its title, and its lines, each an element of
-// GDash's whose tile goes before it (HELP_NONE: none) and its text,
-// characters padded with 0. Without the ROM's banks as RAM: no help.
+// the number of the title's and of the editor's (after them), then each:
+// its title, and its lines, each an element of GDash's whose tile goes
+// before it (HELP_NONE: none) and its text, characters padded with 0.
+// Without the ROM's banks as RAM: no help.
 #define HELP_TITLE 20
 #define HELP_LINES 10
 #define HELP_TEXT  38
 #define HELP_NONE  0xFF
 #define HELP_PAGE  (HELP_TITLE + HELP_LINES * (1 + HELP_TEXT))
-static uint8_t help_count;
+static uint8_t help_count[2];  // the title's pages, the editor's
+
+// Page p of them, the last one shown or not
+__attribute__((noinline)) static void help_page(uint8_t p, bool last) {
+    static char line[1 + HELP_TEXT + 1];
+    uint16_t at = HELP_OFF + 2 + p * HELP_PAGE;
+    video_clear();
+    music_catch_up();
+    status_center(last ? "ANY KEY: BACK" : "ANY KEY: MORE");
+    dma_once(at, HELP_BANK, (uint16_t)line, 0, HELP_TITLE);
+    line[HELP_TITLE] = 0;
+    video_text_in(CENTRE(strlen(line)), 0, line, title_row);
+    at += HELP_TITLE;
+    for (uint8_t y = 16; y < 16 + HELP_LINES * 16; y += 16, at += 1 + HELP_TEXT) {
+        music_catch_up();
+        dma_once(at, HELP_BANK, (uint16_t)line, 0, 1 + HELP_TEXT);
+        line[1 + HELP_TEXT] = 0;
+        if ((uint8_t)line[0] == HELP_NONE) {
+            video_text(1, y, line + 1);
+        } else {
+            uint8_t t = gd_tile[(uint8_t)line[0]];
+            video_tile(2, y, t == T_SPARKLE ? T_DIAMOND0 : t);
+            video_text(5, y, line + 1);
+        }
+    }
+}
 
 static void help_pages(void) {
-    static char line[1 + HELP_TEXT + 1];
     text_cancel();
     video_palette(0);
-    for (uint8_t p = 0; p < help_count; p++) {
-        uint16_t at = HELP_OFF + 1 + p * HELP_PAGE;
-        video_clear();
-        music_catch_up();
-        status_center(p + 1 < help_count ? "ANY KEY: MORE" : "ANY KEY: BACK");
-        dma_once(at, HELP_BANK, (uint16_t)line, 0, HELP_TITLE);
-        line[HELP_TITLE] = 0;
-        video_text_in(CENTRE(strlen(line)), 0, line, title_row);
-        at += HELP_TITLE;
-        for (uint8_t y = 16; y < 16 + HELP_LINES * 16; y += 16, at += 1 + HELP_TEXT) {
-            music_catch_up();
-            dma_once(at, HELP_BANK, (uint16_t)line, 0, 1 + HELP_TEXT);
-            line[1 + HELP_TEXT] = 0;
-            if ((uint8_t)line[0] == HELP_NONE) {
-                video_text(1, y, line + 1);
-            } else {
-                uint8_t t = gd_tile[(uint8_t)line[0]];
-                video_tile(2, y, t == T_SPARKLE ? T_DIAMOND0 : t);
-                video_text(5, y, line + 1);
-            }
-        }
+    for (uint8_t p = 0; p < help_count[0]; p++) {
+        help_page(p, p + 1 == help_count[0]);
         page_wait();
     }
 }
@@ -3065,32 +3078,41 @@ __attribute__((noinline)) static void edit_map(void) {
     note = 0;
 }
 
+// The editor's help pages (help.txt), its elements with their keys in a
+// row on the last one; without the help (no ROM banks as RAM, or a build
+// without it) only the elements
+#if !defined(SCREENCAST) && !defined(FLOWTEST)
+#define EDIT_HELP_PAGES help_count[1]
+#else
+#define EDIT_HELP_PAGES 0
+#endif
 static EDITOR void edit_help(void) {
-    static const char *const lines[9] = {
-        "MOVE     CURSOR KEYS OR JOYSTICK",
-        "PUT      FIRE OR SPACE, HELD: DRAW",
-        "E ALL ELEMENTS  G WHAT CURSOR IS ON",
-        "1-0 I X  CHOOSE ONE OF THESE BELOW",
-        "R        THE WAY WHAT WALKS STARTS",
-        "A SCATTER IT  U UNDO  B INTERMISSION",
-        "V        NAME AND VALUES   T  TRY IT",
-        "S        SAVE   + -  NEXT, LAST SLOT",
-        "C NEW  D EMPTY  M MAP  RUN/STOP TITLE",
-    };
-    video_clear();
-    status_center("ANY KEY: BACK");
-    video_text_in(CENTRE(11), 0, "CAVE EDITOR", title_row);
-    for (uint8_t i = 0; i < 9; i++)
-        video_text(2, 16 + i * 16, lines[i]);
-    // the elements with their keys, in a row
-    char key[2] = {0, 0};
-    for (uint8_t k = 0; k < PENS; k++) {
-        uint8_t col = 2 + k * 3;
-        key[0] = pen_keys[k];
-        video_text(col, 160, key);
-        video_tile(col + 1, 160, elem_tile(pen_elem[k]));
+    uint8_t n = EDIT_HELP_PAGES;
+    for (uint8_t p = 0;; p++) {
+        bool last = p + 1 >= n;
+#if !defined(SCREENCAST) && !defined(FLOWTEST)
+        if (n)
+            help_page(help_count[0] + p, last);
+        else
+#endif
+        {
+            video_clear();
+            status_center("ANY KEY: BACK");
+            video_text_in(CENTRE(11), 0, "CAVE EDITOR", title_row);
+        }
+        if (last) {
+            char key[2] = {0, 0};
+            for (uint8_t k = 0; k < PENS; k++) {
+                uint8_t col = 2 + k * 3;
+                key[0] = pen_keys[k];
+                video_text(col, 160, key);
+                video_tile(col + 1, 160, elem_tile(pen_elem[k]));
+            }
+        }
+        page_wait();
+        if (last)
+            break;
     }
-    page_wait();
     video_clear();
     edit_shown = false;
     note = 0;
@@ -3684,7 +3706,7 @@ int main(void) {
     have_logo = rom_ram && load("LOADING", "SMARAGD.LOGO", LOGO_BANK, LOGO_OFF);
 #if !defined(SCREENCAST) && !defined(FLOWTEST)
     if (rom_ram && disk_load("SMARAGD.HELP", HELP_BANK, HELP_OFF))
-        dma_once(HELP_OFF, HELP_BANK, (uint16_t)&help_count, 0, 1);
+        dma_once(HELP_OFF, HELP_BANK, (uint16_t)help_count, 0, 2);
 #endif
     // GDash's engine for the own caves, and the calls into it
     have_gdash = rom_ram && disk_load("SMARAGD.LOW", 0, LOW_AT) && load("LOADING", "SMARAGD.GD", GD_BANK, GD_OFF);

@@ -4,10 +4,12 @@ into SMARAGD.HELP.
 
 Usage: mkhelp.py <help.txt> <help.bin>
 
-help.bin: two bytes of load address (not used), the number of pages, then
-each page: its title in TITLE bytes and LINES lines of 1 + TEXT bytes, each
-GDash's element whose tile goes before the line (NONE: none) and its text,
-padded with 0 (main.c's help_pages shows them).
+help.bin: two bytes of load address (not used), the number of the title's
+pages and of the editor's (after them), then each page: its title in TITLE
+bytes and LINES lines of 1 + TEXT bytes, each GDash's element whose tile
+goes before the line (NONE: none) and its text, padded with 0 (main.c's
+help_page shows them). The editor's last page keeps its last line free:
+the editor puts its elements there.
 """
 
 import re
@@ -23,6 +25,7 @@ FONT = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ /:.!-,x+*^><_"  # mkgfx.py's font
 def main():
     src, out = sys.argv[1], sys.argv[2]
     pages = []  # [title, [(element, text)]]
+    editor = None  # the first of the editor's pages
 
     def fail(n, msg):
         sys.exit(f"{src}:{n}: {msg}")
@@ -32,7 +35,11 @@ def main():
         if not line or line.startswith("#"):
             continue
         if line.startswith("="):
-            title = line[1:].strip()
+            if line.startswith("=="):
+                editor = len(pages)
+            elif editor is not None:
+                fail(n, "the title's pages before the editor's (==)")
+            title = line.lstrip("=").strip()
             if not title or len(title) > TITLE:
                 fail(n, f"a title of 1 to {TITLE} characters")
             pages.append([title, []])
@@ -59,7 +66,11 @@ def main():
         pages[-1][1].append((elem, text))
     if len(pages) > 255:
         sys.exit(f"{src}: more than 255 pages")
-    data = bytearray([0x00, 0x20, len(pages)])
+    if editor is None:
+        editor = len(pages)
+    if editor < len(pages) and len(pages[-1][1]) == LINES:
+        sys.exit(f"{src}: the editor's last page needs its last line for the elements")
+    data = bytearray([0x00, 0x20, editor, len(pages) - editor])
     for title, lines in pages:
         data += title.encode("ascii").ljust(TITLE, b"\0")
         for elem, text in lines + [(NONE, "")] * (LINES - len(lines)):

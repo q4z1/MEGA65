@@ -2,6 +2,9 @@
 # Help or H on the title shows them, a key turns the page).
 #
 #   = TITLE                 a new page (up to 20 characters)
+#   == TITLE                the cave editor's pages (Help or H in the
+#                           editor), after the title's: its last page
+#                           leaves its last line to the editor's elements
 #   - text                  a line of text (up to 38 characters, from the
 #                           screen's second column; more spaces: further in)
 #   -                       an empty line
@@ -56,14 +59,14 @@ STONEFLY_1          STONEFLY    EXPLODES INTO BOULDERS
 DRAGONFLY_1         DRAGONFLY   FLIES STRAIGHT, DEADLY
 GHOST               GHOST       BURSTS AT ROCKFORD
 BITER_1             BITER       EATS DIRT AND EMERALDS
-BITER_SWITCH        SWITCH      BITERS FASTER, SLOWER
+BITER_SWITCH        SWITCH      BITERS FASTER/SLOWER
 COW_1               COW         ENCLOSED: A SKELETON
 VOODOO              VOODOO      HURT IT: ROCKFORD DIES
 WAITING_STONE       WAITING     CHASES ONCE IT FALLS
 CHASING_STONE       CHASING     ROLLS AFTER ROCKFORD
 FLYING_STONE        FLYING      A BOULDER, FALLS UP
-MEGA_STONE          MEGA        PUSHED AFTER A SWEET
-SWEET               SWEET       MEGA BOULDERS MOVE NOW
+MEGA_STONE          MEGA        HEAVY: SWEET MAY HELP
+SWEET               SWEET       PUSH BOULDERS AT ONCE
 STONE_GLUED         GLUED       CANNOT BE PUSHED
 NITRO_PACK          NITRO       BLOWS UP WHEN DROPPED
 BLADDER             BLADDER     FLOATS UPWARDS
@@ -79,12 +82,33 @@ DOOR_1              DOORS       NEED THEIR KEY
 BOMB                BOMB        FIRE+WAY: PUT IT DOWN
 ROCKET_LAUNCHER     LAUNCHER    FIRE: SHOOTS A ROCKET
 REPLICATOR          REPLICATOR  COPIES WHAT IS ABOVE
-REPLICATOR_SWITCH   SWITCH      REPLICATORS ON, OFF
+REPLICATOR_SWITCH   SWITCH      REPLICATORS ON/OFF
 CONVEYOR_LEFT       CONVEYOR    CARRIES WHAT IS ON IT
-CONVEYOR_SWITCH     SWITCH      CONVEYORS ON, OFF
+CONVEYOR_SWITCH     SWITCH      CONVEYORS ON/OFF
 CONVEYOR_DIR_SWITCH  SWITCH     CONVEYORS TURN AROUND
 CREATURE_SWITCH     SWITCH      CREATURES TURN AROUND
 TELEPORTER          TELEPORTER  TO THE NEXT TELEPORTER
 GRAVITY_SWITCH      GRAVITY     SETS GRAVITY YOUR WAY
 SKELETON            SKELETON    COLLECT IT FOR THE POT
 POT                 POT         STIRRED WITH SKELETONS
+
+== CAVE EDITOR
+-  MOVE      CURSOR KEYS OR JOYSTICK
+-  PUT       FIRE OR SPACE
+-  DRAW      FIRE OR SPACE, HELD
+-  E         ALL ELEMENTS TO CHOOSE FROM
+-  G         TAKE WHAT THE CURSOR IS ON
+-  R         TURN WHAT WALKS
+-  A         SCATTER IT AT RANDOM
+-  U         UNDO
+-  M         THE MAP OF THE CAVE
+-  V         NAME AND VALUES
+-  B         INTERMISSION ON/OFF
+-  T         TRY THE CAVE
+-  S         SAVE IT
+-  + -       NEXT, LAST SLOT
+-  C         A NEW CAVE
+-  D         EMPTY THE SLOT
+-  RUN/STOP  BACK TO THE TITLE
+-
+-  1-0 I X   THESE ELEMENTS:
