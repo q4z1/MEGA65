@@ -10,7 +10,9 @@ better graphics. All caves play by the rules of
 [GDash](#own-caves-and-gdash), the Boulder Dash construction kit for the
 PC, whose engine the game has. The caves are CWS Boulder Dash 1, 2 and 3 by
 clarkkent (forum64.de), who gave them to the game; the graphics are our
-own. Rockford is the adventurer from the title logo (`gfx/logo.png`).
+own, reworked by clarkkent (`gfx/elements.png`, `gfx/butterfly*.png`, which
+`tools/mkgfx.py` reads). Rockford is the adventurer from the title logo
+(`gfx/logo.png`).
 
 The release ZIP holds the disk (`smaragd-dash.d81`: on the SD card, mount
 it as drive 8, `RUN "SMARAGD DASH"`), this text, the editor's
@@ -21,9 +23,10 @@ GDash. `tools/make-release.sh` makes the ZIP.
 There are 56 caves: CWS Boulder Dash 1, 2 and 3 one after the other (15,
 16 and 25 caves, small intermissions among them), each in GDash's five
 levels. On the title screen the joystick picks the level (up and down) and
-the cave to start with (left and right: every fifth, but an intermission's
-next one - 1, 6, 11, 16, 21, 26, 32, 37, 42, 47, 52). After the last
-cave the game goes on with the first one of the next level.
+the cave to start with (left and right: the first of each game and each one
+after an intermission - 1, 6, 11, 16, 20, 24, 28, 32, 37, 42, 47, 52; held,
+they go on after half a second, some six a second). After the last cave the
+game goes on with the first one of the next level.
 
 An **intermission** (`Intermission=true` in its file) is played once, as
 in GDash: Rockford not getting out of it costs no life, and the next cave
@@ -39,7 +42,9 @@ elements.
 The title screen plays our own title music in stereo: six voices on two
 SIDs, with chord arpeggios, a filtered bass, drums and an echo of the
 melody on the right channel. Fire starts the game, E the cave editor, Help
-or H shows how to play and the elements of the caves, and Run/Stop, pressed
+or H shows how to play and the elements of the caves - seven pages, all of
+GDash's elements among them (`help.txt`, which `tools/mkhelp.py` makes
+`SMARAGD.HELP` of) -, and Run/Stop, pressed
 twice, goes back to BASIC (the game puts back the ROM and the screen it
 borrowed). The line under the logo takes turns: "press fire", the controls,
 and the version (the file `VERSION`, which is also in the disk's name).
@@ -79,7 +84,7 @@ before building.
 
 | | |
 | --- | --- |
-| joystick (either port), gamepad, cursor keys | move; on the title: up/down level, left/right first cave |
+| joystick (either port), gamepad, cursor keys | move; on the title: up/down level, left/right first cave (held: on and on) |
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
 | P | pause |
 | Run/Stop | give up the life (when you are stuck) |
@@ -87,7 +92,7 @@ before building.
 | I (held, in a cave from GDash) | what Rockford carries and where gravity pulls |
 | up/down, fire/right, left; or type | the name for the high score table |
 | E (on the title) | the cave editor |
-| Help or H (on the title) | how to play, the elements |
+| Help or H (on the title) | how to play, the elements (a key: the next page) |
 | Run/Stop twice (on the title) | back to BASIC |
 
 ## Cave editor
@@ -99,8 +104,9 @@ cave to its exit, saving it and loading it again)
 
 E on the title screen opens the editor on the first slot. It shows the
 cave as it starts, with a cursor; the status line names the element
-chosen, where the cursor is, the game and the slot (`OWN1 03`), and a `*`
-while there are changes not saved. H shows the keys:
+chosen, where the cursor is, the game and the slot (`OWN1 03`; `OWN1I03`
+for an intermission), and a `*` while there are changes not saved. H shows
+the keys:
 
 | | |
 | --- | --- |
@@ -110,11 +116,14 @@ while there are changes not saved. H shows the keys:
 | E | choose among all of GDash's elements (95), on a page of their own: cursor keys or joystick, fire takes one |
 | the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left) |
 | G | choose the element the cursor is on |
+| A | scatter the element chosen over the cave's dirt, once and for all (about a cell in 16; again: more) |
+| U | undo the last change (up to 14) |
+| B | the cave is an intermission (played once, as in GDash), or no longer |
 | M | the whole cave at once, a map: the cursor moves on it, M or fire goes back there |
-| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times; and the game's name |
+| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times, how long slime holds things; and the game's name |
 | T | try the cave (one life), then back in the editor |
 | S | save it into its slot on the disk |
-| + and - | the next and the last slot (after a game's slot 20 the next game's slot 1) |
+| + and - | the next and the last slot (after a game's slot 20 the next game's slot 1; held: one every third of a second) |
 | C | a new cave: steel frame, dirt, inbox and exit |
 | D | empty the slot on the disk |
 | Run/Stop | back to the title; the cave stays as it is for the next time |
@@ -128,7 +137,7 @@ and an exit. What would lose changes
 not saved - another slot - and the keys C and D want to be pressed
 twice. Run/Stop loses nothing: the cave stays in memory, saved or not, and E
 on the title opens it again, until the game is left for BASIC. On the values page up and down choose a line, left and right change
-it (held: faster after a while), and the name is typed (Del goes back);
+it (held: on and on, in steps of ten after a while), and the name is typed (Del goes back);
 Return or V go back to the cave. A cave from GDash keeps all its other
 properties; its speed, if it had the C64's timing, becomes milliseconds once
 it is changed.
@@ -505,9 +514,15 @@ below the program at $0800, where BASIC had its screen (the KERNAL's reset
 makes it anew when the game goes back to BASIC). Horizontal fine scrolling
 moves the character generator (TEXTXPOS); it is switched while the thin line
 is drawn, whose pixel rows are single colours, so the status line stays in
-place. The frame loop: game logic during the vertical blank, the
-switch at the line, drawing, then waiting for the next blank to show the new
-framebuffer. The cave's clock goes by the MEGA65's frame counter, so a frame
+place. The frame loop: game logic during the vertical blank and the cells'
+tiles for the frame (when there is time; else after the switch), the switch
+at the line, then the CPU writes the frame's DMA jobs and the DMA runs them,
+the sprites go on top, and the next blank shows the new framebuffer. The
+window before the switch is short and missing it costs a frame (the view
+jumps 4 pixels), the drawing after it has time to spare: so what can wait
+waits for the drawing. The DMA is started from assembly (`src/dmastart.s`):
+llvm-mos moved the writes to a list behind the start of the DMA, or left
+them out, as it cannot know that the DMA reads them. The cave's clock goes by the MEGA65's frame counter, so a frame
 that takes longer does not slow the cave down; a step of GDash's engine
 takes as long as it says (at most 25 a second, as in GDash).
 
@@ -516,8 +531,12 @@ of fireflies) takes up to 20 ms, longer than a frame leaves for it. So it
 is made in parts before its tick: in each frame, before the switch at the
 line and before the new framebuffer is shown, the engine scans rows of the
 cave as long as the raster says there is time (it knows the most a row has
-taken), and the step is shown at its tick. It begins one frame before the
-tick, or more when the last steps took longer. Meanwhile the screen shows
+taken in the last steps), and the step is shown at its tick; before the
+switch at the line it stops 2 ms early, as a row can take longer than the
+engine thinks. It begins one frame before the tick, or more when the last
+steps took longer. `tools/scroll-profile.sh` counts the frames dropped while
+the caves with moves are played: 9 in some 52,000 frames (version 1.4; 172
+in 1.3.2). Meanwhile the screen shows
 the last step: between the parts the step's state (cave, moves and the
 engine's variables at $C000, 2K) waits in bank 3 and the shown one is put
 back, three DMA copies of 0.1 ms. The player's input goes into the step
@@ -527,7 +546,8 @@ a still cave, beyond it the cave moves under him exactly as far as he goes,
 frame by frame (a jump, as through a teleporter, at most 8 pixels a frame).
 It stays inside the part of the cave that is shown (GDash's visible area);
 a part at most a cell larger than the view, as an intermission of 20 x 12,
-stands still in its middle. So does a small room in a cave of steel wall
+stands still in its middle, whole, with half a cell of its border on each
+side (what is not steel in it does not count). So does a small room in a cave of steel wall
 (cave 8, or one made in the editor): what is not steel decides, with its
 border of steel where that still fits - steel never changes, so nothing
 round it is ever needed.
@@ -623,7 +643,8 @@ the C64 and gave them to the game: GDash's files as he sent them,
 (16, his file of 26 October 2026, with `RandSeed=0 0 0 0 0` and
 `TimeValue=1 1 1 1 1` put back into each cave: the C64's Construction Kit
 had no levels) and `caves/3-cws-boulder-dash-3.bd` (25), played one file
-after the other.
+after the other. The names of the caves of the first two are his as well
+(1 November 2026).
 The first is closest to Boulder Dash 1, the second goes further, the third
 uses GDash's newer elements a lot: acid, nitro, bombs, keys, switches,
 gravity. Each has small intermissions (20x12 cells), which stand still in

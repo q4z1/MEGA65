@@ -35,8 +35,9 @@ Image.open(sys.argv[1]).crop((96, 100, 704, 508)).save(sys.argv[2])
     echo "screenshots/$1.png"
 }
 
-shot title 30 "-DSCREENCAST"
-shot cave 1450 "-DSCREENCAST"
+# (the moves of the first cave only: the disk has no room for all)
+shot title 30 "-DSCREENCAST -DDEMO_LAST=1"
+shot cave 1450 "-DSCREENCAST -DDEMO_LAST=1"
 # the explosion's moves, from the start of the cave, as the tour loads them
 rm -rf build/tour
 mkdir -p build/tour
