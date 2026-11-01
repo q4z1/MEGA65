@@ -15,8 +15,8 @@ has no file of its own for it -, and three are intermissions: cave 52 such
 a box, cave 53 one with a life at its exit, cave 54 one with a life at its
 start.
 
-The script: on the title, cave 52 is picked (right ten times: the
-eleventh cave to start with, as cave 51 is an intermission) and played;
+The script: on the title, cave 52 is picked (right eleven times: the
+twelfth cave to start with, the one after the intermission 51) and played;
 its time runs out, which costs no life, and cave 53 comes; Rockford gets
 out of caves 53-56 - two lives for the intermissions, one for 500 points;
 after the last cave of level 1 comes cave 1 of level 2. There the game is
@@ -143,7 +143,7 @@ def main():
 
         check("no wait timed out", not any(r["timed_out"] for r in rec))
         check("the title comes up", at(1, screen="title"))
-        check("right ten times picks cave 52, past the intermission 51", at(2, start_cave=51, start_level=0))
+        check("right eleven times picks cave 52, past the intermission 51", at(2, start_cave=51, start_level=0))
         check("the intermission Rockford does not get out of costs no life, the next cave comes",
               at(3, cave=51, lives=3) and at(4, screen="cave", cave=52, lives=3))
         check("a life at an intermission's exit, or at its start", at(5, cave=53, lives=5))

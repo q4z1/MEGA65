@@ -45,7 +45,6 @@ from cavekit import GD_SIZE, CaveError, write_c
 NAME_LEN = 21  # "CAVE 12/3 " before it in the status line
 LEVELS = ck.LEVELS  # GDash's
 OWN_SLOTS = 20  # the editor's slots on the disk: as many caves as Boulder Dash 1
-START_STEP = 5  # the title offers every fifth cave to start with - an intermission's next one
 
 
 def fail(path, msg):
@@ -92,15 +91,17 @@ def load_bd(path):
 
 def main():
     outdir, gendir, paths = sys.argv[1], sys.argv[2], sys.argv[3:]
-    caves = [cave for p in paths for cave in load_bd(p)]
+    games = [load_bd(p) for p in paths]
+    caves = [cave for game in games for cave in game]
     if len(caves) > 99:
         sys.exit("mkcave: more than 99 caves (CAVE01 ... CAVE99)")
     files = [data for _, _, data, _ in caves]  # [cave][level]
-    # the caves to start with: every START_STEP-th, or the first after it
-    # that is not an intermission (none if there is none before the next)
-    starts = [next(i for i in range(k, min(k + START_STEP, len(caves))) if not caves[i][3])
-              for k in range(0, len(caves), START_STEP)
-              if any(not c[3] for c in caves[k:k + START_STEP])]
+    # the caves to start with: the first of each game and each one after an
+    # intermission (the games' own steps: 4 caves and an intermission, or 3)
+    starts, at = [], 0
+    for game in games:
+        starts += [at + i for i, c in enumerate(game) if not c[3] and (i == 0 or game[i - 1][3])]
+        at += len(game)
     # the levels each cave has a file of its own for: bit L for level L + 1
     have = [sum(1 << lv for lv, data in enumerate(cave) if lv == 0 or data != cave[0]) for cave in files]
     for i, cave in enumerate(files):

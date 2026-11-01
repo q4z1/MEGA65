@@ -21,7 +21,7 @@ TitleScreenScroll=iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAABHNCSVQICAgIfA
 Levels=5
 
 [cave]
-Name=Dash 2 cave 01
+Name=TRAPPED IN A HURRY
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Green LightRed White White Green
@@ -80,7 +80,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 02
+Name=OPEN SPACE
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Red Blue Yellow Yellow Red
@@ -140,7 +140,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 03
+Name=A KINGDOM FOR A KEY
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Blue Orange White White Blue
@@ -200,7 +200,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Intermission 1
+Name=INT HIGH FIVE
 Selectable=false
 Intermission=true
 Size=40 22 0 0 19 11
@@ -260,7 +260,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 04
+Name=UP AND DOWN
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Green Orange White White Green
@@ -317,7 +317,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWPW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 05
+Name=BEWARE OF ABOVE
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Blue Gray2 White White Blue
@@ -376,7 +376,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWXW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 06
+Name=OPEN THE TRAP
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Yellow Orange White White Yellow
@@ -438,7 +438,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Intermission 2
+Name=INT RIGHT SIDE
 Selectable=false
 Intermission=true
 Size=40 22 0 0 19 11
@@ -497,7 +497,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 07
+Name=DIAMONDS GONE
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black LightBlue Gray2 White White LightBlue
@@ -559,7 +559,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 08
+Name=PERSECUTION MANIA
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Gray1 Brown Yellow Yellow Gray1
@@ -616,7 +616,7 @@ WPWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 09
+Name=RUN FOR YOUR LIFE
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black LightBlue LightRed White White LightBlue
@@ -674,7 +674,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Intermission 3
+Name=INT PAC MAN
 Selectable=false
 Intermission=true
 Size=40 22 0 0 19 11
@@ -734,7 +734,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 10
+Name=MOON SHINING
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Green Orange Blue Blue Green
@@ -794,7 +794,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 11
+Name=IT EATS THEM UP!
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Blue Orange Cyan Cyan Blue
@@ -853,7 +853,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Dash 2 cave 12
+Name=BLAST YOUR PATH
 Intermission=false
 Size=40 22 0 0 39 21
 Colors=Black Black Gray2 Orange Cyan Cyan Gray2
@@ -911,7 +911,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Intermission 4
+Name=INT SUPER SWEET
 Selectable=false
 Intermission=true
 Size=40 22 0 0 19 11

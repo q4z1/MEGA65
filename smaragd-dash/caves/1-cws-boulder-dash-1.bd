@@ -8,7 +8,7 @@ TitleScreenScroll=iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAA3NCSVQICAjb4U
 Levels=5
 
 [cave]
-Name=Höhle 01
+Name=EASY GOING
 IntermissionProperties.instantlife=true
 Intermission=false
 IntermissionProperties.rewardlife=false
@@ -59,7 +59,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 02
+Name=AMOEBA FRENZY
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -112,7 +112,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 03
+Name=LOCKED UP
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -164,7 +164,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 04
+Name=FREE THEM
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -217,7 +217,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Zwischenspiel 05
+Name=INT AMOEBA RUSH
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=true
@@ -270,7 +270,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 06
+Name=THERE IS A WAY
 IntermissionProperties.instantlife=true
 Intermission=false
 IntermissionProperties.rewardlife=false
@@ -321,7 +321,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 07
+Name=APOCALYPSE NOW
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -374,7 +374,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 08
+Name=ENCHANTED SLIME
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -426,7 +426,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 09
+Name=BUTTERFLY RISK
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -478,7 +478,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Zwischenspiel 10
+Name=INT DIAMOND DASH
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=true
@@ -530,7 +530,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 11
+Name=MANY WAYS TO DIE
 IntermissionProperties.instantlife=true
 Intermission=false
 IntermissionProperties.rewardlife=false
@@ -581,7 +581,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 12
+Name=DISTRACTION
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -634,7 +634,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 13
+Name=FUNNEL ADVENTURE
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -686,7 +686,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Höhle 14
+Name=CHAOS
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=false
@@ -738,7 +738,7 @@ WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 [/cave]
 
 [cave]
-Name=Zwischenspiel 15
+Name=INT DANGEROUS
 Selectable=false
 IntermissionProperties.instantlife=true
 Intermission=true

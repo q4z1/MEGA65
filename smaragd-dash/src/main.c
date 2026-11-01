@@ -229,8 +229,8 @@ _Static_assert(DEMO_MAX <= EDIT_SIZE, "the moves in the editor's place");
 // on the title, from cave 1 right past the caves to start with: the own caves
 #define NEXT_PICK  {2, 0, IN_RIGHT}, {4, 0, 0}
 #define TO_OWN     NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, \
-                   NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK
-_Static_assert(START_COUNT == 11, "TO_OWN: a step right for each cave to start with");
+                   NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK
+_Static_assert(START_COUNT == 12, "TO_OWN: a step right for each cave to start with");
 #ifdef FLOWTEST
 enum { SCR_NONE, SCR_TITLE, SCR_CAVE, SCR_NAME };  // where the game is
 enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
@@ -239,13 +239,13 @@ enum { W_TITLE = 1, W_ALIVE, W_EXITED, W_DEAD, W_TIMEOUT, W_NAME, FLOW_END };
 #define CAVE_OUT    WAIT(W_ALIVE, 0), SHOT, {40, 0, IN_RIGHT}, WAIT(W_EXITED, 0)
 #define GIVE_UP     {2, 0, IN_RESTART}, WAIT(W_DEAD, 0), {80, 0, 0}, {2, 0, IN_BUTTON}
 #define CAVE_FAILS  WAIT(W_ALIVE, 0), SHOT, WAIT(W_TIMEOUT, 0), {60, 0, 0}, {2, 0, IN_BUTTON}
-_Static_assert(CAVE_COUNT == 56 && START_COUNT == 11, "the flow script picks cave 52 and plays it to the last");
+_Static_assert(CAVE_COUNT == 56 && START_COUNT == 12, "the flow script picks cave 52 and plays it to the last");
 #endif
 static const uint8_t test_script[][3] = {
 #ifdef FLOWTEST
     WAIT(W_TITLE, 0), SHOT,                               // 1: the title
     {100, 0, 0}, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK,
-    NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK,
+    NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK, NEXT_PICK,
     SHOT,                                                 // 2: cave 52 picked
     {2, 0, IN_BUTTON},
     CAVE_FAILS, CAVE_OUT, CAVE_OUT, CAVE_OUT, CAVE_OUT,   // 3-7: caves 52-56
@@ -835,7 +835,8 @@ __attribute__((noinline)) static void bounds(uint16_t *lo, uint16_t *hi, uint8_t
 // without, when that is a cell too many (an exit in the border).
 __attribute__((noinline)) static void room_bounds(uint16_t *cl, uint16_t *ch, uint8_t a, uint8_t b, uint8_t lo, uint8_t hi,
                                                   uint16_t view, uint16_t max) {
-    if (a <= b && b - a < view / 16) {
+    // (a shown part that fits, an intermission of 20 x 12, is shown whole)
+    if (hi - lo > view / 16 && a <= b && b - a < view / 16) {
         if (a > lo && b < hi && b - a + 2 < view / 16 + 1) {
             a--;
             b++;
@@ -1573,17 +1574,29 @@ static void title_status(void) {
     status_end();
 }
 
-// Up and down pick the level, left and right the cave to start with (every
-// fifth, not an intermission: CAVE_STARTS, tools/mkcave.py); right of the
-// last one come the own caves, one by one, game after game, with GDash's
-// levels (an empty slot starts with the next own cave)
+// Up and down pick the level, left and right the cave to start with (the
+// first of a game and each after an intermission: CAVE_STARTS,
+// tools/mkcave.py); right of the last one come the own caves, one by one,
+// game after game, with GDash's levels (an empty slot starts with the next
+// own cave). A direction held goes on after a while, at an easy pace.
+#define PICK_WAIT  24  // frames until a held direction goes on
+#define PICK_EVERY 8   // ... and then a step every so many
+
 static void title_pick(void) {
     static const uint8_t cave_starts[START_COUNT] = CAVE_STARTS;
+    static uint8_t rep;  // frames the directions are held
+    uint8_t dirs = held & (IN_UP | IN_DOWN | IN_LEFT | IN_RIGHT), go = pressed;
+    if (!dirs)
+        rep = 0;
+    else if (++rep == PICK_WAIT + PICK_EVERY)
+        rep = PICK_WAIT;
+    if (rep == PICK_WAIT)
+        go |= dirs;
     uint8_t l = start_level, c = start_cave, g = start_game, o = start_own;
     uint8_t s = 0;  // c in cave_starts; START_COUNT: the own caves
     while (s < START_COUNT && cave_starts[s] != c)
         s++;
-    if (pressed & IN_RIGHT) {
+    if (go & IN_RIGHT) {
         if (c < CAVE_COUNT) {
             c = ++s < START_COUNT ? cave_starts[s] : CAVE_COUNT;
         } else if (o < OWN_SLOTS - 1) {
@@ -1593,7 +1606,7 @@ static void title_pick(void) {
             o = 0;
         }
     }
-    if (pressed & IN_LEFT) {
+    if (go & IN_LEFT) {
         if (c == CAVE_COUNT && o) {
             o--;
         } else if (c == CAVE_COUNT && g) {
@@ -1604,9 +1617,9 @@ static void title_pick(void) {
         }
     }
     uint8_t top = (c == CAVE_COUNT ? OWN_LEVELS : LEVELS) - 1;
-    if ((pressed & IN_UP) && l < top)
+    if ((go & IN_UP) && l < top)
         l++;
-    if ((pressed & IN_DOWN) && l)
+    if ((go & IN_DOWN) && l)
         l--;
     if (l > top)
         l = top;
