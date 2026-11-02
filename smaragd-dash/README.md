@@ -115,13 +115,13 @@ the keys:
 | fire, Space, Return | put the element chosen; held while moving, it draws |
 | 1-9, 0, I, X | choose: space, dirt, brick wall, steel wall, boulder, emerald, firefly, butterfly, amoeba, magic wall, inbox, exit |
 | E | choose among all of GDash's elements (95), on a page of their own: cursor keys or joystick, fire takes one |
-| the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left) |
+| the same key again, or R | what walks (a firefly, butterfly, biter, ...) gets its next starting direction (up, right, down, left); R with the cursor on one turns that one in the cave |
 | G | choose the element the cursor is on |
 | A | scatter the element chosen over the cave's dirt, once and for all (about a cell in 16; again: more) |
 | U | undo the last change (up to 14) |
 | B | the cave is an intermission (played once, as in GDash), or no longer |
 | M | the whole cave at once, a map: the cursor moves on it, M or fire goes back there |
-| V | the name and the values: time, emeralds needed, points per emerald before and after the exit opens, speed (milliseconds per step), amoeba and magic wall times, how long slime holds things; and the game's name |
+| V | the game's name, the cave's name and its values: speed (milliseconds per step), time, emeralds needed, points per emerald before and after the exit opens, amoeba and magic wall times, how long slime holds things; on a second page what a clock gives, the second amoeba's time, whether the magic wall stops the amoeba, the voodoo doll's rules, the skeletons for the pot, what a bomb leaves and what acid eats |
 | T | try the cave (one life), then back in the editor |
 | S | save it into its slot on the disk |
 | + and - | the next and the last slot (after a game's slot 20 the next game's slot 1; held: one every third of a second) |

@@ -59,10 +59,13 @@ status line means the cave has changes that are not saved yet.
 **4. Change the values.** Press **V**. Up and down choose a line, left and
 right change its number. Here EMERALDS goes down from 12 to 3, so the new
 exit opens once the three new emeralds are taken. On the NAME line type a
-name; **Del** takes the last letter back. **Return** or **V** go back to the
-cave.
+name; **Del** takes the last letter back. Down from the last line, SLIME,
+leads to the second page with values of more elements. **Return** or **V**
+go back to the cave.
 
 ![Name and values](screenshots/editor-values.png)
+
+![The second page of values](screenshots/editor-values2.png)
 
 **5. Try it.** Press **T**. The cave plays from its start with one life and
 all its rules. Rockford takes the three emeralds, the exit opens, the
@@ -151,7 +154,9 @@ walks. Pressing **7** (or **8**) again while it is chosen, or **R** for any
 of them, turns the direction on: up, right, down, left. The status line
 shows it, and in the cave all of one kind look alike: with the cursor on
 one, an arrow after the cursor's place in the status line (`^ > V <`) tells
-where it goes.
+where it goes. With the cursor on one, **R** turns that one in the cave,
+and it becomes the element chosen, with its new direction - no need to put
+it again.
 
 ## All elements: the page of their own
 
@@ -226,20 +231,39 @@ asks: CAVE NOT SAVED - RUN/STOP AGAIN: BASIC).
 ## Name and values
 
 **V** opens the page with the cave's name and values, and the name of the
-game the slot belongs to.
+game the slot belongs to. It starts on SPEED; down from SLIME, its last
+line, the second page follows (1/2 and 2/2 under the lines), up from its
+first line the first page again.
 
 | Line | Range | |
 | --- | --- | --- |
+| GAME | up to 8 letters | the game's name (as NAME, without `/`): renamed on the disk when you leave the page; the title shows it |
 | NAME | up to 21 letters | A-Z, 0-9, space and `/ : . ! - ,`; shown when the cave starts |
+| SPEED | 50-250 | milliseconds per step: smaller is faster (the game's caves: about 150) |
 | TIME | 1-999 | seconds to get out |
 | EMERALDS | 0-255 | emeralds to collect before the exit opens; 0: all of them in the cave |
 | VALUE | 0-99 | points per emerald until the exit opens |
 | EXTRA | 0-99 | points per emerald after that |
-| SPEED | 50-250 | milliseconds per step: smaller is faster (the game's caves: about 150) |
 | AMOEBA | 0-999 | seconds the amoeba grows slowly, then it grows fast |
 | MAGIC | 0-999 | seconds the magic wall runs once started; 0: it does not stop |
 | SLIME | 1-256 | how many steps the slime holds what lies on it, on the average: 1, 2, 4, ... 256 |
-| GAME | up to 8 letters | the game's name (as NAME, without `/`): renamed on the disk when you leave the page; the title shows it |
+
+The second page:
+
+| Line | Range | |
+| --- | --- | --- |
+| CLOCK | 0-99 | seconds a clock gives |
+| AMOEBA 2 | 0-999 | as AMOEBA, for the second amoeba |
+| MAGIC | YES / NO | the magic wall, once running, turns the amoeba into emeralds |
+| VOODOO | YES / NO | the voodoo doll collects the emeralds that fall on it |
+| VOODOO | YES / NO | a falling boulder kills the voodoo doll (and costs time) |
+| SKELETONS | 0-99 | skeletons Rockford must carry to stir the pot |
+| BOMB TO | an element | what a bomb's explosion leaves (Boulder Dash 1: brick wall) |
+| ACID EATS | an element | what the acid eats its way through (dirt) |
+
+A new cave has GDash's values of Boulder Dash 1 here: 10 seconds, NO, NO,
+NO, 5 skeletons, brick wall, dirt. BOMB TO and ACID EATS go through the 95
+elements of the page of all elements (E), in its order.
 
 Up and down choose a line (it shines). Left and right change the number;
 held, it runs on (some eight steps a second), and after a while in steps
@@ -429,12 +453,12 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | U | undo |
 | B | intermission on / off |
 | M | map: the whole cave at once |
-| V | name and values |
+| V | name and values, two pages |
 | T | try the cave |
 | S | save it into its slot |
 | + / - | next / last slot |
 | E | all elements, on a page of their own |
-| R | the next direction of what walks |
+| R | the next direction of what walks; with the cursor on one, it turns there |
 | C (twice) | a new cave |
 | D (twice) | empty the slot |
 | H or Help | the help, two pages |

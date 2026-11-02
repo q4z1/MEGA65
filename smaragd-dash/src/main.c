@@ -299,24 +299,27 @@ static const uint8_t test_script[][3] = {
     MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT), MOVE(IN_RIGHT),
     {36, 0, IN_BUTTON | IN_DOWN}, {80, 0, 0},
     SHOT,                                                 // 6: editor-changed
-    {1, 'V', 0}, {60, 0, 0}, MOVE(IN_DOWN), {20, 0, 0},   // values: 3 emeralds to open the exit
+    {1, 'V', 0}, {60, 0, 0}, MOVE(IN_DOWN), MOVE(IN_DOWN), {20, 0, 0},  // values: 3 emeralds to open the exit
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT),
     MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), MOVE(IN_LEFT), {40, 0, 0},
-    MOVE(IN_UP), MOVE(IN_UP), {20, 0, 0},                 // the name: OLD TUNNEL
+    MOVE(IN_UP), MOVE(IN_UP), MOVE(IN_UP), {20, 0, 0},  // the name: OLD TUNNEL
     STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14), STEP1(0x14),
     STEP1('T'), STEP1('U'), STEP1('N'), STEP1('N'), STEP1('E'), STEP1('L'), {60, 0, 0},
     SHOT,                                                 // 7: editor-values
+    MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_DOWN),
+    MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_DOWN), MOVE(IN_DOWN), {80, 0, 0},
+    SHOT,                                                 // 8: editor-values2, the second page
     {1, '\r', 0}, {80, 0, 0},
     {1, 'T', 0}, {TRY_WAIT, 0, 0}, {45, 0, IN_RIGHT},     // trying it: to the exit
-    SHOT,                                                 // 8: editor-try
+    SHOT,                                                 // 9: editor-try
     {75, 0, IN_RIGHT}, {250, 0, 0}, {150, 0, 0},
     {1, 'S', 0}, {60, 0, 0},                              // saved
-    SHOT,                                                 // 9: editor-saved
+    SHOT,                                                 // 10: editor-saved
     {60, 0, 0},
     {1, '+', 0}, {80, 0, 0}, {1, '-', 0}, {150, 0, 0},    // loaded again: as saved
     {2, 0, IN_RESTART}, {100, 0, 0},                      // the title, the own caves
     TO_OWN, {20, 0, 0},                                   // the line under the logo whole
-    SHOT,                                                 // 10: editor-title
+    SHOT,                                                 // 11: editor-title
     {90, 0, 0},
     {0, 0, 0},
 #else
@@ -328,15 +331,21 @@ static const uint8_t test_script[][3] = {
     {0, 0, 0},                                            // 1: the editor
     {1, 'H', 0}, {40, 0, 0}, {0, 0, 0},                   // 2: help
     {1, ' ', 0}, {40, 0, 0},                              // its second page
-    {1, 'Q', 0}, {1, 'V', 0}, {10, 0, 0},                 // values: time 153
+    {1, 'Q', 0}, {1, 'V', 0}, {10, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},  // values: time 153
     {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0}, {2, 0, IN_RIGHT}, {2, 0, 0},
-    {2, 0, IN_UP}, {2, 0, 0},                             // the name: TEST
+    {2, 0, IN_UP}, {2, 0, 0}, {2, 0, IN_UP}, {2, 0, 0},   // the name: TEST
     {1, 'T', 0}, {1, 0, 0}, {1, 'E', 0}, {1, 0, 0}, {1, 'S', 0}, {1, 0, 0}, {1, 'T', 0}, {10, 0, 0},
-    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
-    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
-    {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_UP}, {2, 0, 0},
     {1, 'X', 0}, {10, 0, 0},                              // the game (VAL_GAME): OWN1X
-    {0, 0, 0},                                            // 3: values
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_RIGHT}, {2, 0, 0},                          // the second page: a clock gives 11 s
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_RIGHT}, {2, 0, 0},                          // boulders kill the voodoo
+    {2, 0, IN_DOWN}, {2, 0, 0}, {2, 0, IN_DOWN}, {2, 0, 0},
+    {2, 0, IN_LEFT}, {2, 0, 0}, {2, 0, IN_LEFT}, {10, 0, 0},  // a bomb leaves space
+    {0, 0, 0},                                            // 3: values, the second page
     {1, '\r', 0}, {1, 'S', 0}, {30, 0, 0}, {0, 0, 0},     // 4: saved
     {1, 'T', 0}, {250, 0, 0}, {150, 0, 0}, {0, 0, 0},     // 5: trying it, Rockford out
     {2, 0, IN_RESTART}, {250, 0, 0}, {2, 0, IN_BUTTON}, {150, 0, 0},  // dead after 15 steps
@@ -363,6 +372,7 @@ static const uint8_t test_script[][3] = {
     {0, 0, 0},                                            // 16: all elements, on the biter
     {3, 0, IN_BUTTON}, {20, 0, 0}, {1, 'R', 0}, {2, 0, IN_RIGHT}, {10, 0, 0},
     {4, 0, IN_BUTTON}, {10, 0, 0},                        // a biter going right at 4,3
+    {1, 'R', 0}, {10, 0, 0},                              // ... turned there: down
     {2, 0, IN_RESTART}, {120, 0, 0}, {1, 'E', 0}, {120, 0, 0},
     {0, 0, 0},                                            // 17: kept, with the steel, the biter and *
     {2, 0, IN_RESTART}, {120, 0, 0}, {2, 0, IN_RESTART}, {10, 0, 0},
@@ -370,7 +380,8 @@ static const uint8_t test_script[][3] = {
     {2, 0, IN_RESTART}, {0, 0, 0},                        // 19: BASIC (Xemu is stopped from outside)
 #endif
 };
-static uint8_t test_pos, test_left, test_in, test_key;
+static uint16_t test_pos;  // the script has more than 255 steps
+static uint8_t test_left, test_in, test_key;
 #ifndef FLOWTEST
 static uint8_t test_stops;
 #endif
@@ -3118,18 +3129,43 @@ static EDITOR void edit_help(void) {
     note = 0;
 }
 
-// The values page: a line each, the one chosen shining
-#define VALUES 10
-#define VAL_SLIME 8
-#define VAL_GAME 9  // the game's name (the slot's partition), not the cave's
+// The values page: a line each, the one chosen shining, on two pages - the
+// most needed ones on the first, some of GDash's elements' on the second
+#define VALUES 18
+#define VAL_PAGE 10  // lines on the first page
+#define VAL_GAME 0   // the game's name (the slot's partition), not the cave's
+#define VAL_NAME 1
+#define VAL_SPEED 2  // where the page starts
 #define VAL_Y0 4
-#define VAL_DY 15   // one line below the other
+#define VAL_DY 15    // one line below the other
 static const char *const val_text[VALUES] = {
-    "NAME", "TIME          SECONDS", "EMERALDS      TO OPEN THE EXIT", "VALUE         POINTS EACH",
-    "EXTRA         EACH AFTER THAT", "SPEED         MS PER STEP", "AMOEBA        SECONDS SLOW",
-    "MAGIC         SECONDS, 0: NO END", "SLIME         STEPS TO DROP THROUGH", "GAME"};
-static const uint8_t val_min[VALUES] = {0, 1, 0, 0, 0, 50, 0, 0, 1, 0};
-static const uint16_t val_max[VALUES] = {0, 999, 255, 99, 99, 250, 999, 999, 256, 0};
+    "GAME", "NAME", "SPEED         MS PER STEP", "TIME          SECONDS", "EMERALDS      TO OPEN THE EXIT",
+    "VALUE         POINTS EACH", "EXTRA         EACH AFTER THAT", "AMOEBA        SECONDS SLOW",
+    "MAGIC         SECONDS, 0: NO END", "SLIME         STEPS TO DROP THROUGH",
+    "CLOCK         SECONDS IT GIVES", "AMOEBA 2      SECONDS SLOW", "MAGIC         WALL STOPS THE AMOEBA",
+    "VOODOO        TAKES FALLING EMERALDS", "VOODOO        KILLED BY BOULDERS", "SKELETONS     FOR THE POT",
+    "BOMB TO", "ACID EATS"};
+// What a line changes: a number of 16 bits (below 0 shown as 0) or 8 at
+// `at` in the cave, a flag (the bits `mask` of the byte at `at`), an
+// element (shown by its name, changed through the elements to choose
+// from), ...
+enum { V_TEXT, V_WORD, V_BYTE, V_FLAG, V_ELEM, V_SPEED, V_SLIME };
+typedef struct {
+    uint8_t kind, at, min, mask;
+    uint16_t max;
+} ValLine;
+#define AT(m) __builtin_offsetof(GdCaveFile, m)
+static const ValLine val_lines[VALUES] = {
+    {V_TEXT}, {V_TEXT}, {V_SPEED, 0, 50, 0, 250}, {V_WORD, AT(time), 1, 0, 999},
+    {V_WORD, AT(diamonds_needed), 0, 0, 255}, {V_WORD, AT(diamond_value), 0, 0, 99},
+    {V_WORD, AT(extra_diamond_value), 0, 0, 99}, {V_WORD, AT(amoeba_time), 0, 0, 999},
+    {V_WORD, AT(magic_wall_time), 0, 0, 999}, {V_SLIME, 0, 1, 0, 256},
+    {V_WORD, AT(time_bonus), 0, 0, 99}, {V_WORD, AT(amoeba_2_time), 0, 0, 999},
+    {V_FLAG, AT(flags) + 1, 0, 0x40, 1}, {V_FLAG, AT(flags), 0, 0x20, 1}, {V_FLAG, AT(flags), 0, 0x40, 1},
+    {V_BYTE, AT(skeletons_needed_for_pot), 0, 0, 99},
+    {V_ELEM, AT(bomb_explosion_effect), 0, 0, PICKS - 1}, {V_ELEM, AT(acid_eats_this), 0, 0, PICKS - 1}};
+_Static_assert(GDF_MAGIC_WALL_STOPS_AMOEBA == 0x40ul << 8 && GDF_VOODOO_COLLECTS_DIAMONDS == 0x20 &&
+               GDF_VOODOO_DIES_BY_STONE == 0x40, "the flags of the values page (flags: little-endian)");
 
 // The slime: how many steps it holds what lies on it, on the average - a
 // power of two, as the C64's games have it (GDash's predictable slime: a
@@ -3149,51 +3185,49 @@ static EDITOR uint8_t slime_bits(void) {
 static char game_edit[9];  // the game's name as it is typed
 static uint16_t c64_speed;  // a C64 cave's speed (GDash's scheduling) as it starts
 
+// An element's value: its place among the elements to choose from (PICKS:
+// none of them)
 static EDITOR uint16_t val_get(uint8_t i) {
     GdCaveFile *f = &file.own;
-    switch (i) {
-    case 1:
-        return f->time;
-    case 2:
-        return f->diamonds_needed < 0 ? 0 : f->diamonds_needed;
-    case 3:
-        return f->diamond_value;
-    case 4:
-        return f->extra_diamond_value;
-    case 5:
+    const ValLine *l = &val_lines[i];
+    uint8_t *p = (uint8_t *)f + l->at;
+    switch (l->kind) {
+    case V_SPEED:
         return f->scheduling ? c64_speed : f->speed;
-    case 6:
-        return f->amoeba_time;
-    case VAL_SLIME:
+    case V_SLIME:
         return 1 << slime_bits();
+    case V_FLAG:
+        return (*p & l->mask) != 0;
+    case V_ELEM:
+        return pick_index(*p);
+    case V_BYTE:
+        return *p;
     }
-    return f->magic_wall_time;
+    int16_t v = p[0] | p[1] << 8;
+    return v < 0 ? 0 : v;
 }
 
-// A new speed is in milliseconds, also for a C64 cave
-static EDITOR void val_set(uint8_t i, uint16_t v) {
+// A new speed is in milliseconds, also for a C64 cave. (In bank 0: the
+// overlay is full.)
+__attribute__((noinline)) static void val_set(uint8_t i, uint16_t v) {
     GdCaveFile *f = &file.own;
-    switch (i) {
-    case 1:
-        f->time = v;
-        break;
-    case 2:
-        f->diamonds_needed = v;
-        break;
-    case 3:
-        f->diamond_value = v;
-        break;
-    case 4:
-        f->extra_diamond_value = v;
-        break;
-    case 5:
+    const ValLine *l = &val_lines[i];
+    uint8_t *p = (uint8_t *)f + l->at;
+    switch (l->kind) {
+    case V_SPEED:
         f->scheduling = 0;
         f->speed = v;
         break;
-    case 6:
-        f->amoeba_time = v;
+    case V_FLAG:
+        *p = v ? *p | l->mask : *p & ~l->mask;
         break;
-    case VAL_SLIME: {  // the next power of two up or down
+    case V_ELEM:
+        *p = pick_elem[v];
+        break;
+    case V_BYTE:
+        *p = v;
+        break;
+    case V_SLIME: {  // the next power of two up or down
         uint8_t k = slime_bits();
         if (v > 1u << k && k < 8)
             k++;
@@ -3204,27 +3238,48 @@ static EDITOR void val_set(uint8_t i, uint16_t v) {
         break;
     }
     default:
-        f->magic_wall_time = v;
+        p[0] = v;
+        p[1] = v >> 8;
     }
 }
 
-static EDITOR void val_line(uint8_t i, bool chosen) {
+// A line in its place on its page; VALUES: an empty one
+static EDITOR void val_line(uint8_t i, uint8_t at, bool chosen) {
     static char line[37];
     memset(line, ' ', 36);
-    memcpy(line, val_text[i], strlen(val_text[i]));
-    const char *text = i == VAL_GAME ? game_edit : i ? 0 : file.own.name;
-    if (text)
-        memcpy(line + 10, text, strlen(text));
-    else
-        digits3(line + 9, val_get(i));
-    video_text_in(2, VAL_Y0 + i * VAL_DY, line, chosen ? title_row : font_row);
+    if (i < VALUES) {
+        memcpy(line, val_text[i], strlen(val_text[i]));
+        uint8_t kind = val_lines[i].kind;
+        uint16_t v = val_get(i);
+        const char *text = i == VAL_GAME ? game_edit : i == VAL_NAME ? file.own.name : 0;
+        if (kind == V_ELEM)
+            text = v < PICKS ? pick_name(v) : "?";
+        if (text)
+            memcpy(line + 10, text, strlen(text));
+        else if (kind == V_FLAG)
+            memcpy(line + 9, v ? "YES" : " NO", 3);
+        else
+            digits3(line + 9, v);
+    }
+    video_text_in(2, VAL_Y0 + at * VAL_DY, line, chosen ? title_row : font_row);
 }
 
-// Up and down choose a line, left and right change its value (held: on and
-// on, in steps of 10 after a while), letters and Del the names - the cave's, and
-// the game's (renamed on the disk as the page is left; not on an older
-// disk, whose slots have no game). Return, V, Run/Stop or the button (but
-// not on a name, where Space is a space) go back.
+// The page with line sel, sel shining
+static EDITOR void val_page(uint8_t sel) {
+    uint8_t first = sel < VAL_PAGE ? 0 : VAL_PAGE;
+    video_text(CENTRE(38), 156, first ? "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE  2/2"
+                                      : "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE  1/2");
+    for (uint8_t k = 0; k < VAL_PAGE; k++)
+        val_line(first + k < VALUES ? first + k : VALUES, k, first + k == sel);
+}
+
+// Up and down choose a line (down from the first page's last line to the
+// second page, up from its first back), left and right change its value
+// (held: on and on, in steps of 10 after a while), letters and Del the
+// names - the cave's, and the game's (renamed on the disk as the page is
+// left; not on an older disk, whose slots have no game). Return, V,
+// Run/Stop or the button (but not on a name, where Space is a space) go
+// back.
 static EDITOR void edit_values(void) {
     if (file.own.scheduling && have_gdash) {  // the speed GDash starts it with
         gd_start(&file.own, 0);
@@ -3233,13 +3288,11 @@ static EDITOR void edit_values(void) {
     }
     video_clear();
     status_center("NAME AND VALUES  RETURN OR V: BACK");
-    video_text(CENTRE(33), 156, "UP/DOWN CHOOSE  LEFT/RIGHT CHANGE");
-    uint8_t sel = 1, rep = 0;
+    uint8_t sel = VAL_SPEED, rep = 0;
     bool armed = false;
     undo_kept = false;  // a visit is one change
     strcpy(game_edit, game_name[own_game]);
-    for (uint8_t i = 0; i < VALUES; i++)
-        val_line(i, i == sel);
+    val_page(sel);
     for (uint16_t f = 0;; f++) {
         if (f % 3 == 0)
             video_shine(f / 3);
@@ -3250,26 +3303,29 @@ static EDITOR void edit_values(void) {
             sel--;
         if ((pressed & IN_DOWN) && sel < VALUES - 1)
             sel++;
-        if (sel != old) {
-            val_line(old, false);
-            val_line(sel, true);
+        if ((sel < VAL_PAGE) != (old < VAL_PAGE)) {
+            val_page(sel);
+        } else if (sel != old) {
+            val_line(old, old % VAL_PAGE, false);
+            val_line(sel, sel % VAL_PAGE, true);
         }
-        char *field = !sel ? file.own.name : sel == VAL_GAME && game_edit[0] ? game_edit : 0;
+        const ValLine *l = &val_lines[sel];
+        char *field = sel == VAL_NAME ? file.own.name : sel == VAL_GAME && game_edit[0] ? game_edit : 0;
         uint8_t lr = held & (IN_LEFT | IN_RIGHT);
         if (!lr)
             rep = 0;
-        else if (!field && sel != VAL_GAME && (rep == 0 || (rep >= 24 && (rep & 3) == 3))) {
+        else if (l->kind != V_TEXT && (rep == 0 || (rep >= 24 && (rep & 3) == 3))) {
             if (!undo_kept) {
                 undo_keep();
                 undo_kept = true;
             }
-            uint16_t v = val_get(sel), d = rep >= 120 && sel != VAL_SLIME ? 10 : 1;
+            uint16_t v = val_get(sel), d = rep >= 120 && l->kind != V_SLIME ? 10 : 1;
             if (lr & IN_RIGHT)
-                v = v + d > val_max[sel] ? val_max[sel] : v + d;
+                v = v + d > l->max ? l->max : v + d;
             else
-                v = v < val_min[sel] + d ? val_min[sel] : v - d;
+                v = v < l->min + d ? l->min : v - d;
             val_set(sel, v);
-            val_line(sel, true);
+            val_line(sel, sel % VAL_PAGE, true);
             dirty = true;
         }
         if (lr && rep < 255)
@@ -3284,7 +3340,7 @@ static EDITOR void edit_values(void) {
                 continue;
             if (field == file.own.name)
                 dirty = true;
-            val_line(sel, true);
+            val_line(sel, sel % VAL_PAGE, true);
             armed = false;  // Space was a space
             continue;
         }
@@ -3370,7 +3426,13 @@ static EDITOR void editor(void) {
         case 'G':
             edit_take();
             break;
-        case 'R':
+        case 'R':  // what walks where the cursor is turns there, and is taken
+            if (walks_to(file.own.map[cur_y * CAVE_W + cur_x]) < 4) {
+                edit_take();
+                pen_dir = (pen_dir + 1) & 3;
+                edit_put();
+                break;
+            }
             if (!walks(pen)) {
                 edit_note("R TURNS WHAT WALKS: FIREFLIES, ...");
                 break;

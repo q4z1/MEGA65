@@ -98,11 +98,11 @@ POT                 POT         STIRRED WITH SKELETONS
 -  DRAW      FIRE OR SPACE, HELD
 -  E         ALL ELEMENTS TO CHOOSE FROM
 -  G         TAKE WHAT THE CURSOR IS ON
--  R         TURN WHAT WALKS
+-  R         TURN WHAT WALKS, HERE TOO
 -  A         SCATTER IT AT RANDOM
 -  U         UNDO
 -  M         THE MAP OF THE CAVE
--  V         NAME AND VALUES
+-  V         NAME AND VALUES, 2 PAGES
 -  B         INTERMISSION ON/OFF
 -  T         TRY THE CAVE
 -  S         SAVE IT
