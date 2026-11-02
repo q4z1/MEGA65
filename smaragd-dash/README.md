@@ -678,3 +678,11 @@ moves and names those it finds no way through; at present it gets through
 25 of them. Many of these caves are puzzles - fireflies
 to blow up next to a wall, boulders to drop on purpose - which it does not
 find; moves written by hand bring more of them into the screencast.
+
+## Thanks
+
+To clarkkent (forum64.de): for his caves, CWS Boulder Dash 1, 2 and 3,
+which are the game's caves; for reworking its graphics; for many hours of
+testing, with exact reports and videos of what went wrong; and for many
+concrete ideas, above all for the cave editor (see
+[EDITOR.md](EDITOR.md#thanks)).

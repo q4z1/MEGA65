@@ -27,6 +27,7 @@ Contents:
 - [Caves on the PC: GDash and cavekit.py](#caves-on-the-pc-gdash-and-cavekitpy)
 - [Messages](#messages)
 - [All keys](#all-keys)
+- [Thanks](#thanks)
 
 ## Your first cave, step by step
 
@@ -463,3 +464,12 @@ More about this, and how exactly the caves follow GDash, is in the README,
 | D (twice) | empty the slot |
 | H or Help | the help, two pages |
 | Run/Stop | back to the title; the cave stays as it is for the next time |
+
+## Thanks
+
+Much of this editor goes back to clarkkent (forum64.de), who tested it
+again and again and said exactly what it lacked: the intermission switch
+(B), undo (U), scattering (A), the help on all of GDash's elements and on
+two pages, values that change at a pace one can follow, slime, sweets that
+let Rockford push mega boulders, R turning a creature in the cave, and the
+order and the second page of the values. Thank you!
