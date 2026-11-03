@@ -1847,8 +1847,10 @@ void scan_cell(int8_t x, int8_t y, uint8_t e) {
             explode(x, y);
         else if (is_like_space(x, y, gc))
             move(x, y, gc, O_FALLING_WALL_F);
-        else
+        else {  // GDash's sound of a falling wall: the boulder's here
+            landed(x, y);
             store(x, y, O_FALLING_WALL);
+        }
         left(x, y, EV_FALLING);
         break;
     }
