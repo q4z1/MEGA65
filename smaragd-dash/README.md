@@ -422,6 +422,13 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 `tools/record-editor.sh --shots` takes the pictures of `EDITOR.md`
 (`screenshots/editor-*.png`) at the script's stops.
 
+`tools/make-trailer.py` cuts the trailer (`smaragd-dash-<VERSION>-trailer.mp4`)
+from such recordings in `build/trailer/` (`title.mp4`, `caves.mp4`,
+`tour.mp4`, `editor.mp4`, `help.mp4`, `music.mp4`, all `mega65-cast -x 1`):
+picture by picture at the MEGA65's own pixels, with captions in the game's
+font, shaped wipes and the title music underneath; its `PARTS` say which
+scenes it takes and what the captions read.
+
 ## How it works
 
 | File | |
@@ -450,6 +457,7 @@ a disk with the caves of `tools/editor-demo/` in its slots.
 | `demo/`, `tools/democave.py`, `tools/record-tour.sh` | the demo caves, their moves, and their video |
 | `tools/record-solutions.sh`, `solutions/` | the video of a disk's own caves being solved, and opening moves for it |
 | `tools/record-directory.sh` | a video of the disk's directory in BASIC: the partitions and their first files |
+| `tools/make-trailer.py` | the trailer, cut from the recordings with captions, wipes and the title music |
 | `tools/mkmusic.py` | the title music as text, converted into tables |
 | `caves/*.bd`, `caves/*.moves` | the caves (CWS Boulder Dash 1-3, GDash's files) and the solver's moves |
 | `gfx/logo.png` | the title logo (scaled down by `tools/mkgfx.py`) |
