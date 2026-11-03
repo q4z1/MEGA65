@@ -131,7 +131,7 @@ def build(disk_name, files, disk_id=b"ED"):
     top, ranges = TRACKS, {}
     for part, pfiles in parts.items():
         n = partition_tracks(pfiles)
-        if top > DIR_TRACK and top - n + 1 <= DIR_TRACK:
+        if top >= DIR_TRACK and top - n + 1 <= DIR_TRACK:  # below track 40 instead
             top = DIR_TRACK - 1
         if top - n + 1 < 1:
             raise SystemExit("mkd81: disk full")
