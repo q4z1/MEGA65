@@ -261,9 +261,10 @@ The second page:
 | SKELETONS | 0-99 | skeletons Rockford must carry to stir the pot |
 | BOMB TO | an element | what a bomb's explosion leaves (Boulder Dash 1: brick wall) |
 | ACID EATS | an element | what the acid eats its way through (dirt) |
+| ACID | 1-200 | how many steps an acid takes to spread, on the average (32) |
 
 A new cave has GDash's values of Boulder Dash 1 here: 10 seconds, NO, NO,
-NO, 5 skeletons, brick wall, dirt. BOMB TO and ACID EATS go through the 95
+NO, 5 skeletons, brick wall, dirt, 32 steps. BOMB TO and ACID EATS go through the 95
 elements of the page of all elements (E), in its order.
 
 Up and down choose a line (it shines). Left and right change the number;

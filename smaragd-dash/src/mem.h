@@ -83,6 +83,13 @@ _Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= 0x10000, "the logo leaves
 #define STEP_WORK  0xC800u   // $3C800
 _Static_assert(LOGO_OFF + (uint32_t)LOGO_W * LOGO_H <= STEP_SHOWN, "the logo reaches the steps");
 _Static_assert(STEP_SHOWN + STEP_SIZE <= STEP_WORK && STEP_WORK + STEP_SIZE <= 0xE000u, "the steps");
+// A game's cave as it comes from the disk: its first level's file, and
+// the changes to it for the levels without a file of their own
+// (mkcave.py), before main.c takes the cave of the level from it
+#define LEVEL_BANK 3
+#define LEVEL_OFF  0xD000u  // $3D000
+#define LEVEL_SIZE 0x1000u
+_Static_assert(STEP_WORK + STEP_SIZE <= LEVEL_OFF && LEVEL_OFF + LEVEL_SIZE <= 0xE000u, "the steps reach the cave's levels");
 
 // The editor's cave while the editor is closed (main.c's edit_keep), in
 // front of GDash's engine

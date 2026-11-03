@@ -1377,11 +1377,18 @@ static bool load(const char *what, const char *file, uint8_t bank, uint16_t addr
 
 static void use_own_cave(void);
 
-// Cave n of the level from the disk (CAVEnn-l; a level the same as the
-// first has no file, the first's is played), unless it is there already;
-// false after the last cave
+// A level's changes to the first level's cave, behind it in LEVEL_BANK
+// (mkcave.py), put into file
+void level_changes(uint8_t level);  // src/levelbyte.s
+__attribute__((used)) const uint16_t level_changes_at = LEVEL_OFF + sizeof(GdCaveFile);
+_Static_assert(LEVEL_BANK == 3, "levelbyte.s reads bank 3");
+
+// Cave n of the level from the disk (CAVEnn-l; a level without a file is
+// the first's, with its changes), unless it is there already; false after
+// the last cave
 static bool load_cave(uint8_t n) {
     static const uint8_t cave_levels[CAVE_COUNT] = CAVE_LEVELS;
+    _Static_assert(LEVEL_FILE_MAX <= LEVEL_SIZE, "a cave's levels reach behind LEVEL_BANK's room");
     if (n >= CAVE_COUNT)
         return false;
     if (n == loaded && level == loaded_level)
@@ -1389,9 +1396,10 @@ static bool load_cave(uint8_t n) {
     static char name[] = "CAVES/CAVE00-0";
     static char what[] = "LOADING CAVE 00/0";
     uint8_t tens = (n + 1) / 10, ones = (n + 1) % 10;
+    bool own = (cave_levels[n] >> level) & 1;
     name[10] = '0' + tens;
     name[11] = '0' + ones;
-    name[13] = '1' + ((cave_levels[n] >> level) & 1 ? level : 0);
+    name[13] = '1' + (own ? level : 0);
     char *num = what + 13;
     if (tens)
         *num++ = '0' + tens;
@@ -1400,8 +1408,11 @@ static bool load_cave(uint8_t n) {
     *num++ = '1' + level;
     *num = 0;
     loaded = 0xFF;
-    if (!have_gdash || !load(what, name, 0, (uint16_t)&file.own))
+    if (!have_gdash || !load(what, name, LEVEL_BANK, LEVEL_OFF))
         return false;
+    dma_once(LEVEL_OFF, LEVEL_BANK, (uint16_t)&file.own, 0, sizeof(GdCaveFile));
+    if (!own)
+        level_changes(level);
 #ifdef SCREENCAST
     static char demo_file[] = "DEMO00";
     demo_file[4] = name[10];  // the cave's number in CAVES/CAVE00-0
@@ -2602,10 +2613,8 @@ static const char pick_names[] =  // in bank 0: the overlay is full
     "EMERALD KEY\0SWEET\0POT\0HAMMER\0ROCKET LAUNCHER\0BOMB\0NITRO PACK\0SKELETON\0"
     "GRAVESTONE\0TIME PENALTY\0"
     "CONVEYOR LEFT\0CONVEYOR RIGHT\0CONVEYOR SWITCH\0CONVEYOR DIR SWITCH\0REPLICATOR SWITCH\0"
-    "CREATURE SWITCH\0BITER SWITCH\0SLOPED DIRT\0SLOPED DIRT\0"
-    "SLOPED DIRT\0SLOPED DIRT\0SLOPED BRICK\0SLOPED BRICK\0"
-    "SLOPED BRICK\0SLOPED BRICK\0SLOPED STEEL\0SLOPED STEEL\0"
-    "SLOPED STEEL\0SLOPED STEEL";
+    "CREATURE SWITCH\0BITER SWITCH\0SLOPED DIRT\0SLOPED BRICK\0SLOPED STEEL";  // a name for 4 each
+#define PICKS_SLOPED (PICKS - 12)  // the sloped ones: the last
 static const char name_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 /:.!-,";  // as cavekit.py
 
 static uint8_t slot;          // the one edited, from 0
@@ -2647,6 +2656,8 @@ static EDITOR uint8_t pick_index(uint8_t e) {
 
 static EDITOR const char *pick_name(uint8_t i) {
     const char *p = pick_names;
+    if (i >= PICKS_SLOPED)
+        i = PICKS_SLOPED + (i - PICKS_SLOPED) / 4;
     while (i--)
         p += strlen(p) + 1;
     return p;
@@ -3131,7 +3142,7 @@ static EDITOR void edit_help(void) {
 
 // The values page: a line each, the one chosen shining, on two pages - the
 // most needed ones on the first, some of GDash's elements' on the second
-#define VALUES 18
+#define VALUES 19
 #define VAL_PAGE 10  // lines on the first page
 #define VAL_GAME 0   // the game's name (the slot's partition), not the cave's
 #define VAL_NAME 1
@@ -3144,12 +3155,13 @@ static const char *const val_text[VALUES] = {
     "MAGIC         SECONDS, 0: NO END", "SLIME         STEPS TO DROP THROUGH",
     "CLOCK         SECONDS IT GIVES", "AMOEBA 2      SECONDS SLOW", "MAGIC         WALL STOPS THE AMOEBA",
     "VOODOO        TAKES FALLING EMERALDS", "VOODOO        KILLED BY BOULDERS", "SKELETONS     FOR THE POT",
-    "BOMB TO", "ACID EATS"};
+    "BOMB TO", "ACID EATS", "ACID          STEPS TO SPREAD"};
 // What a line changes: a number of 16 bits (below 0 shown as 0) or 8 at
 // `at` in the cave, a flag (the bits `mask` of the byte at `at`), an
 // element (shown by its name, changed through the elements to choose
 // from), ...
-enum { V_TEXT, V_WORD, V_BYTE, V_FLAG, V_ELEM, V_SPEED, V_SLIME };
+enum { V_TEXT, V_WORD, V_BYTE, V_FLAG, V_ELEM, V_SPEED, V_SLIME, V_ACID };
+#define ACID_MAX 200  // steps
 typedef struct {
     uint8_t kind, at, min, mask;
     uint16_t max;
@@ -3163,7 +3175,8 @@ static const ValLine val_lines[VALUES] = {
     {V_WORD, AT(time_bonus), 0, 0, 99}, {V_WORD, AT(amoeba_2_time), 0, 0, 999},
     {V_FLAG, AT(flags) + 1, 0, 0x40, 1}, {V_FLAG, AT(flags), 0, 0x20, 1}, {V_FLAG, AT(flags), 0, 0x40, 1},
     {V_BYTE, AT(skeletons_needed_for_pot), 0, 0, 99},
-    {V_ELEM, AT(bomb_explosion_effect), 0, 0, PICKS - 1}, {V_ELEM, AT(acid_eats_this), 0, 0, PICKS - 1}};
+    {V_ELEM, AT(bomb_explosion_effect), 0, 0, PICKS - 1}, {V_ELEM, AT(acid_eats_this), 0, 0, PICKS - 1},
+    {V_ACID, 0, 1, 0, ACID_MAX}};
 _Static_assert(GDF_MAGIC_WALL_STOPS_AMOEBA == 0x40ul << 8 && GDF_VOODOO_COLLECTS_DIAMONDS == 0x20 &&
                GDF_VOODOO_DIES_BY_STONE == 0x40, "the flags of the values page (flags: little-endian)");
 
@@ -3196,6 +3209,10 @@ static EDITOR uint16_t val_get(uint8_t i) {
         return f->scheduling ? c64_speed : f->speed;
     case V_SLIME:
         return 1 << slime_bits();
+    case V_ACID: {  // the steps an acid takes to spread, on the average
+        uint16_t p = (uint16_t)(f->acid_spread_ratio >> 4);  // of a million, in 16ths
+        return p > 62500u / ACID_MAX ? 62500u / p : ACID_MAX;
+    }
     case V_FLAG:
         return (*p & l->mask) != 0;
     case V_ELEM:
@@ -3205,6 +3222,17 @@ static EDITOR uint16_t val_get(uint8_t i) {
     }
     int16_t v = p[0] | p[1] << 8;
     return v < 0 ? 0 : v;
+}
+
+// The acid's steps to spread: what val_get shows again up to ACID_MAX
+// (62500 >= ACID_MAX * (ACID_MAX + 1))
+static EDITOR void acid_set(uint16_t v) {
+    uint16_t q = 62500u / v;  // of a million, in 16ths
+    uint8_t *p = (uint8_t *)&file.own.acid_spread_ratio;
+    p[0] = q << 4;
+    p[1] = q >> 4;
+    p[2] = q >> 12;
+    p[3] = 0;
 }
 
 // A new speed is in milliseconds, also for a C64 cave. (In bank 0: the
@@ -3237,6 +3265,9 @@ __attribute__((noinline)) static void val_set(uint8_t i, uint16_t v) {
         f->flags |= GDF_SLIME_PREDICTABLE;
         break;
     }
+    case V_ACID:
+        acid_set(v);
+        break;
     default:
         p[0] = v;
         p[1] = v >> 8;

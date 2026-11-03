@@ -10,8 +10,8 @@ at its checkpoints writes what the game knows into memory (main.c's
 flow_check, after the status line), which Xemu dumps at the end. The disk has caves of its own in
 place of some of the game's: caves 53-56 of level 1 are a step from an
 emerald and the exit (each emerald 100 points, the last one's 200), cave 1
-is a box Rockford cannot leave, with 10 seconds - in level 2 too, which
-has no file of its own for it -, and three are intermissions: cave 52 such
+is a box Rockford cannot leave, with 10 seconds - 15 in level 2, which
+has no file of its own for it but a change to the first level's -, and three are intermissions: cave 52 such
 a box, cave 53 one with a life at its exit, cave 54 one with a life at its
 start.
 
@@ -109,9 +109,13 @@ def main():
         ours = {52: cave_file(BOX_CAVE, tmp, True), 53: cave_file(EXIT_CAVE, tmp, True),
                 54: cave_file(EXIT_CAVE, tmp, True, True),
                 56: cave_file(EXIT_CAVE.replace("value = 100", "value = 200"), tmp)}
+        def put_cave(n, data, changes=b""):  # the other levels' changes (mkcave.py), none but these
+            old = disk.read(f"CAVES/CAVE{n}-1")
+            data = old[:2] + data + changes
+            disk.rewrite(f"CAVES/CAVE{n}-1", data + bytes(len(old) - len(data)))
         for n in range(51, 57):
-            disk.rewrite(f"CAVES/CAVE{n}-1", disk.read(f"CAVES/CAVE{n}-1")[:2] + ours.get(n, exit_cave))
-        disk.rewrite("CAVES/CAVE01-1", disk.read("CAVES/CAVE01-1")[:2] + box_cave)
+            put_cave(n, ours.get(n, exit_cave))
+        put_cave("01", box_cave, bytes([1, 0, 0, 15]))  # level 2: the time's low byte 15
         disk.rewrite("SMARAGD.SCORES", bytes(len(disk.read("SMARAGD.SCORES"))))  # the default table
         own = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE, tmp)))
         own3 = ck.gd_from_cave(ck.read_cave_file(write_cave(EXIT_CAVE.replace("time = 20", "time = 30"), tmp)))
@@ -150,8 +154,8 @@ def main():
         check("Rockford gets through caves 53-56, one after the other",
               all(at(4 + i, screen="cave", cave=52 + i, level=0, state=PS_ALIVE) for i in range(4)))
         check("an extra life at 500 points", at(8, lives=6) and by[8]["score"] >= 500)
-        check("after the last cave of level 1: cave 1 of level 2, from the first level's file",
-              at(8, cave=0, level=1) and by[8]["time"] <= 10)
+        check("after the last cave of level 1: cave 1 of level 2, the first level's file with its change",
+              at(8, cave=0, level=1) and 10 < by[8]["time"] <= 15)
         check("paused, the time stands still", at(9) and at(10) and by[9]["time"] == by[10]["time"])
         check("and goes on after the pause", at(11) and by[11]["time"] < by[10]["time"])
         check("out of time", at(12, state=PS_TIMEOUT))

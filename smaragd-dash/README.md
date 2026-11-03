@@ -170,7 +170,8 @@ smaragd-dash/build.sh                       # build only
 puts it on the disk image `build/smaragd-dash.d81` together with the tiles
 (`SMARAGD.TILES`), the palettes (`SMARAGD.PAL`), the title logo (`SMARAGD.LOGO`), the high scores (`SMARAGD.SCORES`), the caves
 (`CAVE01-1` ... `CAVE56-5`: cave and level; a level the same as the cave's
-first has no file of its own) in the partition `CAVES`, the
+first, or one that differs from it in up to 255 bytes, has no file of its
+own: those bytes are behind the cave in the first level's file) in the partition `CAVES`, the
 slots for the own caves (`OWN01` ... `OWN20`, and `OWN01-2` ... `OWN20-5`
 for their other levels) in the partitions `OWN1`, `OWN2` and `OWN3` - 1581
 subdirectories, which `mkd81.py` makes for file names `DIR/NAME` -,
@@ -621,6 +622,10 @@ on with the first one of the next level, and after the last level it stays
 there. So the program holds no maps, and more caves cost no memory; it only
 knows how many there are and which levels have a file of their own
 (`levels.h`, written by `mkcave.py`; the others play the first level's).
+A first level's file goes to bank 3 ($3D000); the cave is copied from
+there, and for a level without a file of its own the bytes it changes,
+which lie behind the cave (for each level from the second a count, then
+offset and byte for each), are put into it.
 
 **The loader** (`disk.c`) does without the KERNAL: it finds the file in
 the D81's directory (`DIR/NAME` in the partition's: its first track,
@@ -646,7 +651,9 @@ their own that the title screen cycles for the shine.
 
 The caves are CWS Boulder Dash 1, 2 and 3 by clarkkent, who made them on
 the C64 and gave them to the game: GDash's files as he sent them,
-`caves/1-cws-boulder-dash-1.bd` (15 caves), `caves/2-cws-boulder-dash-2.bd`
+`caves/1-cws-boulder-dash-1.bd` (15 caves, his easier file of 2 November
+2026: level 1 the easiest, level 5 as hard as the caves were),
+`caves/2-cws-boulder-dash-2.bd`
 (16, his file of 26 October 2026, with `RandSeed=0 0 0 0 0` and
 `TimeValue=1 1 1 1 1` put back into each cave: the C64's Construction Kit
 had no levels) and `caves/3-cws-boulder-dash-3.bd` (25), played one file
@@ -658,9 +665,10 @@ gravity. Each has small intermissions (20x12 cells), which stand still in
 the middle of the screen. `tools/mkcave.py` makes the disk's files of them,
 as GDash draws and starts each cave in each of its five levels;
 `tests/test_gdengine.sh` checks that they start and play as in GDash
-itself. In CWS Boulder Dash 1 and 2 every level is the same as the first,
-so those caves have one file on the disk; CWS Boulder Dash 3 has five
-levels of its own.
+itself. In CWS Boulder Dash 2 every level is the same as the first; in
+CWS Boulder Dash 1 the levels differ in time and emeralds only, so those
+caves have one file on the disk; CWS Boulder Dash 3 has five levels of
+its own, a file each where they differ in more than a few bytes.
 
 The solver's moves are in `caves/<file>-NN.moves` (NN: the cave in its
 file). Most are its whole way through, found once by its beam search,
