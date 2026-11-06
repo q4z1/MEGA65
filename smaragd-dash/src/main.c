@@ -529,10 +529,27 @@ static uint8_t rockford_tile(void) {
         }
         return T_RF_VIEW0 + rf_view;
     }
-    if (game.moving && !game.snapping) {
-        // moved into his cell: in step; pushing or blocked: on the spot
+    // Going left or right with something he can push beside him, he
+    // pushes (GDash's player pushing, also when it does not move or he
+    // pushes it with fire): a stride per cell he moves, on the spot two
+    // a cell's time
+    if (game.moving) {
+        // moved into his cell: in step; else on the spot
+        static const uint8_t step0[4] = {T_RF_UP0, T_RF_RIGHT0, T_RF_DOWN0, T_RF_LEFT0};
+        _Static_assert(T_RF_PUSH_LEFT0 == T_RF_PUSH_RIGHT0 + 2, "DIR_LEFT & 2 picks the left ones");
+        uint8_t f = game.facing;
         uint8_t phase = moved[game.player] != DIR_NONE ? rf_foot * 2 + (slide < 8) : (frame >> 2) & 3;
-        return T_RF_UP0 + game.facing * 4 + phase;
+        if (f & 1) {  // left or right
+            uint16_t next = f == DIR_RIGHT ? game.player + 1 : game.player - 1;
+            // (not while he still walks up to it)
+            if ((gd_anim[cave[next]] & GD_ANIM_PUSHED) &&
+                (moved[game.player] == DIR_NONE || moved[next] != DIR_NONE))
+                return T_RF_PUSH_RIGHT0 + (f & 2) + (phase >> 1);
+        } else if (phase == 3) {
+            phase = 1;  // from behind or the front: the same passing with either foot
+        }
+        if (!game.snapping)
+            return step0[f] + phase;
     }
     if (rf_view != VIEW_FRONT)
         return T_RF_VIEW0 + rf_view;
@@ -640,13 +657,18 @@ static uint16_t prof_synced;
 // Each emerald sparkles at its own moment
 static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4};
 
+// An emerald's eight frames: a bright band sweeps over it, then a star
+// shines up and fades (tools/mkgfx.py draws the last frame only once)
+static const uint8_t emerald[8] = {T_DIAMOND0, T_DIAMOND1, T_DIAMOND2, T_DIAMOND3,
+                                   T_DIAMOND4, T_DIAMOND5, T_DIAMOND6, T_DIAMOND5};
+
 // The tile of one of GDash's elements in frame f: its own (gd_tile) and
 // frames (gd_anim), or the game's for the ones it has too (etile, just set)
 static uint8_t gtile_of(uint8_t e, uint8_t f) {
     uint8_t t = gd_tile[e];
     uint8_t a = gd_anim[e];
     if (a & 3) {
-        uint8_t k = (f >> ((a >> 2) & 0x1F)) & ((1 << (a & 3)) - 1);
+        uint8_t k = (f >> ((a >> 2) & 0x0F)) & ((1 << (a & 3)) - 1);
         if ((a & GD_ANIM_BACK) && k == 3)  // three tiles: 0, 1, 2, 1
             k = 1;
         t += k;
@@ -740,7 +762,7 @@ static void update_gtiles(void) {
 static void update_tiles(void) {
     static const uint8_t wings[4] = {0, 1, 2, 1};  // open, half, shut, half
     uint8_t f = frame;
-    etile[E_DIAMOND_F] = T_DIAMOND0 + ((f >> 2) & 7);
+    etile[E_DIAMOND_F] = emerald[(f >> 2) & 7];
     etile[E_INBOX] = (f & 8) ? T_INBOX1 : T_INBOX0;
     etile[E_OUTBOX_OPEN] = (f & 8) ? T_OUTBOX1 : T_OUTBOX0;
     etile[E_MAGIC] = game.magic_state == MW_ACTIVE ? T_MAGIC0 + ((f >> 2) & 3) : T_BRICK;
@@ -764,7 +786,8 @@ static void update_tiles(void) {
         x1 = CAVE_W - 1;
     if (y1 >= CAVE_H)
         y1 = CAVE_H - 1;
-    uint8_t cover = T_COVER0 + ((f >> 1) & 7);  // the steel wall moving up
+    uint8_t cover = (f >> 1) & 7;  // the steel wall moving up
+    cover = cover ? T_COVER1 - 1 + cover : T_STEEL;
     uint8_t sparkle = f >> 2;
     uint8_t space = et[O_SPACE];  // under what slides
     nsprites = 0;
@@ -777,7 +800,7 @@ static void update_tiles(void) {
             }
             uint8_t t = et[cave[i]];
             if (t == T_SPARKLE)
-                t = T_DIAMOND0 + ((sparkle + glint[(x + y * 7) & 15]) & 7);
+                t = emerald[(sparkle + glint[(x + y * 7) & 15]) & 7];
             if (slide && moved[i] != DIR_NONE && nsprites < MAX_SPRITES) {
                 Sprite *s = &sprites[nsprites++];
                 cell_pos(i, &s->x, &s->y);
@@ -1353,7 +1376,7 @@ static void spin(void) {
     uint8_t f = PEEK(0xD7FA);  // frame counter
     if ((f >> 2) != spin_frame) {
         spin_frame = f >> 2;
-        status_tile(2, T_DIAMOND0 + (spin_frame & 7));
+        status_tile(2, emerald[spin_frame & 7]);
     }
 }
 
@@ -1621,7 +1644,7 @@ static void title_frame(void) {
 
 // One line of text under the logo, centred over the full width
 static void title_line(const char *text) {
-    static char line[39];
+    static char line[39] __attribute__((section(".lowbss")));  // no value needed (link.ld)
     uint8_t n = strlen(text);
     memset(line, ' ', 38);
     memcpy(line + (38 - n) / 2, text, n);
@@ -1787,7 +1810,7 @@ static void scores_frame(uint16_t pf) {
     if (pf >= 8 && pf < 8 + 6 * HS_COUNT && (pf - 8) % 6 == 0)
         hs_line((pf - 8) / 6);
     if ((pf & 3) == 0) {
-        uint8_t t = T_DIAMOND0 + ((pf >> 2) & 7);
+        uint8_t t = emerald[(pf >> 2) & 7];
         video_tile(5, 10, t);
         video_tile(33, 10, t);
         if (hs_new < HS_COUNT && pf >= 8 + 6 * hs_new)
@@ -1853,7 +1876,7 @@ static void enter_name(HiScore *e, uint8_t rank) {
             shown = pos;
         }
         if ((f & 3) == 0)
-            video_tile(NAME_COL + pos * 4, CURSOR_Y, T_DIAMOND0 + ((f >> 2) & 7));
+            video_tile(NAME_COL + pos * 4, CURSOR_Y, emerald[(f >> 2) & 7]);
         if (f % 3 == 0)
             video_shine(f / 3);
         title_frame();
@@ -2018,6 +2041,10 @@ __attribute__((noinline)) static void page_wait(void) {
     }
 }
 
+// A line of text put together and drawn at once, by the help pages and
+// the editor: no value needed (link.ld)
+static char text_line[40] __attribute__((section(".lowbss")));
+
 #ifndef SCREENCAST  // which plays the caves: no help, no BASIC (room in bank 0)
 #ifndef FLOWTEST    // nor the flow's test, which shows no help
 // The title's help (Help or H): how to play, then the elements of the
@@ -2036,7 +2063,8 @@ static uint8_t help_count[2];  // the title's pages, the editor's
 
 // Page p of them, the last one shown or not
 __attribute__((noinline)) static void help_page(uint8_t p, bool last) {
-    static char line[1 + HELP_TEXT + 1];
+    char *line = text_line;
+    _Static_assert(1 + HELP_TEXT + 1 <= sizeof text_line, "a help line in text_line");
     uint16_t at = HELP_OFF + 2 + p * HELP_PAGE;
     video_clear();
     music_catch_up();
@@ -2732,8 +2760,9 @@ static EDITOR uint8_t walks_to(uint8_t e) {
 // "[tile] FIREFLY LEFT         12,05<OWN1 03*" (the last column the
 // screen shows is 38)
 static EDITOR void edit_status(void) {
-    static char line[36];
+    char *line = text_line;
     memset(line, ' ', 35);
+    line[35] = 0;
     const char *name = pick_name(pick_index(pen));
     uint8_t n = strlen(name);
     memcpy(line, name, n);
@@ -2924,7 +2953,7 @@ static EDITOR void edit_take(void) {
 // or the joystick choose one, the button takes it, E or Run/Stop leave it
 // as it was. Taken again, one that walks turns.
 static EDITOR void edit_pick(void) {
-    static char line[36];
+    char *line = text_line;
     uint8_t x = cur_x, y = cur_y;
     uint8_t sel = pick_index(pen), shown = PICKS, rep = 0;
     if (sel == PICKS)
@@ -2940,6 +2969,7 @@ static EDITOR void edit_pick(void) {
         if (sel != shown) {
             shown = sel;
             memset(line, ' ', 35);
+            line[35] = 0;
             const char *name = pick_name(sel);
             memcpy(line, name, strlen(name));
             memcpy(line + 22, "FIRE: TAKE IT", 13);
@@ -3309,8 +3339,9 @@ __attribute__((noinline)) static void val_set(uint8_t i, uint16_t v) {
 
 // A line in its place on its page; VALUES: an empty one
 static EDITOR void val_line(uint8_t i, uint8_t at, bool chosen) {
-    static char line[37];
+    char *line = text_line;
     memset(line, ' ', 36);
+    line[36] = 0;
     if (i < VALUES) {
         memcpy(line, val_text[i], strlen(val_text[i]));
         uint8_t kind = val_lines[i].kind;

@@ -366,6 +366,8 @@ ROCK_BODIES = {
     # running: near arm back and far arm forward, or the near fist forward
     "right-back": ["...kJJlTTJjjk...", "..kJJJlJTJjsk...", ".kSkJJJJJJk....."],
     "right-fist": ["...kJJlTTJkSSk..", "...kjJJlTJJkkk..", "...kjJJJJJk....."],
+    # pushing: leaning into it (the head two pixels on), both arms out
+    "right-push": [".....kJlTTJk....", ".....kJJlTJJJkkk", ".....kjJJJlllJSS", ".....kjJJJkkkkss"],
 }
 ROCK_LEGS = {
     "front": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "...kWWWkkWWWk..."],
@@ -385,10 +387,11 @@ ROCK_LEGS = {
 }
 
 
-def rock_rows(head, body, legs, blink=False):
+def rock_rows(head, body, legs, blink=False, lean=0):
     """A Rockford tile from head, body and legs; with three rows of legs (a
-    stride) he is one pixel lower."""
-    h = list(ROCK_HEADS[head])
+    stride) he is one pixel lower, with four rows of body one higher. lean:
+    the head that many pixels on to the right."""
+    h = [("." * lean + r)[:T] for r in ROCK_HEADS[head]]
     if blink:
         h[6] = h[6].replace("E", "S").replace("e", "S")
         h[7] = h[7].replace("e", "k")
@@ -412,9 +415,13 @@ def from_rows(rows, pal):
 def draw_rockford_set():
     """RF_VIEW0-7: standing, seen from behind (0), then turning clockwise
     from above: right (2), front (4), left (6); a view is 2 * DIR_*.
-    RF_BLINK, RF_TAP: idle, from the front. RF_UP0-3, RF_RIGHT0-3,
-    RF_DOWN0-3, RF_LEFT0-3 (in the order of DIR_*): walking, a step with
-    the one foot (stride, passing), then with the other."""
+    RF_BLINK, RF_TAP: idle, from the front. RF_UP0-2, RF_RIGHT0-3,
+    RF_DOWN0-2, RF_LEFT0-3 (in the order of DIR_*): walking, a step with
+    the one foot (stride, passing), then with the other; from behind and
+    from the front he passes the same way with either foot, so main.c
+    shows 0, 1, 2, 1 there. RF_PUSH_RIGHT0-1, RF_PUSH_LEFT0-1: pushing,
+    a stride with the one foot, then with the other (GDash's player
+    pushing)."""
     views = [rock_rows("back", "back", "back"),
              rock_rows("back-right", "back", "back"),
              rock_rows("right", "right", "right"),
@@ -423,17 +430,20 @@ def draw_rockford_set():
     views += [mirror(v) for v in views[3:0:-1]]
     walk = {
         "UP": [rock_rows("back", "back-swing", "back-step"), rock_rows("back", "back", "back-pass"),
-               mirror(rock_rows("back", "back-swing", "back-step")), rock_rows("back", "back", "back-pass")],
+               mirror(rock_rows("back", "back-swing", "back-step"))],
         "RIGHT": [rock_rows("right", "right-back", "right-near"), rock_rows("right", "right", "right-pass-far"),
                   rock_rows("right", "right-fist", "right-far"), rock_rows("right", "right", "right-pass-near")],
         "DOWN": [rock_rows("front", "front-swing", "front-step"), rock_rows("front", "front", "front-pass"),
-                 mirror(rock_rows("front", "front-swing", "front-step")), rock_rows("front", "front", "front-pass")],
+                 mirror(rock_rows("front", "front-swing", "front-step"))],
+        "PUSH_RIGHT": [rock_rows("right", "right-push", "right-near", lean=2),
+                       rock_rows("right", "right-push", "right-far", lean=2)],
     }
     walk["LEFT"] = [mirror(r) for r in walk["RIGHT"]]
+    walk["PUSH_LEFT"] = [mirror(r) for r in walk["PUSH_RIGHT"]]
     out = {f"RF_VIEW{i}": from_rows(v, ROCK_PAL) for i, v in enumerate(views)}
     out["RF_BLINK"] = from_rows(rock_rows("front", "front", "front", blink=True), ROCK_PAL)
     out["RF_TAP"] = from_rows(rock_rows("front", "front", "front-tap"), ROCK_PAL)
-    for d in ("UP", "RIGHT", "DOWN", "LEFT"):
+    for d in ("UP", "RIGHT", "DOWN", "LEFT", "PUSH_RIGHT", "PUSH_LEFT"):
         for i, rows in enumerate(walk[d]):
             out[f"RF_{d}{i}"] = from_rows(rows, ROCK_PAL)
     return out
@@ -1588,6 +1598,7 @@ def gd_tiles():
 # wall, inbox, exit, the player as RF_VIEW4); SPARKLE is an emerald
 # sparkling on its own. Four frames BACK are three tiles shown 0, 1, 2, 1.
 BACK = 0x80  # in gd_anim (main.c, gtile_of)
+PUSHED = 0x40  # in gd_anim: a player pushes it (GDash's P_CAN_BE_PUSHED; main.c, rockford_tile)
 GD_TILES = [
     (r"SPACE", "SPACE"),
     (r"DIRT2", "DIRT2"),
@@ -1672,10 +1683,11 @@ SWITCH_TILE = {"CREATURE": "CREATURE_SWITCH", "EXPANDING_WALL": "EXPANDING_WALL_
 def gd_tile_table(tile_index):
     """gd_tile[], gd_anim[]: the tile of each of GDash's elements, and how
     it moves on its own (frames: low two bits as 0, 1 or 2 for 1, 2 or 4;
-    above them the exponent of the screen frames per frame; BACK: back
-    and forth)"""
+    above them the exponent of the screen frames per frame, up to 15;
+    BACK: back and forth; and PUSHED: Rockford pushes it, for his pose)"""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from cavekit import GD_EL
+    from cavekit import GD_EL, P_FLAGS
+    pushed = 1 << P_FLAGS.index("CAN_BE_PUSHED")
     tiles, anims = [], []
     for e in GD_EL:
         for pat, tile, *anim in GD_TILES:
@@ -1692,7 +1704,8 @@ def gd_tile_table(tile_index):
             tile = f"ROCKET{int(m.group(1)) - 1}"
         tiles.append(255 if tile == "SPARKLE" else tile_index[tile])
         frames, shift, back = (anim + [1, 0, 0][len(anim):])
-        anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2 | back)
+        assert shift < 16, e.name
+        anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2 | back | (PUSHED if e.flags & pushed else 0))
     return tiles, anims
 
 
@@ -1717,7 +1730,8 @@ def tile_colours(tiles, tile_bytes, cols):
 def build_tiles():
     tiles = [("SPACE", draw_space()), ("DIRT", draw_dirt()), ("BRICK", draw_brick()),
              ("STEEL", draw_steel()), ("BOULDER", draw_boulder())]
-    tiles += [(f"DIAMOND{i}", draw_emerald(i)) for i in range(8)]
+    # the eighth frame is the sixth again: main.c's emerald[]
+    tiles += [(f"DIAMOND{i}", draw_emerald(i)) for i in range(7)]
     tiles += list(draw_rockford_set().items())
     tiles += [(f"FIREFLY{i}", draw_firefly(i)) for i in range(4)]
     # open, half, shut: main.c shows them 0, 1, 2, 1
@@ -1728,7 +1742,8 @@ def build_tiles():
               ("OUTBOX0", draw_door(False, False)), ("OUTBOX1", draw_door(True, False))]
     tiles += [(f"AMOEBA{i}", draw_amoeba(i)) for i in range(4)]
     tiles += [(f"MAGIC{i}", draw_magic(i)) for i in range(4)]
-    tiles += [(f"COVER{i}", draw_cover(i)) for i in range(8)]
+    # the first frame is the steel wall itself: main.c shows STEEL for it
+    tiles += [(f"COVER{i}", draw_cover(i)) for i in range(1, 8)]
     tiles += [(f"EMBERS{i}", draw_embers(i)) for i in range(4)]
     tiles += [(f"GLITTER{i}", draw_glitter(i)) for i in range(4)]
     tiles += [(f"EMBERS_ALT{i}", draw_embers(i, EMBERS_BLUE)) for i in range(4)]
@@ -1947,8 +1962,9 @@ def main():
         f.write("extern const uint8_t sep_gfx[64];\n")
         f.write(f"#define T_SPARKLE 255  // gd_tile: an emerald, sparkling\n")
         f.write(f"extern const uint8_t gd_tile[{len(gd_tiles)}];  // the tile of each of GDash's elements\n")
-        f.write(f"extern const uint8_t gd_anim[{len(gd_tiles)}];  // its frames: 1 << (low 2 bits), each 1 << (bits 2-6) screen frames; GD_ANIM_BACK\n")
+        f.write(f"extern const uint8_t gd_anim[{len(gd_tiles)}];  // its frames: 1 << (low 2 bits), each 1 << (bits 2-5) screen frames; GD_ANIM_BACK, GD_ANIM_PUSHED\n")
         f.write(f"#define GD_ANIM_BACK {BACK}  // gd_anim: four frames from three tiles, 0, 1, 2, 1\n")
+        f.write(f"#define GD_ANIM_PUSHED {PUSHED}  // gd_anim: a player pushes it (GDash's P_CAN_BE_PUSHED)\n")
         # the elements whose tile changes by itself: their own frames, or the
         # game's animated tiles (main.c, gtile_of)
         game_anim = {tile_index[n] for n in ("FIREFLY0", "BUTTERFLY0", "AMOEBA0", "MAGIC0", "INBOX0", "OUTBOX0",

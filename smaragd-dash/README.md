@@ -491,8 +491,10 @@ turns from one to the next, a frame each, when he changes direction:
 from right to left he turns round past the front. He walks with a step
 per cell, in time with the sliding - legs apart in the first half of the
 cell, passing in the second, the arms swinging the other way - so his feet
-keep up with the ground; pushing against a boulder or a wall, he walks on
-the spot. When he stops he keeps his direction for a moment, then turns to
+keep up with the ground; against a wall he walks on the spot. Going left
+or right with a boulder (or anything else he can push) beside him, he
+pushes, as in GDash: leaning into it, both hands on it, a stride per cell
+it moves, on the spot while it does not give way. When he stops he keeps his direction for a moment, then turns to
 the front, where he blinks and taps his foot now and then.
 
 **Little things** stay behind for a moment, on empty cells only: where a
