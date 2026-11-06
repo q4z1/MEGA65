@@ -715,6 +715,22 @@ def draw_space():
     return new_tile()
 
 
+def draw_bonus(frame):
+    """The empty cell for a moment after an extra life, as GDash and the
+    C64 show it: short dashes on every fourth pixel row, other ones in
+    each frame, so they flicker"""
+    t = new_tile()
+    r = random.Random(40 + frame)
+    for y in range(2, T, 4):
+        x = r.randrange(3)
+        while x < T:
+            n = r.choice((1, 1, 2, 2, 3))
+            for k in range(x, min(x + n, T)):
+                t[y][k] = hexc("f0f0ff") if r.random() < 0.7 else hexc("9890c0")
+            x += n + r.randrange(1, 6)
+    return t
+
+
 def draw_cursor():
     """The editor's cursor: a bright frame with a dark one inside it, so
     it shows on every tile; the rest is transparent"""
@@ -1537,8 +1553,8 @@ def gd_tiles():
     out += [(f"BITER{i}", draw_biter(i)) for i in range(2)]
     out += [(f"AMOEBA2_{i}", draw_amoeba_2(i)) for i in range(4)]
     out += [(f"ALT_FIREFLY{i}", draw_alt_firefly(i)) for i in range(4)]
-    out += [(f"ALT_BUTTERFLY{i}", sheet_butterfly("butterfly-alt.png", i)) for i in range(4)]
-    out += [(f"STONEFLY{i}", sheet_butterfly("butterfly-stone.png", i)) for i in range(4)]
+    out += [(f"ALT_BUTTERFLY{i}", sheet_butterfly("butterfly-alt.png", i)) for i in range(3)]
+    out += [(f"STONEFLY{i}", sheet_butterfly("butterfly-stone.png", i)) for i in range(3)]
     out += [(f"DRAGONFLY{i}", draw_dragonfly(i)) for i in range(2)]
     out += [("MEGA_BOULDER", draw_mega_boulder()), ("NUT", draw_nut())]
     out += [(f"TELEPORTER{i}", draw_teleporter(i)) for i in range(4)]
@@ -1550,8 +1566,9 @@ def gd_tiles():
             ("BOULDER_FLYING", sheet_tile("BOULDER_FLYING")), ("DIAMOND_FLYING", draw_flying_emerald()),
             ("NITRO", draw_nitro())]
     out += [(f"GHOST{i}", sheet_tile(f"GHOST{i}")) for i in range(2)]
-    # the hammer at work: HAMMER (its first frame) and three more
-    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(1, 4)]
+    # the hammer at work: HAMMER (its first frame) and two more, shown
+    # back and forth (BACK)
+    out += [("HAMMER", draw_hammer())] + [(f"HAMMER_ACTIVE{i}", draw_hammer(True, i)) for i in range(1, 3)]
     out += [("ROCKET_LAUNCHER", draw_rocket_launcher())]
     out += [(f"ROCKET{i}", draw_rocket(i)) for i in range(4)]
     out += [("WALLED_DIAMOND", sheet_tile("WALLED_DIAMOND"))]
@@ -1569,7 +1586,8 @@ def gd_tiles():
 # exponent). The first match counts. Some get their first tile and main.c
 # animates them as the game's own (fireflies, butterflies, amoeba, magic
 # wall, inbox, exit, the player as RF_VIEW4); SPARKLE is an emerald
-# sparkling on its own.
+# sparkling on its own. Four frames BACK are three tiles shown 0, 1, 2, 1.
+BACK = 0x80  # in gd_anim (main.c, gtile_of)
 GD_TILES = [
     (r"SPACE", "SPACE"),
     (r"DIRT2", "DIRT2"),
@@ -1608,7 +1626,7 @@ GD_TILES = [
     (r"WALLED_KEY_(\d)", "WALLED_KEY"),
     (r"POT", "POT"),
     (r"PNEUMATIC_HAMMER", "HAMMER"),
-    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER", 4, 2),
+    (r"PNEUMATIC_ACTIVE_(LEFT|RIGHT)", "HAMMER", 4, 2, BACK),
     (r"TELEPORTER", "TELEPORTER0", 4, 3),
     (r"SKELETON", "SKELETON"),
     (r"WATER(_\d+)?", "WATER0", 4, 3),
@@ -1627,8 +1645,8 @@ GD_TILES = [
     (r"FIREFLY_\d", "FIREFLY0"),
     (r"ALT_FIREFLY_\d", "ALT_FIREFLY0", 4, 1),
     (r"BUTTER_\d", "BUTTERFLY0"),
-    (r"ALT_BUTTER_\d", "ALT_BUTTERFLY0", 4, 2),
-    (r"STONEFLY_\d", "STONEFLY0", 4, 2),
+    (r"ALT_BUTTER_\d", "ALT_BUTTERFLY0", 4, 2, BACK),
+    (r"STONEFLY_\d", "STONEFLY0", 4, 2, BACK),
     (r"BITER_\d", "BITER0", 2, 2),
     (r"DRAGONFLY_\d", "DRAGONFLY0", 2, 1),
     (r"PLAYER_GLUED", "RF_GLUED"),
@@ -1654,7 +1672,8 @@ SWITCH_TILE = {"CREATURE": "CREATURE_SWITCH", "EXPANDING_WALL": "EXPANDING_WALL_
 def gd_tile_table(tile_index):
     """gd_tile[], gd_anim[]: the tile of each of GDash's elements, and how
     it moves on its own (frames: low two bits as 0, 1 or 2 for 1, 2 or 4;
-    above them the exponent of the screen frames per frame)"""
+    above them the exponent of the screen frames per frame; BACK: back
+    and forth)"""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     from cavekit import GD_EL
     tiles, anims = [], []
@@ -1672,8 +1691,8 @@ def gd_tile_table(tile_index):
         elif tile == "ROCKET":
             tile = f"ROCKET{int(m.group(1)) - 1}"
         tiles.append(255 if tile == "SPARKLE" else tile_index[tile])
-        frames, shift = (anim + [1, 0])[:2]
-        anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2)
+        frames, shift, back = (anim + [1, 0, 0][len(anim):])
+        anims.append({1: 0, 2: 1, 4: 2}[frames] | shift << 2 | back)
     return tiles, anims
 
 
@@ -1726,6 +1745,7 @@ def build_tiles():
     tiles += [(f"DUSTL{i}", draw_dust(i, False)) for i in range(2)]
     tiles += [(f"DUSTR{i}", draw_dust(i, True)) for i in range(2)]
     tiles += [("CURSOR", draw_cursor())]
+    tiles += [(f"BONUS{i}", draw_bonus(i)) for i in range(3)]
     tiles += gd_tiles()
     return tiles
 
@@ -1927,7 +1947,8 @@ def main():
         f.write("extern const uint8_t sep_gfx[64];\n")
         f.write(f"#define T_SPARKLE 255  // gd_tile: an emerald, sparkling\n")
         f.write(f"extern const uint8_t gd_tile[{len(gd_tiles)}];  // the tile of each of GDash's elements\n")
-        f.write(f"extern const uint8_t gd_anim[{len(gd_tiles)}];  // its frames: 1 << (low 2 bits), each 1 << (the rest) screen frames\n")
+        f.write(f"extern const uint8_t gd_anim[{len(gd_tiles)}];  // its frames: 1 << (low 2 bits), each 1 << (bits 2-6) screen frames; GD_ANIM_BACK\n")
+        f.write(f"#define GD_ANIM_BACK {BACK}  // gd_anim: four frames from three tiles, 0, 1, 2, 1\n")
         # the elements whose tile changes by itself: their own frames, or the
         # game's animated tiles (main.c, gtile_of)
         game_anim = {tile_index[n] for n in ("FIREFLY0", "BUTTERFLY0", "AMOEBA0", "MAGIC0", "INBOX0", "OUTBOX0",

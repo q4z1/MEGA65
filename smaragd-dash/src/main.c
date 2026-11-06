@@ -143,6 +143,7 @@ static uint8_t rf_rest;             // frames he has been standing
 static uint8_t rf_foot;             // the foot of his step, flips with every cell
 static uint8_t slide;               // pixels the last tick's moves have still to go
 static uint8_t flash;               // frames left of the exit flash
+static uint8_t life_flash;          // frames left of the extra life's (the empty cells flicker)
 
 static uint8_t lives;
 static uint8_t cave_no, level;      // from 0
@@ -644,8 +645,12 @@ static const uint8_t glint[16] = {3, 6, 0, 5, 2, 7, 4, 1, 6, 2, 5, 0, 7, 3, 1, 4
 static uint8_t gtile_of(uint8_t e, uint8_t f) {
     uint8_t t = gd_tile[e];
     uint8_t a = gd_anim[e];
-    if (a & 3)
-        t += (f >> (a >> 2)) & ((1 << (a & 3)) - 1);
+    if (a & 3) {
+        uint8_t k = (f >> ((a >> 2) & 0x1F)) & ((1 << (a & 3)) - 1);
+        if ((a & GD_ANIM_BACK) && k == 3)  // three tiles: 0, 1, 2, 1
+            k = 1;
+        t += k;
+    }
     switch (t) {
     case T_FIREFLY0:
         return etile[E_FIREFLY];
@@ -727,6 +732,9 @@ static void update_gtiles(void) {
     gtile[O_AMOEBA_2] = gtile[file.own.amoeba_2_looks_like];
     if (show_cursor)  // the editor shows the closed exit as an exit
         gtile[O_PRE_OUTBOX] = gtile[O_PRE_INVIS_OUTBOX] = T_OUTBOX0;
+    // an extra life: the empty cells flicker for a while (GDash's
+    // bonus_life_flash, as on the C64)
+    gtile[O_SPACE] = life_flash ? T_BONUS0 + (life_flash >> 1) % 3 : T_SPACE;
 }
 
 static void update_tiles(void) {
@@ -758,6 +766,7 @@ static void update_tiles(void) {
         y1 = CAVE_H - 1;
     uint8_t cover = T_COVER0 + ((f >> 1) & 7);  // the steel wall moving up
     uint8_t sparkle = f >> 2;
+    uint8_t space = et[O_SPACE];  // under what slides
     nsprites = 0;
     for (uint8_t y = y0; y <= y1; y++) {
         uint16_t i = y * CAVE_W + x0;
@@ -773,7 +782,7 @@ static void update_tiles(void) {
                 Sprite *s = &sprites[nsprites++];
                 cell_pos(i, &s->x, &s->y);
                 s->tile = t;
-                t = T_SPACE;
+                t = space;
             }
             tiles[i] = t;
         }
@@ -1179,6 +1188,27 @@ static void frame_tiles(void) {
     }
 }
 
+// The input of a frame (held, pressed). The button counts as let go only
+// once it has been up for FIRE_UP frames in a row: a joystick's contact
+// that opens for a moment while it is held, or bounces, makes no new press
+// (the editor would put the element just taken from its page, a name
+// would be done letter by letter). The game's moves take the button as it
+// is read (fire_now), as before.
+#define FIRE_UP 4
+static uint8_t fire_up = FIRE_UP;   // frames it has been up, up to FIRE_UP
+static bool fire_now;               // the button as read in this frame
+
+static void take_input(void) {
+    uint8_t in = input_read();
+    fire_now = (in & IN_BUTTON) != 0;
+    if (fire_now)
+        fire_up = 0;
+    else if (fire_up < FIRE_UP && ++fire_up < FIRE_UP)
+        in |= IN_BUTTON;
+    pressed = in & ~held;
+    held = in;
+}
+
 // A frame. Its tiles are set before video_sync when there is time for it
 // (TILES_LINES raster lines), else after it with the drawing: the window
 // before video_sync is the one that is missed, the drawing has time to
@@ -1224,9 +1254,9 @@ static void next_frame(void) {
     frame++;
     if (flash && !--flash)
         video_flash(false);
-    uint8_t in = input_read();
-    pressed = in & ~held;
-    held = in;
+    if (life_flash)
+        life_flash--;
+    take_input();
 #ifdef NMI_STORM
     // The NMI test (tests/test_render.sh with -DNMI_STORM): CIA 2's timer
     // gives an NMI somewhere in each frame, as Restore does
@@ -1583,9 +1613,7 @@ static void title_frame(void) {
     sound_frame();
     text_more(TEXT_STEP);
     frame++;
-    uint8_t in = input_read();
-    pressed = in & ~held;
-    held = in;
+    take_input();
 }
 
 // Centre a text of n characters (big: 2 columns each) in columns 1-38
@@ -2349,6 +2377,7 @@ static uint8_t play_cave(void) {
 
     rules_start();
     FLOW_SCREEN(SCR_CAVE);
+    life_flash = 0;
     tick_len = step_len(frame_len);
     scroll_speed = scroll_pixels(frame_len, tick_len);
     memset(trail_kind, TR_NONE, sizeof trail_kind);
@@ -2370,11 +2399,14 @@ static uint8_t play_cave(void) {
         }
         // P typed: the MEGA65's own key queue, which no joystick touches (in
         // the matrix P shares its line with joystick 1's down)
-        if (key == 'P' || (pressed & IN_PAUSE)) {
+        // Paused, the button goes on too; held on, it is no new press
+        if (key == 'P' || (pressed & IN_PAUSE) || (paused && (pressed & IN_BUTTON))) {
             paused = !paused;
             if (paused) {
                 sound_off();
                 status_center("PAUSED");
+            } else {
+                last_fire = fire_now;
             }
         }
         if (paused) {
@@ -2393,7 +2425,7 @@ static uint8_t play_cave(void) {
         if (dir != DIR_NONE && dir != last_dir)
             latched = dir;
         last_dir = dir;
-        bool fire = (held & IN_BUTTON) != 0;
+        bool fire = fire_now;  // as read, not as take_input holds it
         if (fire && !last_fire)
             fire_latched = true;
         last_fire = fire;
@@ -2469,6 +2501,7 @@ static uint8_t play_cave(void) {
             if (lives < 9)
                 lives++;
             sound_life();
+            life_flash = pal ? 200 : 240;  // 4 s, as in GDash
         }
 
         switch (game.state) {

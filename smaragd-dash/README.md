@@ -87,7 +87,7 @@ before building.
 | --- | --- |
 | joystick (either port), gamepad, cursor keys | move; on the title: up/down level, left/right first cave (held: on and on) |
 | fire, Space, Return + direction | snap: take dirt or an emerald next to you without moving |
-| P | pause |
+| P | pause; P or fire goes on |
 | Run/Stop | give up the life (when you are stuck) |
 | F1 | end the game: back to the title at once |
 | I (held, in a cave from GDash) | what Rockford carries and where gravity pulls |
