@@ -493,7 +493,7 @@ per cell, in time with the sliding - legs apart in the first half of the
 cell, passing in the second, the arms swinging the other way - so his feet
 keep up with the ground; against a wall he walks on the spot. Going left
 or right with a boulder (or anything else he can push) beside him, he
-pushes, as in GDash: leaning into it, both hands on it, a stride per cell
+pushes, as in GDash: both arms out, the fists on it, a stride per cell
 it moves, on the spot while it does not give way. When he stops he keeps his direction for a moment, then turns to
 the front, where he blinks and taps his foot now and then.
 

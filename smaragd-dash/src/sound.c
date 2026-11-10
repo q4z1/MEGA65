@@ -194,7 +194,7 @@ static const struct {
     // voice 2: what falls
     {SND_NUT, 1, 0x2800, 0, NOISE, 0x05},  // a crack
     {SND_BOULDER, 1, 0x0700, 0, NOISE, 0x07},
-    // voice 3: diamonds landing (and the exit, the last seconds, a life)
+    // voice 3: diamonds landing (and the exit, a life, the last seconds)
     {SND_CRACK, 2, 0x2000, 0, NOISE, 0x08},  // Rockford hatches: as the exit opens
     {SND_DIAMOND, 2, 0x3000, 64, TRI, 0x06},
     // voice 4: explosions and machines
@@ -245,7 +245,7 @@ static void sound_c_exit(void) {
     play(2, TOP, 0x2000, NOISE, 0x08);
 }
 
-static void sound_c_life(void) {
+static void sound_c_hiscore(void) {
     play(2, TOP, 0x5800, SAW, 0x0A);
 }
 
@@ -278,7 +278,7 @@ void sound_check(void) {
         if (own == 2) sound_clock();
         if (own == 3) sound_bonus();
         if (own == 4) sound_exit();
-        if (own == 5) sound_life();
+        if (own == 5) sound_hiscore();
         if (own == 6) sound_still();
         if (own == 7 && (k & 7) == 0) sound_off();
         sound_frame();
@@ -290,7 +290,7 @@ void sound_check(void) {
         if (own == 2) sound_c_clock();
         if (own == 3) sound_c_bonus();
         if (own == 4) sound_c_exit();
-        if (own == 5) sound_c_life();
+        if (own == 5) sound_c_hiscore();
         if (own == 6) sound_c_still();
         if (own == 7 && (k & 7) == 0) sound_c_off();
         sound_c_frame();

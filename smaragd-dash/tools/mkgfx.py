@@ -366,8 +366,9 @@ ROCK_BODIES = {
     # running: near arm back and far arm forward, or the near fist forward
     "right-back": ["...kJJlTTJjjk...", "..kJJJlJTJjsk...", ".kSkJJJJJJk....."],
     "right-fist": ["...kJJlTTJkSSk..", "...kjJJlTJJkkk..", "...kjJJJJJk....."],
-    # pushing: leaning into it (the head two pixels on), both arms out
-    "right-push": [".....kJlTTJk....", ".....kJJlTJJJkkk", ".....kjJJJlllJSS", ".....kjJJJkkkkss"],
+    # pushing: both arms out, the fists on what he pushes (clarkkent's
+    # drawing, drawn one pixel on: rock_rows(lean=1))
+    "right-push": ["...kkJlTTJjjjsk.", "....kJlJTJJJJSk.", "....kJJJJJkkk..."],
 }
 ROCK_LEGS = {
     "front": ["....kBBbbBBk....", "....kBBkkBBk....", "....kBbkkbBk....", "...kWWWkkWWWk..."],
@@ -390,12 +391,12 @@ ROCK_LEGS = {
 def rock_rows(head, body, legs, blink=False, lean=0):
     """A Rockford tile from head, body and legs; with three rows of legs (a
     stride) he is one pixel lower, with four rows of body one higher. lean:
-    the head that many pixels on to the right."""
-    h = [("." * lean + r)[:T] for r in ROCK_HEADS[head]]
+    all of him that many pixels on to the right."""
+    h = list(ROCK_HEADS[head])
     if blink:
         h[6] = h[6].replace("E", "S").replace("e", "S")
         h[7] = h[7].replace("e", "k")
-    rows = h + ROCK_BODIES[body] + ROCK_LEGS[legs]
+    rows = [("." * lean + r)[:T] for r in h + ROCK_BODIES[body] + ROCK_LEGS[legs]]
     return ["." * T] * (T - len(rows)) + rows
 
 
@@ -435,8 +436,8 @@ def draw_rockford_set():
                   rock_rows("right", "right-fist", "right-far"), rock_rows("right", "right", "right-pass-near")],
         "DOWN": [rock_rows("front", "front-swing", "front-step"), rock_rows("front", "front", "front-pass"),
                  mirror(rock_rows("front", "front-swing", "front-step"))],
-        "PUSH_RIGHT": [rock_rows("right", "right-push", "right-near", lean=2),
-                       rock_rows("right", "right-push", "right-far", lean=2)],
+        "PUSH_RIGHT": [rock_rows("right", "right-push", "right-near", lean=1),
+                       rock_rows("right", "right-push", "right-far", lean=1)],
     }
     walk["LEFT"] = [mirror(r) for r in walk["RIGHT"]]
     walk["PUSH_LEFT"] = [mirror(r) for r in walk["PUSH_RIGHT"]]

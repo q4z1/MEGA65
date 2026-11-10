@@ -1929,7 +1929,7 @@ static void enter_name(HiScore *e, uint8_t rank) {
     memcpy(last_name, e->name, 3);
     video_blank(NAME_COL, CURSOR_Y, 10, 16);
     status_center("WELL DONE!");
-    sound_life();
+    sound_hiscore();
     for (uint8_t f = 0; f < 75; f++) {
         if (f % 3 == 0)
             video_shine(f / 3);
@@ -2528,7 +2528,7 @@ static uint8_t play_cave(void) {
             next_life += LIFE_POINTS;
             if (lives < 9)
                 lives++;
-            sound_life();
+            sound_exit();  // the crack of the inbox and the exit, as on the C64
             life_flash = pal ? 200 : 240;  // 4 s, as in GDash
         }
 

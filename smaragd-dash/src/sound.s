@@ -28,7 +28,7 @@
 ; call rnd()). Z stays 0.
 
 .global sound_init, sound_off, sound_still, sound_frame, sound_tick
-.global sound_crackle, sound_clock, sound_bonus, sound_exit, sound_life, sound_sid
+.global sound_crackle, sound_clock, sound_bonus, sound_exit, sound_hiscore, sound_sid
 
 VOICES = 6
 HUM_VOICE = 5
@@ -91,7 +91,7 @@ tick_fx:
     ; voice 2: what falls
     fx 1, $02, 1, $2800, 0, NOISE, $05   ; SND_NUT: a crack
     fx 0, $01, 1, $0700, 0, NOISE, $07   ; SND_BOULDER
-    ; voice 3: diamonds landing (and the exit, the last seconds, a life)
+    ; voice 3: diamonds landing (and the exit, a life, the last seconds)
     fx 2, $08, 2, $2000, 0, NOISE, $08   ; SND_CRACK: Rockford hatches
     fx 0, $02, 2, $3000, 64, TRI, $06    ; SND_DIAMOND
     ; voice 4: explosions and machines
@@ -111,13 +111,13 @@ tick_fx:
 TICK_FX = (. - tick_fx) / FX
 
 ; The sounds outside the ticks (top rank): sound_crackle, sound_clock,
-; sound_bonus, sound_exit, sound_life
+; sound_bonus, sound_exit, sound_hiscore
 own_fx:
     fx 0, 0, 2, $8000, 128, NOISE, $01   ; covering/uncovering the cave
     fx 0, 0, 2, $2400, 0, PULSE, $05     ; last seconds
     fx 0, 0, 0, $4000, 32, TRI, $02      ; time counted into the score
-    fx 0, 0, 2, $2000, 0, NOISE, $08     ; the exit opens
-    fx 0, 0, 2, $5800, 0, SAW, $0A       ; an extra life
+    fx 0, 0, 2, $2000, 0, NOISE, $08     ; the exit opens, an extra life
+    fx 0, 0, 2, $5800, 0, SAW, $0A       ; a new high score
 
 .section .text.sound_s,"ax",@progbits
 
@@ -299,7 +299,7 @@ sound_bonus:
 sound_exit:
     ldy #(own_fx - tick_fx) + 3 * FX
     bra own
-sound_life:
+sound_hiscore:
     ldy #(own_fx - tick_fx) + 4 * FX
 own:
     lda #TOP
