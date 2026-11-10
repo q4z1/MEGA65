@@ -67,11 +67,8 @@ esac
 [ -n "$OUT" ] || OUT="${IN%.*}.mp4"
 OUT=$(realpath "$OUT")
 
-if [ "$FINAL" = ffmpeg ]; then
-    TMP=$(mktemp -d "${TMPDIR:-/tmp}/mega65-cast.XXXXXX")
-else
-    TMP=$(mktemp -d "$(dirname "$OUT")/.mega65-cast.XXXXXX")
-fi
+# beside the video: the raw recording takes gigabytes, more than a /tmp in RAM has
+TMP=$(mktemp -d "$(dirname "$OUT")/.mega65-cast.XXXXXX")
 cleanup() {
     [ -n "$ENC" ] && kill "$ENC" 2>/dev/null
     rm -rf "$TMP"
