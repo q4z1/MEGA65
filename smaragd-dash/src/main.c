@@ -56,6 +56,12 @@ static uint8_t demo_at = DEMO_FIRST - 1;  // in demo_list
 #endif
 #endif
 
+// The builds that record a video (the screencast, -DEDITDEMO) never go
+// back to BASIC: without the way there (room in bank 0)
+#if defined(SCREENCAST) || defined(EDITDEMO)
+#define NO_BASIC
+#endif
+
 #define LIVES       3
 #define LIFE_POINTS 500   // an extra life every so many points
 #define MAX_X       (CAVE_W * 16 - VIEW_W)
@@ -165,7 +171,7 @@ static uint32_t score;              // before the current cave
 static uint32_t next_life;
 static bool have_logo;              // the logo file was on the disk
 static bool rom_ram;                // the C65 ROM's banks 2 and 3 writable (mem.h)
-#ifndef SCREENCAST
+#ifndef NO_BASIC
 static bool rom_toggled;            // ... by the hypervisor, which protects them again
 static bool rom_saved;              // ... and kept in the attic RAM, for BASIC
 #endif
@@ -2045,7 +2051,7 @@ __attribute__((noinline)) static void page_wait(void) {
 // the editor: no value needed (link.ld)
 static char text_line[40] __attribute__((section(".lowbss")));
 
-#ifndef SCREENCAST  // which plays the caves: no help, no BASIC (room in bank 0)
+#ifndef SCREENCAST  // which plays the caves: no help (room in bank 0)
 #ifndef FLOWTEST    // nor the flow's test, which shows no help
 // The title's help (Help or H): how to play, then the elements of the
 // game's caves
@@ -2096,8 +2102,11 @@ static void help_pages(void) {
     }
 }
 #endif
+#endif
 
 // ---------------------------------------------------------------- back to BASIC
+
+#ifndef NO_BASIC
 
 static void rom_toggle(void);
 
@@ -2258,6 +2267,7 @@ static bool title_screen(bool scores) {
             continue;
         }
 #endif
+#ifndef NO_BASIC
         // Run/Stop twice: back to BASIC, unless the ROM is gone
         if (pressed & IN_RESTART) {
             bool can = !rom_ram || rom_saved;
@@ -2268,6 +2278,7 @@ static bool title_screen(bool scores) {
                                           : "RUN/STOP AGAIN: BACK TO BASIC");
             basic = 150;
         }
+#endif
 #else
         if (pf == DEMO_TITLE_FRAMES)  // on the logo page, the first
             break;
@@ -3719,7 +3730,7 @@ static void rom_toggle(void) {
     __asm__ volatile("lda #$70\n sta $d640\n clv\n sei\n ldz #0" ::: "a", "x", "y", "memory");
 }
 
-#ifndef SCREENCAST
+#ifndef NO_BASIC
 // The attic RAM is there: it takes a byte (behind the ROM's copy)
 static bool attic_takes(uint8_t v) {
     static uint8_t probe;
@@ -3738,7 +3749,7 @@ static bool rom_writable(void) {
     if (rom_takes(0xA5) && rom_takes(0x5A))
         return true;
     rom_toggle();
-#ifndef SCREENCAST
+#ifndef NO_BASIC
     rom_toggled = true;
 #endif
     return rom_takes(0xA5) && rom_takes(0x5A);
@@ -3844,7 +3855,7 @@ int main(void) {
     // The ROM's banks 2 and 3 into the attic RAM, before anything is
     // written there (rom_takes' probe too), and the screen as BASIC had it:
     // for the way back
-#ifndef SCREENCAST
+#ifndef NO_BASIC
     if (attic_takes(0xA5) && attic_takes(0x5A)) {
         rom_copy(false);
         rom_saved = true;
