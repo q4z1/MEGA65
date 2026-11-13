@@ -1,5 +1,8 @@
 # Build results
 build/
+
+# Scratch files for looking at (previews, GIFs)
+tmp/
 *.o
 *.prg
 *.prg.elf

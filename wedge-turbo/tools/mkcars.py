@@ -136,8 +136,9 @@ def drawings():
 
 
 def is_paint(col):
-    """Where a drawing is paint: green above all"""
-    return (col[:, :, 1] > col[:, :, 0] + 30) & (col[:, :, 1] > col[:, :, 2] + 30)
+    """Where a drawing is paint: green above all (a dark green too, with
+    some blue in it)"""
+    return (col[:, :, 1] > col[:, :, 0] + 25) & (col[:, :, 1] >= col[:, :, 2] + 5)
 
 
 def coloured(drawing, shades, details):
