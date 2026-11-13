@@ -427,7 +427,9 @@ from such recordings in `build/trailer/` (`title.mp4`, `caves.mp4`,
 `tour.mp4`, `editor.mp4`, `help.mp4`, `music.mp4`, all `mega65-cast -x 1`):
 picture by picture at the MEGA65's own pixels, with captions in the game's
 font, shaped wipes and the title music underneath; its `PARTS` say which
-scenes it takes and what the captions read.
+scenes it takes and what the captions read. With `--thumbs` it makes the
+thumbnails instead (`THUMBS`: a picture of a recording with a caption,
+1280x720).
 
 ## How it works
 

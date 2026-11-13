@@ -3,6 +3,7 @@
 
     tools/make-trailer.py [<dir>]       (default: build/trailer; the recordings there)
     tools/make-trailer.py <dir> --part N  (only part N and its neighbours, to look at)
+    tools/make-trailer.py <dir> --thumbs  (only the thumbnails, THUMBS below)
 
 The recordings in <dir> (mega65-cast -x 1, 704x576): title.mp4 (the normal
 build left on the title: its picture and its music), caves.mp4 (the
@@ -61,9 +62,10 @@ PARTS = [
          caps=[TITLE_CAP + (9.6, None)]),
     dict(pieces=[('caves', 21.0, 11.5)],
          caps=[('56 CAVES BY CLARKKENT', 'CWS BOULDER DASH 1, 2 AND 3', None, None)]),
+    dict(pieces=[('caves', 34.5, 7.0), ('caves', 38.4, 2.8, 0.5)], replay=(7.0, 12.6),
+         caps=[('NEW IN 1.6: ROCKFORD PUSHES', 'ARMS OUT, AS CLARKKENT DREW HIM', None, None)]),
     dict(pieces=[('caves', 164.0, 11.5)],
-         caps=[('NEW IN ' + VERSION + ': GENTLE FIRST LEVELS', 'CWS 1 AND 2: FEWER EMERALDS, MORE TIME',
-                None, None)]),
+         caps=[('GENTLE FIRST LEVELS', 'CWS 1 AND 2: FEWER EMERALDS, MORE TIME', None, None)]),
     dict(pieces=[('caves', 132.0, 11.5)],
          caps=[('INTERMISSIONS', 'SMALL CAVES THAT STAND STILL - A LIFE TO WIN', None, None)]),
     dict(pieces=[('caves', 198.0, 11.5)],
@@ -72,8 +74,9 @@ PARTS = [
          caps=[('CRUSH A BUTTERFLY ...', '... AND IT TURNS INTO EMERALDS', None, None)]),
     dict(pieces=[('caves', 318.0, 11.5)],
          caps=[('FIVE LEVELS FOR EVERY CAVE', 'THE FIFTH AS HARD AS THEY CAME', None, None)]),
-    dict(pieces=[('caves', 438.0, 11.5)],
-         caps=[('SMOOTH SCROLLING', 'THE SAME PIXELS EVERY FRAME, AS IN GDASH', None, None)]),
+    dict(pieces=[('caves', 435.5, 14.5)],
+         caps=[('NEW IN 1.6: AN EXTRA LIFE', 'THE EMPTY CELLS FLICKER, AS ON THE C64', None, 6.4),
+               ('SMOOTH SCROLLING', 'THE SAME PIXELS EVERY FRAME, AS IN GDASH', 6.8, None)]),
     dict(pieces=[('tour', 4.0, 11.5)],
          caps=[('EVERY ELEMENT OF GDASH', 'FOUR DEMO CAVES ON THE DISK SHOW THEM ALL', None, None)]),
     dict(pieces=[('tour', 38.0, 11.5)],
@@ -88,7 +91,7 @@ PARTS = [
     dict(pieces=[('editor', 36.0, 11.5)],
          caps=[('DRAW YOUR OWN CAVES', 'FIRE PUTS, HELD IT DRAWS - U UNDOES', None, None)]),
     dict(pieces=[('editor', 52.0, 8.0), ('editor', 61.2, 0.02, 1 / 175)],
-         caps=[('NAMES AND VALUES', 'TWO PAGES - NEW IN ' + VERSION + ': HOW FAST ACID SPREADS', None, None)]),
+         caps=[('NAMES AND VALUES', 'TWO PAGES - EVEN HOW FAST ACID SPREADS', None, None)]),
     dict(pieces=[('editor', 62.5, 11.0)],
          caps=[('TRY IT AT ONCE', 'THEN SAVE IT: THREE GAMES OF YOUR OWN', None, None)]),
     dict(pieces=[('title', 128.5, 12.0)], mute=True,
@@ -96,8 +99,14 @@ PARTS = [
     dict(credits=True, secs=20.0),
 ]
 # the wipes between the parts, in turn
-WIPES = ['gem', 'tiles', 'drop', 'clock', 'blinds', 'pixels', 'iris', 'tiles', 'drop', 'gem', 'blinds',
-         'clock', 'tiles', 'iris', 'drop', 'gem']   # (into the credits: 'cover')
+WIPES = ['gem', 'tiles', 'blinds', 'drop', 'clock', 'pixels', 'iris', 'tiles', 'drop', 'gem', 'blinds',
+         'clock', 'tiles', 'iris', 'drop', 'pixels', 'gem']   # (into the credits: 'cover')
+
+# the thumbnails (--thumbs), <dir>/smaragd-dash-<VERSION>-thumbnail<name>.png:
+# a picture of a recording (from second) with a caption, 1280x720
+THUMBS = [('', 'title', 32.0, TITLE_CAP),
+          ('-pushes', 'caves', 40.96, ('NEW IN 1.6: ROCKFORD PUSHES', 'ARMS OUT, AS CLARKKENT DREW HIM')),
+          ('-extra-life', 'caves', 437.5, ('NEW IN 1.6: AN EXTRA LIFE', 'THE EMPTY CELLS FLICKER, AS ON THE C64'))]
 
 INTRO = [(('Q4Z1 (& CLAUDE AI) PRESENTS', ''), 0.6, 3.6),
          (('A GAME FOR THE MEGA65', 'DIG FOR EMERALDS - MIND THE BOULDERS'), 3.8, 7.2)]
@@ -709,12 +718,29 @@ class Part:
 
 # ---- putting it together ------------------------------------------------------------
 
+def thumbnails(work, rec):
+    for name, what, at, (big, small, *_) in THUMBS:
+        img = next(frames(rec[what], at, 1))
+        cap = Caption(big, small, 1)
+        put(img, cap.frame(cap.OPEN + cap.n * 0.035 + 1.84, 100.0))  # all lit, no shine
+        h = 720
+        pic = img.resize((W * Z, H * Z), Image.NEAREST).resize((h * W // H, h), Image.LANCZOS)
+        out = Image.new('RGB', (h * 16 // 9, h))
+        out.paste(pic, ((out.width - pic.width) // 2, 0))
+        path = os.path.join(work, 'smaragd-dash-%s-thumbnail%s.png' % (VERSION, name))
+        out.save(path)
+        print(path)
+
+
 def main():
     work = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-')
                            else os.path.join(HERE, 'build', 'trailer'))
     rec = {n: os.path.join(work, n + '.mp4') for n in ('title', 'caves', 'tour', 'editor', 'help', 'music')}
     if not os.path.exists(rec['music']):    # (the title's recording, long enough for the music)
         rec['music'] = rec['title']
+    if '--thumbs' in sys.argv:
+        thumbnails(work, rec)
+        return
     out_path = os.path.join(work, 'smaragd-dash-%s-trailer.mp4' % VERSION)
     t0 = music_start(rec['music'])
     print('title music from %.2f s' % t0)
