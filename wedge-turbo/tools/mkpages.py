@@ -36,6 +36,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mksprites import pack as pack_bytes  # noqa: E402
 import art  # noqa: E402
+import hand  # noqa: E402
 
 FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'toolchain', 'fonts')
 
@@ -682,7 +683,15 @@ def main():
     with open(os.path.join(disk, 'glyphs.bin'), 'wb') as f:
         f.write(pack_bytes(glyph_font() + b''.join(digit_chars)))
     for name, fn in PAGES.items():
-        data, n = page_file(fn())
+        page = fn()
+        # a picture edited by hand instead (tools/hand.py): the title's each frame
+        if isinstance(page, tuple):
+            img, anim = page
+            anim.frames = [hand.picture(f'page-{name.lower()}-{k + 1}', f) for k, f in enumerate(anim.frames)]
+            page = (anim.frames[0], anim)
+        else:
+            page = hand.picture(f'page-{name.lower()}', page)
+        data, n = page_file(page)
         if name == 'RADIO' and n + len(digit_chars) > PAGE_CHARS:
             sys.exit(f'page RADIO: {n} characters, with the digits at most {PAGE_CHARS - len(digit_chars)}')
         with open(os.path.join(disk, f'p{name.lower()}.bin'), 'wb') as f:

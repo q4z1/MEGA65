@@ -19,20 +19,24 @@ has the same width at every angle it serves (the angle changes all the
 time on a straight: the car does not grow and shrink); none narrower than
 the straight one (a drawing narrower turned than straight is widened). The colours first, on the drawing as large as it
 is: where it is paint, the paint - in three shades (the player's, from the
-drawing: CAR_PAINT) or two (the opponents': the same car, which the game
-colours six ways) - as light as the paint around there, so the shades lie
+drawing: CAR_PAINT; the opponents' too: the same car, which the game
+colours six ways, OPPONENT_PAINTS) - as light as the paint around there,
+so the shades lie
 in calm areas; the rest (glass, lights, wheels, plate) black, reds and
 greys. Then down to the size, each pixel the colour most of its area has
 (none mixed, the edges stay sharp), the drawing's thick outline thinned.
 
 render() gives the bank's images; with them, for the player's largest
 size, where the brake lights go, and the
-player's paint; hardware() the player's car near, twice as fine.
+player's paint; opponent_paints() the opponents' six paints in their
+shades; hardware() the player's car near, twice as fine.
 """
 import os
 
 import numpy as np
 from PIL import Image, ImageFilter
+
+import hand
 
 CLEAR = 0xFF
 BLACK, LIGHT_RED, RED, DARK_RED, DARK_GREY, GREY, LIGHT_GREY = 0, 1, 2, 3, 4, 5, 6
@@ -48,6 +52,10 @@ TURNS = (0.228, 0.146, 0.082, 0.026, 0.0)
 # stretched upwards (main.c's view_scale), so beside a car of the game's
 # size it is wider than in the game's view and the car looks narrow
 GROW = 1.08
+# The opponents' six paints, their light shade (12-bit RGB): pearl white,
+# steel blue, mustard, grey, copper, violet - calm, like the player's green.
+# Their middle and dark shades are as much darker as the player's
+OPPONENT_PAINTS = (0xCCC, 0x58B, 0xDB4, 0x777, 0xD84, 0x96B)
 
 
 def rgb12(c):
@@ -269,11 +277,20 @@ def palettes(d, player_paint, opp_paint):
     details = {i: rgb12(c) for i, c in enumerate(FIXED)}
     plain = [coloured(v, [(BLACK, rgb12(0))], details) for v in d]
     paint = paint_shades(d[min(range(len(d)), key=lambda k: abs(face_shift(plain[k])))])
-    # the player's paint in its three shades; the opponents' in two, as
-    # light as the white colouring's (main.c) - the same car, painted so
+    # the player's paint in its three shades, the opponents' in theirs
+    # (opponent_paints: as much darker) - the same car, painted so
     player = [(p, rgb12(c)) for p, c in zip(player_paint, paint)]
-    opp = [(opp_paint[0], rgb12(paint[0])), (opp_paint[0], rgb12(paint[1])), (opp_paint[1], rgb12(paint[2]))]
+    opp = [(p, rgb12(c)) for p, c in zip(opp_paint, paint)]
     return paint, player, opp, details
+
+
+def opponent_paints(paint):
+    """Per opponent paint (OPPONENT_PAINTS) its three shades, light to dark:
+    the middle and the dark one as much darker as the player's paint
+    (paint: its three shades)"""
+    lum = np.array([0.3, 0.59, 0.11])
+    ratio = [rgb12(c) @ lum / (rgb12(paint[0]) @ lum) for c in paint]
+    return [[to12(rgb12(base) * r) for r in ratio] for base in OPPONENT_PAINTS]
 
 
 def render(dims, car_table, player_paint, opp_paint):
@@ -335,34 +352,39 @@ NYBBLE = {CLEAR: 0, BLACK: 1, LIGHT_RED: 2, RED: 3, DARK_RED: 4, DARK_GREY: 5, G
 HW_PAINT = 8  # the paint's three shades: nybbles 8-10
 
 
-def hardware(images, player_paint):
+def hardware(images, player_paint, palette):
     """The images for angles 0-8, without and with the brake lights lit:
     (rows, bytes per sprite, the 18 images' bytes one after the other).
     images: the game's largest images of the player's car per angle (as
-    render() made them)"""
+    render() made them); palette: the race's colours (for an image edited
+    by hand instead, tools/hand.py: car-near)"""
     d = drawings()
-    _, shades, _, details = palettes(d, player_paint, (0, 0))
+    _, shades, _, details = palettes(d, player_paint, (0, 0, 0))
     nybble = dict(NYBBLE)
     nybble.update({p: HW_PAINT + k for k, p in enumerate(player_paint)})
     views = [coloured(v, shades, details) for v in d]
     widening = widen(views, images[4][0] / images[4][1])
     rows = 2 * images[4][1]
     block = -(-rows * 8 // 64) * 64
+    near = []
+    for angle in range(9):
+        lw, lh, low = images[angle]
+        w = 2 * lw
+        turn = angle - 4
+        k, flip = pick(views, widening, TURNS[4 - abs(turn)] * (-1 if turn > 0 else 1))
+        px = bytearray(thinned(shrink(views[k], w, rows, flip), w, rows))
+        for y in range(rows):  # where the image beneath has a pixel
+            for x in range(w):
+                if px[y * w + x] == CLEAR:
+                    px[y * w + x] = low[(y // 2) * lw + x // 2]
+        near.append((w, rows, bytes(px)))
+    near = hand.sheet('car-near', near, palette, allowed=sorted(nybble))
     out = bytearray()
     for lit in (False, True):
-        for angle in range(9):
-            lw, lh, low = images[angle]
-            w = 2 * lw
-            turn = angle - 4
-            k, flip = pick(views, widening, TURNS[4 - abs(turn)] * (-1 if turn > 0 else 1))
-            px = bytearray(thinned(shrink(views[k], w, rows, flip), w, rows))
-            for y in range(rows):  # where the image beneath has a pixel
-                for x in range(w):
-                    if px[y * w + x] == CLEAR:
-                        px[y * w + x] = low[(y // 2) * lw + x // 2]
+        for w, _, px in near:
             if lit:
                 light = {RED: LIGHT_RED, DARK_RED: RED}
-                px = bytearray(light.get(v, v) for v in px)
+                px = bytes(light.get(v, v) for v in px)
             left = (HW_W - w) // 2  # < 0: the outer edges left to the image beneath
             for s in range(HW_SPRITES):
                 spr = bytearray(block)

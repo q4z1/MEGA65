@@ -30,6 +30,25 @@ The build needs data that is not part of this repository (`WEDGE_ZIP` in
 
 makes `build/wedge-turbo.d81`.
 
+### Touching up the graphics
+
+Every picture the game shows - the cars (and the player's car near), the
+scenery in all its sizes, the messages, the backdrops and the pages - can
+be touched up by hand in a paint program:
+
+```sh
+tools/sheets.py export tmp/graphics     # after a build: all of them as PNGs
+# ... edit some, save them as PNG under the same names ...
+tools/sheets.py import tmp/graphics --dry-run
+tools/sheets.py import tmp/graphics     # takes what changed and is valid
+./build.sh
+```
+
+The sprites keep their sizes and the race's colours (`sheets.json` in the
+folder lists each sheet's); the pages are free. What is taken goes to
+`art/hand/` and is used instead of what the build would make; delete a file
+there to have its picture made again ([tools/sheets.py](tools/sheets.py)).
+
 ## Playing
 
 Mount `build/wedge-turbo.d81` and run `WEDGE TURBO` (in Xemu: `-8` with the

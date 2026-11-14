@@ -1021,6 +1021,12 @@ BOARDS = {
 AS_THEY_ARE = {0x80, 0x81, 0x83, 0x9A, 0x9F, 0xA0, 0xA1, 0xA2, 0xA3}
 
 
+def from_game(t):
+    """Whether type t's images are the game's (written anew or as they are),
+    not drawn by us"""
+    return t in BOARDS or t in AS_THEY_ARE
+
+
 def board(t, ims):
     """The game's images of type t, written anew"""
     out = []

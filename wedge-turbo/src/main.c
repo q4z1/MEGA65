@@ -35,11 +35,6 @@ _Static_assert(TRACK_SIZE <= TRACK_BUF_SIZE, "the largest course does not fit in
 #include "video.h"
 
 
-// The opponents' paint (OPP_PAINT): white, blue, yellow, anthracite,
-// orange, violet, each light and dark (the player's: car_paint, as drawn)
-static const uint16_t opp_paint[2 * OPP_COLOURS] = {0xDDD, 0x888, 0x59E, 0x236, 0xED3, 0x870,
-                                                    0x555, 0x222, 0xF94, 0x942, 0xB7D, 0x535};
-
 // The race view's colours 1-7 (those of 12-15 change down the screen,
 // render.c), the scenery's, the player's car's paint, the panel's 17-19,
 // 25-27
@@ -50,8 +45,8 @@ static void view_colours(void) {
         video_colour(OBJ_COLOUR + i, obj_colours[i]);
     for (uint8_t i = 0; i < 3; i++)
         video_colour(CAR_PAINT + i, car_paint[i]);
-    for (uint8_t i = 0; i < 2 * OPP_COLOURS; i++)
-        video_colour(OPP_PAINT + i, opp_paint[i]);
+    for (uint8_t i = 0; i < 3 * OPP_COLOURS; i++)  // the opponents' (tools/mkcars.py)
+        video_colour(i < 2 * OPP_COLOURS ? OPP_PAINT + i : OPP_MID - 2 * OPP_COLOURS + i, opp_paint[i]);
     for (uint8_t i = 0; i < 3; i++) {
         video_colour(17 + i, tab_panel_colours[i]);
         video_colour(25 + i, tab_panel_colours[3 + i]);

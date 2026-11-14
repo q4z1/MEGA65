@@ -45,6 +45,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkbackdrops  # noqa: E402
 import mkcars  # noqa: E402
+import hand  # noqa: E402
 import mkdata  # noqa: E402
 import mkscenery  # noqa: E402
 import packers  # noqa: E402
@@ -54,6 +55,7 @@ SPR_CARS = 0x40
 SPR_HUD = 0x41
 CAR_PAINT = 40
 OPP_PAINT = 48     # the opponents' paints: colours OPP_PAINT + 2k (light), + 2k + 1 (dark)
+OPP_MID = 116      # and OPP_MID + k (middle), after the road's mixed colours
 OPP_COLOURS = 6
 SPR_OPP = 0x42     # banks SPR_OPP .. SPR_OPP + 4: the opponents in colourings 1-5
 
@@ -416,6 +418,18 @@ def bank_file(ims):
     return bytes(head) + pack(b''.join(px for _, _, px in ims))
 
 
+def race_palette(orig, obj_colours, car_paint, opp_paints):
+    """The race's colours as the sprites use them: number -> 12-bit colour"""
+    pal = {0: 0x000}
+    pal.update({1 + i: c for i, c in enumerate(mkdata.view_colours(orig))})
+    pal.update({k: c for k, c in zip((17, 18, 19, 25, 26, 27), mkdata.panel_colours(orig))})
+    pal.update({OBJ_COLOUR + i: c for i, c in enumerate(obj_colours)})
+    pal.update({CAR_PAINT + i: c for i, c in enumerate(car_paint)})
+    for k, (light, mid, dark) in enumerate(opp_paints):
+        pal.update({OPP_PAINT + 2 * k: light, OPP_PAINT + 2 * k + 1: dark, OPP_MID + k: mid})
+    return pal
+
+
 def main():
     orig, gen = sys.argv[1], sys.argv[2]
     os.makedirs(gen, exist_ok=True)
@@ -475,8 +489,24 @@ def main():
     car_table = list(code[CAR_TABLE - CODE_BASE:CAR_TABLE - CODE_BASE + 153])
     banks[SPR_CARS], marks, car_paint = mkcars.render([(w, h) for w, h, _ in game_cars[:63]], car_table,
                                                       (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2),
-                                                      (OPP_PAINT, OPP_PAINT + 1))
-    banks[SPR_HUD] = list(images(unpack(0x50), FILE50_HUD))
+                                                      (OPP_PAINT, OPP_MID, OPP_PAINT + 1))
+    opp_paints = mkcars.opponent_paints(car_paint)
+    assert len(opp_paints) == OPP_COLOURS
+    # pictures edited by hand instead (tools/hand.py, tools/sheets.py): in
+    # the race's colours
+    palette = race_palette(orig, obj_colours, car_paint, opp_paints)
+    for b in sorted(banks):
+        if b < SPR_CARS:
+            t = b + 0x80
+            shape = SAME_SHAPE.get(t, t)
+            banks[b] = hand.sheet(f'scenery-{t:02x}', banks[b], palette,
+                                  from_game=t not in drawn and t != GATE_TYPE and mkscenery.from_game(shape))
+    cars = banks[SPR_CARS]
+    banks[SPR_CARS] = (hand.sheet('cars-player', cars[:63], palette) +
+                       hand.sheet('cars-opponent', cars[63:], palette))
+    # the brake lights lit: of the player's largest images, as they are now
+    marks = [mkcars.overlay(banks[SPR_CARS][i]) for i in sorted(set(car_table[:9]))]
+    banks[SPR_HUD] = hand.sheet('hud', list(images(unpack(0x50), FILE50_HUD)), palette, from_game=True)
     car_brakes = len(banks[SPR_HUD])
     banks[SPR_HUD] += [brake for brake, _ in marks]
     for b, ims in banks.items():
@@ -484,7 +514,7 @@ def main():
             f.write(bank_file(ims))
 
     hw_rows, hw_block, hw_data = mkcars.hardware([banks[SPR_CARS][car_table[a]] for a in range(9)],
-                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2))
+                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2), palette)
     with open(os.path.join(gen, 'carhi.bin'), 'wb') as f:
         f.write(pack(hw_data))
     with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:
@@ -502,8 +532,11 @@ def main():
                 break
         cols = struct.unpack_from('>3H', header, 2)
         order = sorted(range(3), key=lambda i: -((cols[i] >> 8 & 15) * 3 + (cols[i] >> 4 & 15) * 6 + (cols[i] & 15)))
+        px = mkbackdrops.backdrop(n, [BACK_COLOURS + i for i in order])
+        back_palette = {**palette, **{BACK_COLOURS + i: c for i, c in enumerate(cols)}}
+        [(_, _, px)] = hand.sheet(f'backdrop-{n}', [(BACK_W, BACK_H, px)], back_palette, clear=mkbackdrops.SKY)
         with open(os.path.join(gen, f'back{n}.bin'), 'wb') as f:
-            f.write(pack(mkbackdrops.backdrop(n, [BACK_COLOURS + i for i in order])))
+            f.write(pack(px))
 
     of_type = [t if t in banks else 0xFF for t in range(44)]
     largest = max(sum(w * h for w, h, _ in ims) for ims in banks.values())
@@ -514,6 +547,7 @@ def main():
                 f'#define SPR_HUD   0x{SPR_HUD:02X}  // messages, countdown, places, brake lights\n'
                 f'#define CAR_PAINT {CAR_PAINT}  // the player\'s car\'s paint: colours CAR_PAINT + 0-2 (light, middle, dark)\n'
                 f'#define OPP_PAINT {OPP_PAINT}  // opponents: colouring k in colours OPP_PAINT + 2k (light), + 1 (dark)\n'
+                f'#define OPP_MID {OPP_MID}  // and OPP_MID + k (middle)\n'
                 f'#define OPP_COLOURS {OPP_COLOURS}\n'
                 f'#define SPR_OPP   0x{SPR_OPP:02X}  // the opponents in colourings 1-5: the cars\' images 63-125\n'
                 f'#define SPR_BANKS 0x{SPR_OPP + OPP_COLOURS - 1:02X}\n'
@@ -546,6 +580,9 @@ def main():
                 'extern const int8_t car_brake[9][2];\n'
                 '// The player\'s car\'s paint, light to dark (the drawing\'s)\n'
                 'extern const uint16_t car_paint[3];\n'
+                '// The opponents\' paints in the palette\'s order: per colouring light\n'
+                '// and dark (OPP_PAINT on), then the middle ones (OPP_MID on)\n'
+                'extern const uint16_t opp_paint[3 * OPP_COLOURS];\n'
                 '// The player\'s car near as the hardware sprites (CARHI): CARHI_SPRITES\n'
                 '// of 16 colours side by side, each CARHI_ROWS high (400 to the screen),\n'
                 '// 16 across (640), CARHI_BLOCK bytes; per angle 0-8, then lit, an image\n'
@@ -568,6 +605,8 @@ def main():
         f.write('const uint16_t tab_object_colours[176] = {0};\n')
         f.write('const uint8_t gate_near[21] = {' + ', '.join(str(min(255, v)) for v in gate_places) + '};\n')
         f.write('const uint16_t car_paint[3] = {' + ', '.join(f'0x{c:03X}' for c in car_paint) + '};\n')
+        order = [p[i] for p in opp_paints for i in (0, 2)] + [p[1] for p in opp_paints]
+        f.write('const uint16_t opp_paint[3 * OPP_COLOURS] = {' + ', '.join(f'0x{c:03X}' for c in order) + '};\n')
         f.write('const int8_t car_brake[9][2] = {' + ', '.join(f'{{{x}, {y}}}' for _, (x, y) in marks) + '};\n')
 
 

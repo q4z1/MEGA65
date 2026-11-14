@@ -171,7 +171,7 @@ void attic_copy(uint32_t src, uint32_t dst, uint16_t len) {
 
 // The opponents in their other colourings: their images (the cars' 63-125,
 // one after the other) copied with the paint's colours moved to those of
-// colouring k (OPP_PAINT + 2k, + 2k + 1); banks SPR_OPP + k - 1 are these,
+// colouring k (OPP_PAINT + 2k, + 2k + 1, OPP_MID + k); banks SPR_OPP + k - 1 are these,
 // with the cars' directory and an offset to its addresses
 static void opponent_colours(void) {
     LOW_RAM static uint8_t buf[256];
@@ -186,6 +186,8 @@ static void opponent_colours(void) {
             for (uint16_t i = 0; i < n; i++)
                 if ((uint8_t)(buf[i] - OPP_PAINT) < 2)
                     buf[i] += 2 * k;
+                else if (buf[i] == OPP_MID)
+                    buf[i] += k;
             dma_copy((uint16_t)buf, to + off, n);
             dma_flush();
         }
