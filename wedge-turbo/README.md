@@ -8,8 +8,7 @@ races) and the controls, then course after course of 48, each a little
 harder than the one before, with the result and the championship after
 each race; finish outside the first ten and the season is over for you. Road, scenery, opponents and the own car at 25 pictures per
 second, with the engines and the sound effects of the race - and the radio:
-sixteen tracks for the four SIDs in stereo, the game's tunes in new
-arrangements and twelve of our own.
+sixteen tracks of our own for the four SIDs in stereo.
 
 ![Title screen](screenshots/title.png) ![The radio before a race](screenshots/radio.png)
 
@@ -77,7 +76,7 @@ season.
   ([season.c](src/season.c)) and its pages ([screens.c](src/screens.c), an
   overlay loaded between the races: [link.ld](link.ld)), the sounds
   ([sound.c](src/sound.c)), the music ([music.s](src/music.s), played by
-  a timer interrupt; arranged at build time by
+  a timer interrupt; built at build time by
   [tools/mkmusic.py](tools/mkmusic.py)),
   scenery and cars ([sprites.c](src/sprites.c); the player's car near
   as the hardware sprites, twice as fine both ways:
@@ -86,8 +85,8 @@ season.
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.
 * [tools/](tools/): turn that data into what the build uses, and make what
-  is our own: the courses ([mkcourses.py](tools/mkcourses.py)), the radio's
-  tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
+  is our own: the courses ([mkcourses.py](tools/mkcourses.py)), the title's
+  tune and the radio's tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
   ([mkpages.py](tools/mkpages.py), with the drawings in [art/](art/)), the
   cars ([mkcars.py](tools/mkcars.py)), the scenery along the road
   ([mkscenery.py](tools/mkscenery.py); the signs and boards from the

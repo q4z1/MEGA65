@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""The music for the MEGA65's four SIDs: the game's five tunes arranged
-anew, then the radio's own tracks (tools/radio_tracks.py).
+"""The music for the MEGA65's four SIDs: the title's tune and the radio's
+tracks, all composed for Wedge Turbo (tools/radio_tracks.py).
 
-    mkmusic.py ORIGDIR GENDIR
+    mkmusic.py GENDIR
 
-The tunes come from file $E8 (the game program says where each starts):
-their notes - melody, bass line, beat - are kept, the sound is new: SID
-instruments instead of samples, the melody doubled and slightly detuned
-over both sides with an echo going left and right, a hi-hat added to the
-beat, the bass through the filter - in stereo: bass and beat in the
-middle, the melody wide over both sides, the second voice on the left with
-its echo on the right, the hi-hats going between the sides. The own tracks
-(song 5 on) are built from their chords, beat, bass, accompaniment and
-melodies in the same parts and instruments.
+Each track is built from its chords, beat, bass, accompaniment and melody
+in the same parts and instruments: SID instruments, the melody doubled and
+slightly detuned over both sides with an echo going left and right, a
+hi-hat on the beat, the bass through the filter - in stereo: bass and beat
+in the middle, the melody wide over both sides, the second voice on the
+left with its echo on the right, the hi-hats going between the sides.
 
 Writes into GENDIR:
     music.bin  on the disk as MUSIC, played by src/music.s (see there for
@@ -24,30 +21,12 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import packers  # noqa: E402
 import radio_tracks  # noqa: E402
-
-CODE_BASE = 0xC18880
-SONG_TABLE = 0xC1C59A  # where each tune lies in memory, file $E8 loaded at the first
-SONGS = 5
-
-# Amiga periods of the notes C-1 to B-3
-PERIODS = [856, 808, 762, 720, 678, 640, 604, 570, 538, 508, 480, 453,
-           428, 404, 381, 360, 339, 320, 302, 285, 269, 254, 240, 226,
-           214, 202, 190, 180, 170, 160, 151, 143, 135, 127, 120, 113]
-SPEED_CMD, VOLUME_CMD, SLIDE_CMD = 0xF, 0xC, 0xA
 
 # The parts of the arrangement: stored ones, then the echoes, which the
 # player makes from the melody and the second voice (src/music.s)
 BASS, DRUMS, HATS, LEAD, SECOND, TICKS = range(6)
 PARTS = 6
-
-# The tunes' sounds: what each is in the arrangement
-S_BASS, S_KICK, S_SNARE, S_TOM, S_CRASH = 13, 11, 12, 14, 7
-S_SYNTH, S_BELL, S_CHORD = 2, 10, 5
-DRUM_ORDER = [S_KICK, S_SNARE, S_TOM]  # who wins a row
-# which channel carries the melody, per tune
-LEAD_CHANNEL = [2, 0, 2, 1, 3]
 
 # ------------------------------------------------------------ instruments
 #
@@ -108,9 +87,6 @@ instrument('lead', 0x09, 0xB8, [(PULSE | GATE, rel(0))], pw=0x40, pw_speed=0x20,
 instrument('bell echo', 0x08, 0x00, [(TRI | GATE, rel(12)), (TRI | GATE, rel(0))])
 instrument('bell', 0x0A, 0x00, [(PULSE | GATE, rel(12)), (PULSE | GATE, rel(0))], pw=0x30,
            pw_speed=0x08, echo='bell echo')
-# the chord: root, fourth and sixth in turn
-instrument('chord', 0x86, 0xA8, [(SAW | GATE, rel(0)), (SAW | GATE, rel(5)),
-                                 (SAW | GATE, rel(9))], loop=0)
 # the second voice: a pulse, plainer than the melody
 instrument('riff echo', 0x08, 0x48, [(PULSE | GATE, rel(0))], pw=0x30, pw_speed=0x0C)
 instrument('riff', 0x08, 0x88, [(PULSE | GATE, rel(0))], pw=0x60, pw_speed=0x14,
@@ -144,106 +120,7 @@ def inst_bytes():
     return out
 
 
-# ------------------------------------------------------------ the tunes
-
-def load_songs(orig):
-    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
-    e8 = open(os.path.join(orig, 'E8.bin'), 'rb').read()
-    at = struct.unpack_from(f'>{SONGS}I', code, SONG_TABLE - CODE_BASE)
-    return [packers.unpack_bytes(e8[a - at[0]:]) for a in at]
-
-
-def cells(song, p):
-    """Pattern p: 64 rows of 4 cells (sound, period, command, parameter)."""
-    rows = []
-    for r in range(64):
-        row = []
-        for c in range(4):
-            b = song[0x86 + p * 1024 + r * 16 + c * 4:][:4]
-            row.append(((b[0] & 0xF0) | b[2] >> 4, (b[0] & 0x0F) << 8 | b[1], b[2] & 0x0F, b[3]))
-        rows.append(row)
-    return rows
-
-
-def note_of(period):
-    """Semitones from C-1."""
-    return min(range(len(PERIODS)), key=lambda i: abs(PERIODS[i] - period))
-
-
-def rows_of(sound, period, speed, lengths):
-    """How many rows a sound plays before its sample runs out."""
-    seconds = lengths[sound] * period / 3546895
-    return max(1, int(seconds * 50 / speed + 0.5))
-
-
-def arrange(song, n, lengths):
-    """The tune's patterns as rows of parts: per row and part None, 'off' or
-    (instrument, note)."""
-    length = song[0]
-    order = list(song[2:2 + length])
-    speed = 6
-    for p in order[:1]:
-        for row in cells(song, p)[:1]:
-            for s, per, cmd, par in row:
-                if cmd == SPEED_CMD and 0 < par < 32:
-                    speed = par
-    patterns = {}
-    for p in sorted(set(order)):
-        rows = [[None] * PARTS for _ in range(64)]
-        prio = [[99] * PARTS for _ in range(64)]
-        owner = [None] * PARTS  # the channel whose note a part plays
-        until = [None] * 4      # per channel: the row its sound runs out
-        part_of = [None] * 4
-        beats = 0
-        for r, row in enumerate(cells(song, p)):
-            for c, (s, per, cmd, par) in enumerate(row):
-                ev, part, pr = None, None, 0
-                if s and per:
-                    t = note_of(per)
-                    if s == S_BASS:
-                        part, ev = BASS, ('bass', t + 12)
-                    elif s in DRUM_ORDER:
-                        part, pr = DRUMS, DRUM_ORDER.index(s)
-                        ev = {S_KICK: ('kick', 0), S_SNARE: ('snare', 0), S_TOM: ('tom', t + 12)}[s]
-                        beats += s != S_TOM
-                    elif s == S_CRASH:
-                        part, ev = HATS, ('crash', 0)
-                        rows[r][TICKS] = ev  # on both sides
-                    else:
-                        part = LEAD if c == LEAD_CHANNEL[n] else SECOND
-                        if s == S_BELL:
-                            ev = ('bell', t + 36)
-                        elif s == S_CHORD:
-                            ev = ('chord', t + 24)
-                        else:
-                            ev = ('lead' if part == LEAD else 'riff', t + 24)
-                    if pr < prio[r][part]:
-                        rows[r][part], prio[r][part] = ev, pr
-                        owner[part] = c
-                    part_of[c] = part
-                    until[c] = r + rows_of(s, per, speed, lengths) if part in (BASS, LEAD, SECOND) and s != S_CHORD else None
-                    continue
-                # the note ends: cut, faded out, or its sample over
-                cut = (cmd == VOLUME_CMD and par == 0) or (cmd == SLIDE_CMD and par & 0x0F)
-                if (cut or until[c] == r) and part_of[c] in (BASS, LEAD, SECOND):
-                    part = part_of[c]
-                    if owner[part] == c and rows[r][part] is None:
-                        rows[r][part] = 'off'
-                    until[c] = None
-        # where the beat goes: the hi-hat on the off-beats on the right,
-        # ticks between the beats on the left
-        if beats >= 8:
-            for r in range(2, 64, 4):
-                if rows[r][HATS] is None:
-                    rows[r][HATS] = ('open hat' if r % 16 == 14 else 'hat', 0)
-            for r in range(1, 64, 2):
-                if rows[r][TICKS] is None:
-                    rows[r][TICKS] = ('tick', 0)
-        patterns[p] = rows
-    return speed, order, song[1] if song[1] < length else 0, patterns
-
-
-# ------------------------------------------------------------ the own tracks
+# ------------------------------------------------------------ the tracks
 
 NOTE = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11,
         'Db': 1, 'Eb': 3, 'Gb': 6, 'Ab': 8, 'Bb': 10}
@@ -315,7 +192,7 @@ def bar_of(rows, at, t, chords_kind, root, drums, hats, ticks, bass, second, cra
 
 
 def own_track(t):
-    """An own track (tools/radio_tracks.py): speed, order, restart, patterns"""
+    """A track (tools/radio_tracks.py): speed, order, restart, patterns"""
     def section(chords, bars, beat, fill, lead, crash, bass=None, second=None, hats=None, ticks=None):
         rows = [[None] * PARTS for _ in range(64)]
         for k, c in enumerate(chords):
@@ -384,15 +261,12 @@ def encode(rows):
 
 
 def main():
-    orig, gen = sys.argv[1], sys.argv[2]
-    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
-    # the samples' lengths in bytes, from the game's sample table
-    lengths = [2 * struct.unpack_from('>H', code, 0xC191DE - CODE_BASE + 16 * i + 4)[0]
-               for i in range(32)]
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    gen = sys.argv[1]
     assert len(NAMES) <= 31
     pattern_data, pattern_index, songs = [], {}, []
-    tunes = [arrange(song, n, lengths) for n, song in enumerate(load_songs(orig))]
-    tunes += [own_track(t) for t in radio_tracks.TRACKS]
+    tunes = [own_track(t) for t in radio_tracks.TRACKS]
     for speed, order, restart, patterns in tunes:
         mine = {}
         for p, rows in patterns.items():

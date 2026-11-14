@@ -1,5 +1,5 @@
-"""The radio's own tracks (05 on), composed for Wedge Turbo, for
-tools/mkmusic.py to build.
+"""Wedge Turbo's music, composed for it, for tools/mkmusic.py to build:
+the title's tune (song 0), then the radio's tracks 01-16.
 
 A track is a few sections of four bars of 16 rows: its chords, a beat, a
 bass line, an accompaniment and the melody. From them mkmusic.py makes the
@@ -26,6 +26,55 @@ A melody bar is notes and rests with their length in rows: "E5:4 r:2 ...".
 """
 
 TRACKS = [
+    # 00 - the title: an anthem, the pad under it
+    dict(name='WEDGE TURBO', speed=5, lead='saw lead', order='IAaBbAbX',
+         a=('A E F#m D', ['E5:4 A5:4 G#5:2 A5:2 B5:4', 'G#5:6 E5:2 B4:8',
+                          'A5:4 F#5:2 A5:2 C#6:4 B5:2 A5:2', 'F#5:8 E5:4 D5:4']),
+         a_end='F#5:4 A5:4 E5:8',
+         b=('D E C#m F#m', ['A5:6 F#5:2 D6:8', 'B5:6 G#5:2 E5:8', 'C#6:4 B5:2 A5:2 G#5:4 E5:4',
+                            'F#5:12 r:4']),
+         b_end='G#5:4 B5:4 E6:8', b_end_chord='E',
+         drums='K...S...K...S...', fill='K...S...K.S.TTtt', intro='K...K...K...K...',
+         hats='..o...o...o...o.', ticks='x.x.x.x.x.x.x.x.', bass='R..R..R.R..R..O.', second='pad'),
+    # 01 - an evening cruise, stabs on the off-beat
+    dict(name='SUNSET STRIP', speed=6, lead='lead', order='IAaBbXAb',
+         a=('F C Dm Bb', ['A5:4 C6:4 A5:2 G5:2 F5:4', 'G5:4 E5:4 C5:8',
+                          'D5:2 F5:2 A5:4 G5:2 F5:2 D5:4', 'F5:8 D5:4 A#4:4']),
+         a_end='C5:4 D5:4 F5:8',
+         b=('Gm C F Dm', ['A#5:6 A5:2 G5:8', 'G5:6 F5:2 E5:8', 'F5:4 A5:4 C6:4 A5:4', 'D6:12 r:4']),
+         b_end='C6:4 A#5:4 G5:4 E5:4', b_end_chord='C',
+         drums='K...S...K.K.S...', fill='K...S...K.K.S.SS', intro='K.......K.K.....',
+         hats='h.h.h.h.h.h.h.h.', ticks='..x...x...x...x.', bass='R.R.F.R.O.R.F.R.',
+         second='stab:..x-..x-..x-..x-'),
+    # 02 - waiting for the green, a bass in eighths
+    dict(name='STARTING GRID', speed=5, lead='saw lead', order='IAaBbAbX',
+         a=('Dm Dm Bb C', ['D5:2 D5:2 F5:2 D5:2 A5:4 G5:4', 'F5:2 E5:2 D5:2 E5:2 F5:8',
+                           'A#5:2 A5:2 G5:2 F5:2 D5:4 F5:4', 'E5:8 G5:4 C6:4']),
+         a_end='G5:4 E5:4 C5:8',
+         b=('Bb C Dm Dm', ['D6:8 C6:4 A#5:4', 'C6:8 A#5:4 G5:4', 'A5:4 F5:4 D5:4 F5:4', 'A5:12 r:4']),
+         b_end='C#6:4 A5:4 E5:4 C#5:4', b_end_chord='A',
+         drums='K.K.S...K.K.S...', fill='K.K.S...S.S.TTtt', intro='K.K.....K.K.....',
+         hats='..h...h...h...h.', ticks='x.x.x.x.x.x.x.x.', bass='R.R.R.R.R.R.R.R.', second='arp'),
+    # 03 - lights on the water, slow
+    dict(name='HARBOUR LIGHTS', speed=7, lead='soft lead', order='IAaBbAbX',
+         a=('Gmaj7 Em7 Cmaj7 D', ['B4:6 D5:2 F#5:8', 'G5:4 E5:4 B4:8', 'E5:6 G5:2 B5:4 A5:4',
+                                  'F#5:12 r:4']),
+         a_end='A5:4 F#5:4 D5:8',
+         b=('Am7 D Bm7 Em7', ['C6:8 B5:4 A5:4', 'A5:8 F#5:4 D5:4', 'D5:4 F#5:4 A5:4 B5:4',
+                              'G5:12 r:4']),
+         b_end='F#5:4 A5:4 D6:8', b_end_chord='D',
+         drums='K.......S.......', fill='K.......S...TTtt', intro='K...............',
+         hats='h...h...h...h...', ticks='...x.......x....', bass='R.....F.R...O...', second='pad'),
+    # 04 - fast, a riff through the bends
+    dict(name='HAIRPIN', speed=4, lead='lead', order='IAaBbAbX',
+         a=('Bm G A F#', ['F#5:2 B5:2 F#5:2 D5:2 B4:4 D5:4', 'G5:4 B5:4 D6:4 B5:4',
+                          'A5:2 C#6:2 A5:2 E5:2 C#5:4 E5:4', 'F#5:8 A#5:4 C#6:4']),
+         a_end='C#6:4 A#5:4 F#5:8',
+         b=('G A Bm Bm', ['B5:6 A5:2 G5:4 D5:4', 'C#6:6 B5:2 A5:4 E5:4', 'D6:4 C#6:4 B5:4 F#5:4',
+                          'B5:12 r:4']),
+         b_end='A#5:4 C#6:4 F#6:8', b_end_chord='F#',
+         drums='K...S.K.K.K.S...', fill='K...S.K.S.S.SSSS', intro='K...K...K...K...',
+         hats='h.h.h.h.h.h.h.h.', ticks='................', bass='R.R.O.R.R.R.O.R.', second='riff'),
     # 05 - synthwave at night
     dict(name='NIGHT DRIVE', speed=6, lead='lead', order='IAaBbXAb',
          a=('Am F C G', ['E5:6 D5:2 C5:4 B4:2 C5:2', 'A4:8 r:4 C5:2 D5:2',
