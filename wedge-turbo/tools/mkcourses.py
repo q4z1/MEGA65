@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Wedge Turbo's courses: 48 of our own, laid out at build time.
 
-    mkcourses.py ORIGDIR GENDIR
+    mkcourses.py GENDIR
 
 Each course is made from a seed and its place in the order, which raises
 the difficulty a little from one course to the next: longer, with more and
 sharper bends, more and steeper hills, more hazards, faster opponents. What
-it looks like comes from a theme - one of the game's backdrops with the
-scenery that goes with it (the objects the game's own courses show with
-that backdrop, where they stand) - and a time of day that colours sky,
+it looks like comes from a theme - one of the backdrops with the scenery
+that goes with it (tools/gamedata.py THEMES: which objects, how often,
+where they stand) - and a time of day that colours sky,
 backdrop and road. The rules the game's engine needs are kept: the start
 with its gate, the pits, warning signs before bends, the bends adding up
 to one whole turn and the hills to none over a lap.
@@ -28,8 +28,8 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import gamedata  # noqa: E402
 
-ORIG_COURSES = 32
 COURSES = 48
 LEVELS = (12, 16, 20)  # races: easy, medium, hard - one after the other
 assert sum(LEVELS) == COURSES
@@ -140,33 +140,16 @@ def colours(base, time, rng):
     return words
 
 
-# ------------------------------------------------------------ the game's courses
+# ------------------------------------------------------------ the themes
 
-def load_orig(orig):
-    """The game's courses: header, segments (curve, hill, objects)"""
-    out = []
-    for t in range(ORIG_COURSES):
-        d = open(os.path.join(orig, f'{t:02X}.bin'), 'rb').read()
-        n = struct.unpack_from('>H', d, 0)[0]
-        segs = [d[164 + 12 * i:176 + 12 * i] for i in range(n)]
-        out.append((d[2:164], segs))
-    return out
-
-
-def themes(courses):
-    """Per backdrop: its colours (of its first course), its scenery types
-    with how often and where (x) they stand"""
+def themes():
+    """Per backdrop: its colours, its scenery types with how often and
+    where (x) they stand"""
     th = {}
-    for header, segs in courses:
-        back = header[1]
-        t = th.setdefault(back, {'colours': struct.unpack_from('>27H', header, 2),
-                                 'types': collections.Counter(), 'x': collections.defaultdict(list)})
-        for s in segs:
-            for k in range(4):
-                ty = s[2 + 2 * k]
-                if ty and ty not in NOT_SCENERY:
-                    t['types'][ty] += 1
-                    t['x'][ty].append(struct.unpack('b', s[3 + 2 * k:4 + 2 * k])[0])
+    for back in gamedata.THEME_ORDER:
+        t = gamedata.THEMES[back]
+        th[back] = {'colours': tuple(t['colours']), 'types': collections.Counter(dict(t['types'])),
+                    'x': collections.defaultdict(list, {ty: list(xs) for ty, xs in t['x'].items()})}
     return th
 
 
@@ -454,15 +437,15 @@ def course(n, th, rng, d, sizes, of_type, budget):
 
 
 def main():
-    orig, gen = sys.argv[1], sys.argv[2]
-    origs = load_orig(orig)
-    th = themes(origs)
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    gen = sys.argv[1]
+    th = themes()
     sizes, of_type = bank_sizes(gen)
-    # no more sprite memory than the game's busiest course takes
+    # no more sprite memory than the busiest model course takes
     budget = [0, 0]
-    for _, segs in origs:
-        types = {s[2 + 2 * k] for s in segs for k in range(4) if s[2 + 2 * k]}
-        m = memory(types, sizes, of_type)
+    for types in gamedata.COURSE_TYPES:
+        m = memory(set(types), sizes, of_type)
         budget = [max(budget[0], m[0]), max(budget[1], m[1])]
     largest, laps, bonus, record = 0, [], [], []
     for n in range(COURSES):

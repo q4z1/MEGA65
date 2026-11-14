@@ -4,7 +4,6 @@
     tools/sheets.py export DIR
     tools/sheets.py import DIR [--dry-run]
 
-Run ./build.sh once before (the pictures are made from what it unpacks).
 The folder then holds, as the game has them now:
 
     cars-player.png      the player's car: its 63 images (17 sizes, the
@@ -30,7 +29,7 @@ says when a page has too many.
 Import looks at the folder's PNG files by name and takes only what changed
 and is valid, with the reason when it is not; a name that is no picture of
 the game is left alone. What it takes goes to art/hand/<name>.png - or, for
-a picture made from the game's data (hud, some of the scenery), to
+a picture made from the game's data, to
 local/hand/, which is never in the repository. The build then takes it
 instead of what it makes (tools/hand.py); delete the file to have the
 picture made again. Run ./build.sh afterwards. --dry-run only reports what
@@ -49,20 +48,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import hand  # noqa: E402
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
-ORIG = os.path.join(hand.ROOT, 'build', 'orig')
 
 
 def export(out):
     """The game's pictures into out (with sheets.json), as the build makes them"""
-    if not os.path.exists(os.path.join(ORIG, 'code.bin')):
-        sys.exit('build/orig is missing: run ./build.sh first')
     os.makedirs(out, exist_ok=True)
     meta = os.path.join(out, hand.META)
     if os.path.exists(meta):
         os.remove(meta)
     env = dict(os.environ, WEDGE_EXPORT=os.path.abspath(out))
     with tempfile.TemporaryDirectory() as gen:
-        for cmd in (['mksprites.py', ORIG, gen], ['mkpages.py', gen]):
+        for cmd in (['mksprites.py', gen], ['mkpages.py', gen]):
             r = subprocess.run([sys.executable, os.path.join(TOOLS, cmd[0])] + cmd[1:], env=env,
                                stdout=subprocess.DEVNULL)
             if r.returncode:

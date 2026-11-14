@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
-"""Converts the game's images - scenery objects, cars, race view overlays,
-the backdrops - into what Wedge Turbo loads; the scenery, cars and backdrops
-drawn anew (tools/mkscenery.py, mkcars.py, mkbackdrops.py) in the game's
-sizes.
+"""The race's pictures as Wedge Turbo loads them: the scenery, cars and
+backdrops drawn at build time (tools/mkscenery.py, mkcars.py,
+mkbackdrops.py) in the sizes tools/gamedata.py gives, the messages
+(mkhud.py), the panel (mkpanel.py) and the lap bar.
 
-    mksprites.py ORIGDIR GENDIR
+    mksprites.py GENDIR
 
-The data files keep the objects as Amiga blitter objects: per image width,
-height, planes, plane size, then the planes and a mask (bit set: the image,
-clear: the picture behind). Each bank becomes a file the game loads into
-attic RAM (banks.c), images one byte per pixel, row after row: the colour
-(0-15), or SPR_CLEAR where the picture behind shows.
-
-A backdrop (files $60-$69) is three bitplanes of 320 x 96 pixels: three
-strips of 320 x 32, side by side a panorama of 960 x 32. Its values 0-6 are
-colours 4-7 and 12-14 - those three become BACK_COLOURS on - and 7 the sky
-(colour 15).
+Each bank becomes a file the game loads into attic RAM (banks.c), images
+one byte per pixel, row after row: the colour, or SPR_CLEAR where the
+picture behind shows.
 
 Writes into GENDIR:
     sprNN.bin     bank NN (on the disk as SPRNN): u8 image count, per image
@@ -45,10 +38,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mkbackdrops  # noqa: E402
 import mkcars  # noqa: E402
+import mkhud  # noqa: E402
+import mkpanel  # noqa: E402
 import hand  # noqa: E402
-import mkdata  # noqa: E402
+import gamedata  # noqa: E402
 import mkscenery  # noqa: E402
-import packers  # noqa: E402
 
 SPR_CLEAR = 0xFF
 SPR_CARS = 0x40
@@ -65,34 +59,6 @@ SAME_SHAPE = {0x92: 0x8F, 0x93: 0x90, 0x88: 0x87, 0xA6: 0xA5, 0xA8: 0xA7}
 # the scenery's own colours (each type's 8-11 that its drawing uses) from
 # this colour on, set for the race (main.c)
 OBJ_COLOUR = 128
-# file $51 holds the banks of the types every course has, at these offsets
-FILE51 = {0x80: 0x489E, 0x81: 0x34A2, 0x82: 0x5C9A, 0x83: 0x0000}
-# file $50 holds the overlays of the race view (messages, countdown,
-# places, brake lights) at this offset
-FILE50_HUD = 0x1F02
-
-
-def images(d, base=0):
-    """The images of the bank at d[base:]: (width, height, pixels)"""
-    count = struct.unpack_from('>I', d, base)[0] // 4
-    for o in struct.unpack_from(f'>{count}I', d, base):
-        o += base
-        w, h, planes, plane_size = struct.unpack_from('>4H', d, o)
-        bpr = plane_size // h
-        if bpr * h != plane_size or bpr * 8 < w or not 0 < w < 256 or not 0 < h < 256:
-            sys.exit(f'bank at {base:#x}: image at {o:#x} is not as expected')
-        px = bytearray()
-        for y in range(h):
-            for x in range(w):
-                def bit(p):
-                    return d[o + 8 + p * plane_size + y * bpr + x // 8] >> (7 - x % 8) & 1
-                if not bit(planes):
-                    px.append(SPR_CLEAR)
-                else:
-                    px.append(sum(bit(k) << k for k in range(planes)))
-        yield w, h, bytes(px)
-
-
 def pack(d, chain=24):
     """Packs d as src/banks.c's file_unpack unpacks it, token by token:
     $00-$7F: the next 1-128 bytes as they are; $80-$BF: 2-65 times the next
@@ -153,131 +119,6 @@ def pack(d, chain=24):
 BACKDROPS = 10
 BACK_COLOURS = 20  # the backdrop's colours 12-14 (render.h: COL_BACKDROP); 15 is the sky
 BACK_W, BACK_H = 960, 32
-
-
-def backdrop(d):
-    """The panorama's colours, row after row"""
-    out = bytearray()
-    for y in range(BACK_H):
-        for x in range(BACK_W):
-            strip, sx = divmod(x, 320)
-            row = y + BACK_H * strip
-            v = 0
-            for p in range(3):
-                v |= (d[p * 3840 + row * 40 + sx // 8] >> (7 - sx % 8) & 1) << p
-            c = 4 + (v & 3) + ((v & 4) << 1)
-            out.append(c if c < 12 or c == 15 else BACK_COLOURS + c - 12)
-    return bytes(out)
-
-
-# ---------------------------------------------------------------- the panel
-
-# The panel at the right of the race view: hardware sprites whose data is
-# the start of file $50 (at $36E1C when the game runs; addresses below are
-# those): three 16-pixel columns of labels and values, three more for the
-# bars beneath them. The values are written into the sprite data, one per
-# picture; here every value they can show is drawn out.
-P50 = 0x36E1C
-PANEL_SPRITES = [0x36E1C, 0x37108, 0x373F4, 0x376E0, 0x37724, 0x37768]
-# their colours: sprites 0-2 colours 17-19, 4-6 colours 25-27 (the game's
-# 21-23 and 29-31 are the same)
-PANEL_COLOURS = [(17, 18, 19)] * 3 + [(25, 26, 27)] * 3
-PANEL_X, PANEL_Y, PANEL_W, PANEL_H = 406, 46, 48, 92  # sprite positions: player 1's panel
-COL0, COL1, COL2 = 0x36E20, 0x3710C, 0x373F8  # the columns' data (player 1)
-
-
-def panel_render(m):
-    """The panel's colours, PANEL_W x PANEL_H; the lower sprites first, so
-    the higher ones cover them"""
-    px = bytearray([SPR_CLEAR]) * (PANEL_W * PANEL_H)
-    for k in reversed(range(len(PANEL_SPRITES))):
-        a = PANEL_SPRITES[k]
-        while True:
-            c0, c1 = struct.unpack_from('>HH', m, a - P50)
-            if c0 == 0 and c1 == 0:
-                break
-            vs = c0 >> 8 | (c1 & 4) << 6
-            ve = c1 >> 8 | (c1 & 2) << 7
-            hs = (c0 & 0xFF) << 1 | (c1 & 1)
-            for i in range(ve - vs):
-                da, db = struct.unpack_from('>HH', m, a - P50 + 4 + 4 * i)
-                y = vs + i - PANEL_Y
-                for b in range(16):
-                    v = (da >> (15 - b) & 1) | (db >> (15 - b) & 1) << 1
-                    x = hs + b - PANEL_X
-                    if v and 0 <= x < PANEL_W and 0 <= y < PANEL_H:
-                        px[y * PANEL_W + x] = PANEL_COLOURS[k][v - 1]
-            a += 4 + 4 * (ve - vs)
-    return px
-
-
-def panel_digit(m, digit, at):
-    g = 0x37B62 + 7 * digit - P50
-    for i in range(7):
-        m[at - P50 + 4 * i] = m[g + i]
-        m[at - P50 + 4 * i + 2] = m[g + 7 + 0x3F + i]
-
-
-def panel_gear(m, gear):
-    g = 0x37A90 + 0x15 * gear - P50
-    for k, at in enumerate((COL0 + 0x21, COL1 + 0x20, COL1 + 0x21)):
-        for i in range(7):
-            m[at - P50 + 4 * i] = m[g + k + 3 * i]
-            m[at - P50 + 4 * i + 2] = m[g + k + 0x69 + 3 * i]
-
-
-def panel_place(m, place):
-    g = 0x37BEE + 0x6E * (place - 1) - P50
-    a0, a1, a2 = (c + 0x118 - P50 for c in (COL0, COL1, COL2))
-    for i in range(22):
-        for at, src in ((a0, 0), (a0 + 1, 1), (a1, 2), (a1 + 1, 3), (a2, 4)):
-            m[at + 4 * i] = m[g + src + 5 * i]
-            m[at + 4 * i + 2] = m[g + 0x898 + src + 5 * i]
-
-
-def panel_bar(m, value, row, pattern):
-    """Bar sprites 4-6, three rows from data offset row: rpm 4, fuel $14"""
-    g = 0x377AC + 5 * value + pattern - P50
-    cols = [0x376E0, 0x376E0 + 1, 0x37724, 0x37724 + 1, 0x37768]
-    for k, base in enumerate(cols):
-        at = base + row - P50
-        for r in range(3):
-            m[at + 4 * r] = m[g + k]
-            m[at + 4 * r + 2] = m[g + k + 0x172]
-
-
-# The values: name, number of states, how a state is written
-PANEL_FIELDS = [
-    ('hundreds', 10, lambda m, v: panel_digit(m, v, COL0 + 0x61)),
-    ('tens', 10, lambda m, v: panel_digit(m, v, COL1 + 0x60)),
-    ('units', 10, lambda m, v: panel_digit(m, v, COL1 + 0x61)),
-    ('gear', 5, panel_gear),
-    ('rpm', 37, lambda m, v: panel_bar(m, v, 4, 0)),
-    ('fuel', 37, lambda m, v: panel_bar(m, v, 0x14, 0xB9)),
-    ('place', 20, lambda m, v: panel_place(m, v + 1)),
-]
-
-
-def panel_file(d50):
-    m = bytearray(d50[:0x1F02])
-    base = panel_render(m)
-    head = bytearray([PANEL_W, PANEL_H, len(PANEL_FIELDS)])
-    states = []
-    for name, n, write in PANEL_FIELDS:
-        pics = []
-        for v in range(n):
-            mm = bytearray(m)
-            write(mm, v)
-            pics.append(panel_render(mm))
-        changed = [i for i in range(PANEL_W * PANEL_H) if any(p[i] != base[i] for p in pics)]
-        x0 = min(i % PANEL_W for i in changed)
-        x1 = max(i % PANEL_W for i in changed) + 1
-        y0 = min(i // PANEL_W for i in changed)
-        y1 = max(i // PANEL_W for i in changed) + 1
-        head += bytes([x0, y0, x1 - x0, y1 - y0, n])
-        for p in pics:
-            states += [p[y * PANEL_W + x] for y in range(y0, y1) for x in range(x0, x1)]
-    return bytes(head) + pack(bytes(base) + bytes(states))
 
 
 # ---------------------------------------------------------------- the lap bar
@@ -365,16 +206,11 @@ def repaint(cars):
 # original's half-height view had them out of sight already. Here the view
 # is taller: the banner and the writing for sizes 0-6 too (GATE_NEAR on),
 # scaled from size 7's by the projection's scale, and the posts, cut at 96
-# rows, as tall as they get. GATE_TABLE: where the banner sits, from size 7
+# rows, as tall as they get. tab_gate: where the banner sits, from size 7
 # on (its bottom above the posts', how far in, the writing above it)
-CAR_TABLE = 0xC21C00  # the game's images per car size and angle
 
 GATE_TYPE = 0x82
 GATE_NEAR = 35
-GATE_TABLE = 0xC20B1E
-CODE_BASE = 0xC18880
-OBJECT_COLOURS = 0xC23484  # per object type colours 8-11 (0: as they are)
-F59_SCALE, F59_OBJECT_SIZE = 0xD29C, 0xD39C
 
 
 def scaled(im, f):
@@ -387,18 +223,16 @@ def scaled(im, f):
                          for y in range(nh) for x in range(nw))
 
 
-def gate_near(ims, orig, f59):
+def gate_near(ims):
     """The gate's bank with the near sizes added; and per near size the
-    banner's place (rise, inset, writing's rise), as GATE_TABLE has it"""
-    scale = struct.unpack_from('>128H', f59, F59_SCALE)
-    size_of = struct.unpack_from('>128h', f59, F59_OBJECT_SIZE)
+    banner's place (rise, inset, writing's rise), as tab_gate has it"""
+    scale, size_of = gamedata.SCALE, gamedata.OBJECT_SIZE
     per = {}
     for s, v in zip(size_of, scale):
         if s >= 0:
             per.setdefault(s, []).append(v)
     factor = {s: sum(v) / len(v) / (sum(per[7]) / len(per[7])) for s, v in per.items()}
-    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
-    table = struct.unpack_from('>28h', code, GATE_TABLE - CODE_BASE)
+    table = gamedata.PROGRAM['tab_gate']
     ims = list(ims)
     post_h = ims[7][1]
     for s in range(5):
@@ -418,11 +252,11 @@ def bank_file(ims):
     return bytes(head) + pack(b''.join(px for _, _, px in ims))
 
 
-def race_palette(orig, obj_colours, car_paint, opp_paints):
+def race_palette(obj_colours, car_paint, opp_paints):
     """The race's colours as the sprites use them: number -> 12-bit colour"""
     pal = {0: 0x000}
-    pal.update({1 + i: c for i, c in enumerate(mkdata.view_colours(orig))})
-    pal.update({k: c for k, c in zip((17, 18, 19, 25, 26, 27), mkdata.panel_colours(orig))})
+    pal.update({1 + i: c for i, c in enumerate(gamedata.VIEW_COLOURS)})
+    pal.update(mkpanel.COLOURS)
     pal.update({OBJ_COLOUR + i: c for i, c in enumerate(obj_colours)})
     pal.update({CAR_PAINT + i: c for i, c in enumerate(car_paint)})
     for k, (light, mid, dark) in enumerate(opp_paints):
@@ -431,26 +265,25 @@ def race_palette(orig, obj_colours, car_paint, opp_paints):
 
 
 def main():
-    orig, gen = sys.argv[1], sys.argv[2]
+    if len(sys.argv) != 2:
+        sys.exit(__doc__)
+    gen = sys.argv[1]
     os.makedirs(gen, exist_ok=True)
 
-    def unpack(n):
-        return packers.unpack_bytes(open(os.path.join(orig, f'{n:02X}.bin'), 'rb').read())
+    def sizes(t):
+        """The sizes of type t's images, as images without pixels"""
+        return [(w, h, b'') for w, h in gamedata.SCENERY_SIZES[t]]
 
     # the scenery: our own drawings (tools/mkscenery.py), in the sizes the
     # game has
-    code = open(os.path.join(orig, 'code.bin'), 'rb').read()
     banks = {}
-    f51 = unpack(0x51)
     drawn, drawn_dims = mkscenery.drawn_signs(), {}
     for t in range(0x80, 0xAC):
         shape = SAME_SHAPE.get(t, t)
-        if shape in FILE51:
-            ims = list(images(f51, FILE51[shape]))
-        elif os.path.exists(os.path.join(orig, f'{shape:02X}.bin')):
-            ims = list(images(unpack(shape)))
-        elif t in mkscenery.NEW_TYPES:  # a kind of our own, sized as the game's boards
-            boards = list(images(unpack(0x96)))
+        if shape in gamedata.SCENERY_SIZES:
+            ims = sizes(shape)
+        elif t in mkscenery.NEW_TYPES:  # a kind of our own, sized as the boards
+            boards = sizes(0x96)
             banks[t - 0x80] = mkscenery.new_bank(t, [w / boards[0][0] for w, _, _ in boards])
             continue
         else:
@@ -460,7 +293,7 @@ def main():
             continue
         banks[t - 0x80] = mkscenery.gate(ims) if t == GATE_TYPE else mkscenery.bank(shape, ims)
     # each type's colours 8-11 that it uses become colours of its own
-    type_colours = list(struct.unpack_from('>176H', code, OBJECT_COLOURS - CODE_BASE))
+    type_colours = list(gamedata.OBJECT_COLOURS)
     for t, slots in mkscenery.COLOURS.items():  # the colours our drawings add
         for slot, rgb in slots.items():
             type_colours[(t - 0x80) * 4 + slot - 8] = rgb
@@ -475,38 +308,34 @@ def main():
     # the signs drawn elsewhere (art/signs): colours shared by them all, as
     # many as are left
     first = OBJ_COLOUR + len(obj_colours)
-    drawn_banks, drawn_colours = mkscenery.sign_banks(drawn_dims, [0] + mkdata.view_colours(orig), first,
+    drawn_banks, drawn_colours = mkscenery.sign_banks(drawn_dims, [0] + gamedata.VIEW_COLOURS, first,
                                                       SPR_CLEAR - first)
     for t, ims in drawn_banks.items():
         banks[t - 0x80] = ims
     obj_colours += drawn_colours
     assert OBJ_COLOUR + len(obj_colours) <= SPR_CLEAR
-    banks[GATE_TYPE - 0x80], gate_places = gate_near(banks[GATE_TYPE - 0x80], orig, unpack(0x59))
+    banks[GATE_TYPE - 0x80], gate_places = gate_near(banks[GATE_TYPE - 0x80])
     # the cars: our own drawings (tools/mkcars.py), as many images and as
     # large as the game's, picked as it picks them (its table of images
     # per size and angle); the brake lights lit go behind the overlays
-    game_cars = list(images(unpack(0xC0)))
-    car_table = list(code[CAR_TABLE - CODE_BASE:CAR_TABLE - CODE_BASE + 153])
-    banks[SPR_CARS], marks, car_paint = mkcars.render([(w, h) for w, h, _ in game_cars[:63]], car_table,
+    car_table = gamedata.PROGRAM['tab_car_image']
+    banks[SPR_CARS], marks, car_paint = mkcars.render(gamedata.CAR_SIZES, car_table,
                                                       (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2),
                                                       (OPP_PAINT, OPP_MID, OPP_PAINT + 1))
     opp_paints = mkcars.opponent_paints(car_paint)
     assert len(opp_paints) == OPP_COLOURS
     # pictures edited by hand instead (tools/hand.py, tools/sheets.py): in
     # the race's colours
-    palette = race_palette(orig, obj_colours, car_paint, opp_paints)
+    palette = race_palette(obj_colours, car_paint, opp_paints)
     for b in sorted(banks):
         if b < SPR_CARS:
-            t = b + 0x80
-            shape = SAME_SHAPE.get(t, t)
-            banks[b] = hand.sheet(f'scenery-{t:02x}', banks[b], palette,
-                                  from_game=t not in drawn and t != GATE_TYPE and mkscenery.from_game(shape))
+            banks[b] = hand.sheet(f'scenery-{b + 0x80:02x}', banks[b], palette)
     cars = banks[SPR_CARS]
     banks[SPR_CARS] = (hand.sheet('cars-player', cars[:63], palette) +
                        hand.sheet('cars-opponent', cars[63:], palette))
     # the brake lights lit: of the player's largest images, as they are now
     marks = [mkcars.overlay(banks[SPR_CARS][i]) for i in sorted(set(car_table[:9]))]
-    banks[SPR_HUD] = hand.sheet('hud', list(images(unpack(0x50), FILE50_HUD)), palette, from_game=True)
+    banks[SPR_HUD] = hand.sheet('hud', mkhud.hud_images(), palette)
     car_brakes = len(banks[SPR_HUD])
     banks[SPR_HUD] += [brake for brake, _ in marks]
     for b, ims in banks.items():
@@ -520,17 +349,14 @@ def main():
     with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:
         f.write(lapbar_file())
     with open(os.path.join(gen, 'panel.bin'), 'wb') as f:
-        f.write(panel_file(unpack(0x50)))
+        head, px = mkpanel.panel_file()
+        f.write(head + pack(px))
 
     # the backdrops: our own (tools/mkbackdrops.py), each in the colours its
-    # theme's courses start from (the game's first course with it: which
-    # of the three is light, middle, dark)
+    # theme's courses start from (which of the three is light, middle,
+    # dark)
     for n in range(BACKDROPS):
-        for t in range(32):
-            header = open(os.path.join(orig, f'{t:02X}.bin'), 'rb').read()[2:164]
-            if header[1] == n:
-                break
-        cols = struct.unpack_from('>3H', header, 2)
+        cols = gamedata.BACKDROP_COLOURS[n]
         order = sorted(range(3), key=lambda i: -((cols[i] >> 8 & 15) * 3 + (cols[i] >> 4 & 15) * 6 + (cols[i] & 15)))
         px = mkbackdrops.backdrop(n, [BACK_COLOURS + i for i in order])
         back_palette = {**palette, **{BACK_COLOURS + i: c for i, c in enumerate(cols)}}
@@ -546,7 +372,7 @@ def main():
                 f'#define SPR_CARS  0x{SPR_CARS:02X}  // the cars: 9 angles per size, the opponents from 63\n'
                 f'#define SPR_HUD   0x{SPR_HUD:02X}  // messages, countdown, places, brake lights\n'
                 f'#define CAR_PAINT {CAR_PAINT}  // the player\'s car\'s paint: colours CAR_PAINT + 0-2 (light, middle, dark)\n'
-                f'#define OPP_PAINT {OPP_PAINT}  // opponents: colouring k in colours OPP_PAINT + 2k (light), + 1 (dark)\n'
+                f'#define OPP_PAINT {OPP_PAINT}  // opponents: colouring k in colours OPP_PAINT + 2k (light), + 1 (dark),\n'
                 f'#define OPP_MID {OPP_MID}  // and OPP_MID + k (middle)\n'
                 f'#define OPP_COLOURS {OPP_COLOURS}\n'
                 f'#define SPR_OPP   0x{SPR_OPP:02X}  // the opponents in colourings 1-5: the cars\' images 63-125\n'
@@ -554,9 +380,9 @@ def main():
                 f'#define SPR_LARGEST {largest}  // pixels of the largest bank\n'
                 f'#define BACK_W {BACK_W}  // a backdrop (BACKN): colours, row after row\n'
                 f'#define BACK_H {BACK_H}\n'
-                f'#define PANEL_W {PANEL_W}  // the panel (PANEL)\n'
-                f'#define PANEL_H {PANEL_H}\n'
-                f'#define PANEL_FIELDS {len(PANEL_FIELDS)}\n'
+                f'#define PANEL_W {mkpanel.PANEL_W}  // the panel (PANEL)\n'
+                f'#define PANEL_H {mkpanel.PANEL_H}\n'
+                f'#define PANEL_FIELDS {len(mkpanel.FIELDS)}\n'
                 f'#define LAPBAR_W {LAPBAR_W}  // the lap bar (LAPBAR): overlay 23 for 1-LAPBAR_LAPS laps,\n'
                 f'#define LAPBAR_H {LAPBAR_H}  // then a box\'s row for each of 16 masks\n'
                 f'#define LAPBAR_LAPS {LAPBAR_LAPS}\n'
@@ -579,6 +405,7 @@ def main():
                 f'#define CAR_BRAKES {car_brakes}\n'
                 'extern const int8_t car_brake[9][2];\n'
                 '// The player\'s car\'s paint, light to dark (the drawing\'s)\n'
+                'extern const uint16_t tab_panel_colours[6];  // colours 17-19 and 25-27: the panel\n'
                 'extern const uint16_t car_paint[3];\n'
                 '// The opponents\' paints in the palette\'s order: per colouring light\n'
                 '// and dark (OPP_PAINT on), then the middle ones (OPP_MID on)\n'
@@ -604,6 +431,7 @@ def main():
         f.write('};\n')
         f.write('const uint16_t tab_object_colours[176] = {0};\n')
         f.write('const uint8_t gate_near[21] = {' + ', '.join(str(min(255, v)) for v in gate_places) + '};\n')
+        f.write('const uint16_t tab_panel_colours[6] = {' + ', '.join(f'0x{c:03X}' for c in mkpanel.COLOURS.values()) + '};\n')
         f.write('const uint16_t car_paint[3] = {' + ', '.join(f'0x{c:03X}' for c in car_paint) + '};\n')
         order = [p[i] for p in opp_paints for i in (0, 2)] + [p[1] for p in opp_paints]
         f.write('const uint16_t opp_paint[3 * OPP_COLOURS] = {' + ', '.join(f'0x{c:03X}' for c in order) + '};\n')

@@ -1,6 +1,7 @@
 // Wedge Turbo: the race's sounds - the engines and the effects (countdown,
 // start, crashes, the kerb, low fuel), as the original makes them, played
-// by the MEGA65's audio DMA from the original's samples (SOUNDS).
+// by the MEGA65's audio DMA from our own samples (SOUNDS, made by
+// tools/mksounds.py).
 //
 // sound_frame runs once a frame before the race's logic, as the original's
 // does: it reads what the last frame left (race.h), and while the cars wait

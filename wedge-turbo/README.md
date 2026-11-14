@@ -20,9 +20,6 @@ described under [Playing](#playing) and `toolchain/tools/bin/mega65-cast`).
 
 ## Building
 
-The build needs data that is not part of this repository (`WEDGE_ZIP` in
-`build.sh` says where it looks for it). Then
-
 ```sh
 ./build.sh
 ```
@@ -36,7 +33,7 @@ scenery in all its sizes, the messages, the backdrops and the pages - can
 be touched up by hand in a paint program:
 
 ```sh
-tools/sheets.py export tmp/graphics     # after a build: all of them as PNGs
+tools/sheets.py export tmp/graphics     # all of them as PNGs
 # ... edit some, save them as PNG under the same names ...
 tools/sheets.py import tmp/graphics --dry-run
 tools/sheets.py import tmp/graphics     # takes what changed and is valid
@@ -84,12 +81,17 @@ season.
   the screen ([video.c](src/video.c)): the picture is drawn into 320×200
   plain bytes and turned into full-colour characters by one DMA list in the
   lower border.
-* [tools/](tools/): turn that data into what the build uses, and make what
-  is our own: the courses ([mkcourses.py](tools/mkcourses.py)), the title's
-  tune and the radio's tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
+* [tools/](tools/): make what the game loads: the race's tables
+  ([mkdata.py](tools/mkdata.py), the numbers in
+  [gamedata.py](tools/gamedata.py)), the courses
+  ([mkcourses.py](tools/mkcourses.py)), the title's tune and the radio's
+  tracks ([radio_tracks.py](tools/radio_tracks.py)), the pages
   ([mkpages.py](tools/mkpages.py), with the drawings in [art/](art/)), the
   cars ([mkcars.py](tools/mkcars.py)), the scenery along the road
   ([mkscenery.py](tools/mkscenery.py); the signs and boards from the
-  drawings in [art/signs/](art/signs/)) and the mountains behind
-  ([mkbackdrops.py](tools/mkbackdrops.py)).
+  drawings in [art/signs/](art/signs/)), the mountains behind
+  ([mkbackdrops.py](tools/mkbackdrops.py)), the panel and the messages
+  over the race ([mkpanel.py](tools/mkpanel.py),
+  [mkhud.py](tools/mkhud.py)) and the race's sounds
+  ([mksounds.py](tools/mksounds.py)).
 * [tests/](tests/): the assembly checked against its C reference.
