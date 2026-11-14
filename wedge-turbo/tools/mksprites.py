@@ -333,6 +333,18 @@ def main():
     cars = banks[SPR_CARS]
     banks[SPR_CARS] = (hand.sheet('cars-player', cars[:63], palette) +
                        hand.sheet('cars-opponent', cars[63:], palette))
+    # the player's car near (the hardware sprites over its largest images);
+    # edited by hand, the images beneath follow it (at half the size): the
+    # sprites leave out the outer edges of the wider views, and where the
+    # edit is clear the image beneath shows
+    paint = (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2)
+    near = mkcars.near_images([banks[SPR_CARS][car_table[a]] for a in range(9)], paint, palette)
+    if hand.edited('car-near', False):
+        for a in range(9):
+            low = banks[SPR_CARS][car_table[a]]
+            half = mkcars.halved(near[a])
+            assert half[:2] == low[:2], f'car-near angle {a}: {near[a][:2]} is not twice {low[:2]}'
+            banks[SPR_CARS][car_table[a]] = half
     # the brake lights lit: of the player's largest images, as they are now
     marks = [mkcars.overlay(banks[SPR_CARS][i]) for i in sorted(set(car_table[:9]))]
     banks[SPR_HUD] = hand.sheet('hud', mkhud.hud_images(), palette)
@@ -342,8 +354,7 @@ def main():
         with open(os.path.join(gen, f'spr{b:02x}.bin'), 'wb') as f:
             f.write(bank_file(ims))
 
-    hw_rows, hw_block, hw_data = mkcars.hardware([banks[SPR_CARS][car_table[a]] for a in range(9)],
-                                                 (CAR_PAINT, CAR_PAINT + 1, CAR_PAINT + 2), palette)
+    hw_rows, hw_block, hw_data = mkcars.hardware(near, paint)
     with open(os.path.join(gen, 'carhi.bin'), 'wb') as f:
         f.write(pack(hw_data))
     with open(os.path.join(gen, 'lapbar.bin'), 'wb') as f:

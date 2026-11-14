@@ -29,7 +29,8 @@ greys. Then down to the size, each pixel the colour most of its area has
 render() gives the bank's images; with them, for the player's largest
 size, where the brake lights go, and the
 player's paint; opponent_paints() the opponents' six paints in their
-shades; hardware() the player's car near, twice as fine.
+shades; near_images() the player's car near, twice as fine, and
+hardware() it as the hardware sprites.
 """
 import os
 
@@ -344,7 +345,9 @@ def overlay(car):
 # game's image. The game's image is drawn beneath; the sprites cover its
 # middle 128 pixels (a view wider than that shows its outer edges from the
 # image beneath), and where the image beneath has a pixel the sprites'
-# is not clear (so nothing of it shows through at their edges). Per sprite
+# is not clear (so nothing of it shows through at their edges). Edited by
+# hand, the near images make the images beneath (halved()), so that the
+# edges and what the edit left clear show the edit too. Per sprite
 # its rows (8 bytes, two pixels a byte, the left one in the high nybble)
 # padded to a multiple of 64 bytes (the pointers' unit).
 HW_SPRITES, HW_W = 8, 128
@@ -352,20 +355,23 @@ NYBBLE = {CLEAR: 0, BLACK: 1, LIGHT_RED: 2, RED: 3, DARK_RED: 4, DARK_GREY: 5, G
 HW_PAINT = 8  # the paint's three shades: nybbles 8-10
 
 
-def hardware(images, player_paint, palette):
-    """The images for angles 0-8, without and with the brake lights lit:
-    (rows, bytes per sprite, the 18 images' bytes one after the other).
-    images: the game's largest images of the player's car per angle (as
-    render() made them); palette: the race's colours (for an image edited
-    by hand instead, tools/hand.py: car-near)"""
-    d = drawings()
-    _, shades, _, details = palettes(d, player_paint, (0, 0, 0))
+def nybbles(player_paint):
+    """The race's colour numbers the sprites can show -> their nybble"""
     nybble = dict(NYBBLE)
     nybble.update({p: HW_PAINT + k for k, p in enumerate(player_paint)})
+    return nybble
+
+
+def near_images(images, player_paint, palette):
+    """The player's car near for angles 0-8: (w, h, colour numbers), twice
+    as wide and high as images (the race's largest images of the player's
+    car per angle, as render() made them); palette: the race's colours (for
+    an image edited by hand instead, tools/hand.py: car-near)"""
+    d = drawings()
+    _, shades, _, details = palettes(d, player_paint, (0, 0, 0))
     views = [coloured(v, shades, details) for v in d]
     widening = widen(views, images[4][0] / images[4][1])
     rows = 2 * images[4][1]
-    block = -(-rows * 8 // 64) * 64
     near = []
     for angle in range(9):
         lw, lh, low = images[angle]
@@ -378,7 +384,37 @@ def hardware(images, player_paint, palette):
                 if px[y * w + x] == CLEAR:
                     px[y * w + x] = low[(y // 2) * lw + x // 2]
         near.append((w, rows, bytes(px)))
-    near = hand.sheet('car-near', near, palette, allowed=sorted(nybble))
+    return hand.sheet('car-near', near, palette, allowed=sorted(nybbles(player_paint)))
+
+
+def halved(im):
+    """The image beneath the near image im: half its width and height. A
+    pixel of it shows where its four in im lie outside the sprites (the
+    outer edges) or are clear in im (the sprites show nothing there); it
+    takes the colour (or clear) that matches most of those - where none
+    shows, the colour most of the four have"""
+    w, h, px = im
+    left = (HW_W - w) // 2
+    out = bytearray()
+    for y in range(0, h - 1, 2):
+        for x in range(0, w - 1, 2):
+            four = [(px[(y + dy) * w + x + dx], 0 <= x + dx + left < HW_W) for dy in (0, 1) for dx in (0, 1)]
+            seen = [v for v, inside in four if not inside or v == CLEAR]
+            if seen:
+                out.append(max(seen, key=lambda c: (seen.count(c), c != CLEAR)))
+            else:
+                values = [v for v, _ in four]
+                out.append(max(values, key=values.count))
+    return w // 2, h // 2, bytes(out)
+
+
+def hardware(near, player_paint):
+    """near (near_images()) as the hardware sprites' data, without and with
+    the brake lights lit: (rows, bytes per sprite, the 18 images' bytes one
+    after the other)"""
+    nybble = nybbles(player_paint)
+    rows = near[4][1]
+    block = -(-rows * 8 // 64) * 64
     out = bytearray()
     for lit in (False, True):
         for w, _, px in near:

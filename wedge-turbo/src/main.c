@@ -108,7 +108,7 @@ static uint8_t driver(void) {
     // the steering that holds the bend, and that brings the car back to the
     // line in about half a second
     int32_t want = -div_signed((int32_t)p->curve * 12 * (int16_t)p->speed, (uint16_t)(5 * s));
-    want -= div_signed(div_signed((int32_t)(x - target) << 16, 25), (uint16_t)(5 * s));
+    want -= div_signed((int32_t)(x - target) * 2621, (uint16_t)(5 * s));  // (x - target) << 16 / 25
     if (want > 0x20)
         want = 0x20;
     if (want < -0x20)
